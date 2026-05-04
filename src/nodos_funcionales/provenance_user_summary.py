@@ -26,6 +26,9 @@ def build_provenance_user_summary(features: pd.DataFrame, layer_resolution_summa
         layer = str(row.get("layer", row.get("dataset", "unknown")))
         source_type = _main_source_type(row)
         group = _source_group(source_type)
+        feature_group = _feature_source_group(features, layer)
+        if group == "missing" and feature_group != "missing":
+            group = feature_group
         missing = _missing_text(row, group)
         demo_proxy = "si" if group in {"demo_data", "default_value", "proxy_inference", "controlled_provider"} else "no"
         rows.append(
@@ -107,6 +110,30 @@ def _fallback_layer_summary(features: pd.DataFrame) -> pd.DataFrame:
     for column in [col for col in features.columns if col.endswith("_source_type")]:
         rows.append({"layer": column.removesuffix("_source_type"), "source_type": features[column].dropna().astype(str).iloc[0] if features[column].notna().any() else "missing"})
     return pd.DataFrame(rows)
+
+
+def _feature_source_group(features: pd.DataFrame, layer: str) -> str:
+    if features.empty:
+        return "missing"
+    candidate_columns = [
+        f"{layer}_source_type",
+        f"{layer}_evidence_source_type",
+    ]
+    if layer == "functional_network":
+        candidate_columns.append("network_source_type")
+    if layer == "curated_disease_context":
+        candidate_columns.append("disease_context_source_type")
+    groups = []
+    for column in candidate_columns:
+        if column not in features.columns:
+            continue
+        values = features[column].dropna().astype(str).str.strip()
+        for value in values[values != ""]:
+            groups.append(_source_group(value))
+    informative = [group for group in groups if group != "missing"]
+    if not informative:
+        return "missing"
+    return pd.Series(informative).value_counts().idxmax()
 
 
 def _missing_text(row: pd.Series, group: str) -> str:
