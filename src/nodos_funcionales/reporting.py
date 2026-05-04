@@ -5,6 +5,9 @@ from pathlib import Path
 
 import pandas as pd
 
+from .organism_profile import write_organism_profile_validation
+from .provenance_user_summary import write_provenance_user_summary
+
 from .layer_registry import TARGET_LAYER_KEYS
 
 
@@ -1791,6 +1794,8 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
     comparison_output.to_csv(results_dir / "phase_comparison.csv", index=False)
     provenance_summary.to_csv(results_dir / "data_provenance_summary.csv", index=False)
     layer_resolution_summary.to_csv(results_dir / "layer_resolution_summary.csv", index=False)
+    write_provenance_user_summary(base_dir, features, layer_resolution_summary)
+    write_organism_profile_validation(base_dir, features)
     (results_dir / "layer_resolution_summary.md").write_text(
         "\n".join(["# Layer Resolution Summary", "", _markdown_table(layer_resolution_summary)]),
         encoding="utf-8",
