@@ -1,0 +1,50 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local installer/test scratch
+.pip_tmp/
+.tmp_tests/
+.tmp_source_audit/
+.snakemake/
+.vendor/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment files
+.env
+.env.*
+
+# Test/type/coverage caches
+.pytest_cache/
+pytest-cache-files-*/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Generated pipeline outputs
+data_processed/
+results/
+
+# Generated session outputs
+data_sessions/*/data_processed/
+data_sessions/*/results/
+data_sessions/*/.cache/
+data_sessions/*/cache/
+data_sessions/*/logs/
