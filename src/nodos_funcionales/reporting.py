@@ -971,24 +971,24 @@ def _sensitivity_spans(sensitivity: pd.DataFrame, protein_id: str, preferred_str
 
 def _driver_biological_text(driver_names: list[str], row: pd.Series) -> str:
     mapping = {
-        "antibiotic_target_score": "el perfil favorece un uso como blanco antibiótico",
+        "antibiotic_target_score": "el perfil favorece un uso como blanco antibiÃ³tico",
         "antivirulence_target_score": "el perfil favorece una estrategia antivirulencia",
         "functional_node_score": "el perfil sugiere impacto funcional o de red dentro del modelo",
     }
     parts = [mapping[name] for name in driver_names if name in mapping]
     if row.get("evidence_coverage_score", 0) >= 1.0:
         parts.append("la cobertura de evidencia interna es completa en las capas hoy cargadas")
-    return "; ".join(parts) if parts else "la señal positiva proviene del score compuesto actual"
+    return "; ".join(parts) if parts else "la seÃ±al positiva proviene del score compuesto actual"
 
 
 def _negative_biological_text(driver_names: list[str]) -> str:
     mapping = {
-        "antibiotic_target_score": "la lectura como blanco antibiótico no es dominante",
+        "antibiotic_target_score": "la lectura como blanco antibiÃ³tico no es dominante",
         "antivirulence_target_score": "la lectura antivirulencia no es dominante",
         "functional_node_score": "la capa funcional no lo empuja con la misma fuerza",
     }
     parts = [mapping[name] for name in driver_names if name in mapping]
-    return "; ".join(parts) if parts else "no se observa una debilidad dominante más allá del balance entre estrategias"
+    return "; ".join(parts) if parts else "no se observa una debilidad dominante mÃ¡s allÃ¡ del balance entre estrategias"
 
 
 def _host_risk_methodological_text(row: pd.Series) -> str:
@@ -1040,19 +1040,19 @@ def _host_risk_methodological_text(row: pd.Series) -> str:
 def _recommended_next_evidence(strategy_label: str, row: pd.Series) -> str:
     if row.get("data_realism_flag") == "demo_only":
         if strategy_label == "antibiotic":
-            return "priorizar datos curados no demo de conservación entre cepas y una anotación de seguridad del hospedero más realista"
+            return "priorizar datos curados no demo de conservaciÃ³n entre cepas y una anotaciÃ³n de seguridad del hospedero mÃ¡s realista"
         if strategy_label == "antivirulence":
-            return "priorizar una medición menos proxy del impacto sobre daño al hospedero y accesibilidad en contexto de infección"
+            return "priorizar una mediciÃ³n menos proxy del impacto sobre daÃ±o al hospedero y accesibilidad en contexto de infecciÃ³n"
         if strategy_label == "functional_node":
             return "priorizar una red funcional no demo y medidas observadas de redundancia o dependencia"
-        return "priorizar al menos una capa opcional no demo para separar mejor señales híbridas"
+        return "priorizar al menos una capa opcional no demo para separar mejor seÃ±ales hÃ­bridas"
     if strategy_label == "antibiotic":
-        return "confirmar conservación multicepa y riesgo de off-target en hospedero"
+        return "confirmar conservaciÃ³n multicepa y riesgo de off-target en hospedero"
     if strategy_label == "antivirulence":
-        return "confirmar impacto real sobre daño al hospedero y accesibilidad terapéutica"
+        return "confirmar impacto real sobre daÃ±o al hospedero y accesibilidad terapÃ©utica"
     if strategy_label == "functional_node":
         return "confirmar centralidad y dependencia con una red funcional externa curada"
-    return "añadir evidencia que permita discriminar mejor entre estrategias"
+    return "aÃ±adir evidencia que permita discriminar mejor entre estrategias"
 
 
 def _robustness_label(row: pd.Series, meta_span: int, preferred_span: int) -> str:
@@ -1082,6 +1082,32 @@ def _audit_confidence(row: pd.Series, meta_span: int, preferred_span: int) -> st
     return "medium"
 
 
+TOP10_SCIENTIFIC_AUDIT_COLUMNS = [
+    "rank",
+    "rank_phase3_real_candidates",
+    "protein_id",
+    "gene",
+    "meta_priority_score_v3",
+    "therapeutic_role_v3",
+    "candidate_record_type",
+    "ranking_inclusion_status",
+    "ranking_inclusion_reason",
+    "evidence_mixture_label",
+    "real_evidence_layer_count",
+    "demo_or_default_layer_count",
+    "proxy_layer_count",
+    "missing_layer_count",
+    "main_positive_drivers",
+    "main_penalties",
+    "recommendation",
+    "therapeutic_role",
+    "preferred_strategy",
+    "robustness_label",
+    "audit_class",
+    "audit_confidence",
+]
+
+
 def _build_top10_scientific_audit(
     phase2_ranking: pd.DataFrame,
     comparison_output: pd.DataFrame,
@@ -1094,6 +1120,8 @@ def _build_top10_scientific_audit(
     if "included_in_therapeutic_ranking" in ranking_scope.columns:
         ranking_scope = ranking_scope.loc[ranking_scope["included_in_therapeutic_ranking"].fillna(True).astype(bool)].copy()
     top_candidates = ranking_scope.head(top_n).copy().reset_index().rename(columns={"index": "rank"})
+    if top_candidates.empty:
+        return pd.DataFrame(columns=TOP10_SCIENTIFIC_AUDIT_COLUMNS)
     comparison_lookup = comparison_output.set_index("protein_id") if not comparison_output.empty else pd.DataFrame()
     provenance_note = " ".join(
         f"{item['dataset']}={item['status']}" for _, item in provenance_summary.iterrows()
@@ -1121,15 +1149,15 @@ def _build_top10_scientific_audit(
             f"El principal riesgo interpretativo es que { _negative_biological_text(negative_driver_names) }. "
             f"{host_risk_interpretation} "
             f"Riesgo evolutivo: {evolutionary_interpretation} "
-            f"Además, las capas opcionales quedan resumidas como: {provenance_note}."
+            f"AdemÃ¡s, las capas opcionales quedan resumidas como: {provenance_note}."
         )
         demo_dependency = (
-            "Alta dependencia de capas opcionales demo; la señal adicional de conservación, red y anotación de hospedero no debe leerse como validación biológica externa."
+            "Alta dependencia de capas opcionales demo; la seÃ±al adicional de conservaciÃ³n, red y anotaciÃ³n de hospedero no debe leerse como validaciÃ³n biolÃ³gica externa."
             if str(row.get("data_realism_flag")) == "demo_only"
             else "La dependencia de datos demo no parece dominante en este candidato."
         )
         sensitivity_assessment = (
-            f"Meta-score con variación máxima de {meta_span} puestos; estrategia preferida con variación máxima de {preferred_span} puestos."
+            f"Meta-score con variaciÃ³n mÃ¡xima de {meta_span} puestos; estrategia preferida con variaciÃ³n mÃ¡xima de {preferred_span} puestos."
         )
 
         rows.append(
@@ -1141,6 +1169,14 @@ def _build_top10_scientific_audit(
                 "included_in_therapeutic_ranking": row.get("included_in_therapeutic_ranking", True),
                 "is_template_or_demo_record": row.get("is_template_or_demo_record", False),
                 "template_or_demo_reason": row.get("template_or_demo_reason", "not_demo_or_template"),
+                "candidate_record_type": row.get("candidate_record_type", "not_reported"),
+                "ranking_inclusion_status": row.get("ranking_inclusion_status", "not_reported"),
+                "ranking_inclusion_reason": row.get("ranking_inclusion_reason", "not_reported"),
+                "evidence_mixture_label": row.get("evidence_mixture_label", "not_reported"),
+                "real_evidence_layer_count": row.get("real_evidence_layer_count", row.get("phase3_real_evidence_layer_count", 0)),
+                "demo_or_default_layer_count": row.get("demo_or_default_layer_count", row.get("phase3_demo_default_layer_count", 0)),
+                "proxy_layer_count": row.get("proxy_layer_count", row.get("phase3_proxy_layer_count", 0)),
+                "missing_layer_count": row.get("missing_layer_count", row.get("phase3_missing_layer_count", 0)),
                 "therapeutic_role": row.get("therapeutic_role", "low_priority_candidate"),
                 "therapeutic_role_v3": row.get("therapeutic_role_v3", "not_reported"),
                 "therapeutic_role_v3_reason": row.get("therapeutic_role_v3_reason", "not_reported"),
@@ -1173,6 +1209,7 @@ def _build_top10_scientific_audit(
                 "optional_data_quality_score": row.get("optional_data_quality_score", 0.0),
                 "main_positive_drivers": row.get("top_positive_drivers", ""),
                 "main_negative_drivers": row.get("top_negative_drivers", ""),
+                "main_penalties": row.get("top_negative_drivers", row.get("phase3_negative_evidence_summary", "")),
                 "host_risk_audit_summary": row.get("host_risk_audit_summary", "not_reported"),
                 "host_similarity_risk": row.get("host_similarity_risk", 0.0),
                 "phase3_real_evidence_layer_count": row.get("phase3_real_evidence_layer_count", 0),
@@ -1194,6 +1231,7 @@ def _build_top10_scientific_audit(
                 "literature_source_quality": row.get("literature_source_quality", _literature_value(literature_row, "source_quality", 0.0)),
                 "literature_interpretation": _candidate_literature_note(row, literature_support),
                 "recommended_next_evidence": _recommended_next_evidence(strategy_label, row),
+                "recommendation": row.get("phase3_recommendation", _recommended_next_evidence(strategy_label, row)),
                 "audit_class": robustness,
                 "audit_confidence": confidence,
             }
@@ -1204,14 +1242,15 @@ def _build_top10_scientific_audit(
 def _build_top10_scientific_markdown(
     scientific_audit: pd.DataFrame,
     provenance_summary: pd.DataFrame,
+    all_candidates: pd.DataFrame | None = None,
 ) -> str:
     lines = [
-        "# Auditoría Científica Estricta del Top 10",
+        "# AuditorÃ­a CientÃ­fica Estricta del Top 10",
         "",
         "## Resumen Ejecutivo",
     ]
     if scientific_audit.empty:
-        lines.extend(["- No fue posible construir una auditoría completa con los outputs actuales."])
+        lines.extend(_empty_top10_scientific_lines(all_candidates))
         return "\n".join(lines)
 
     strategy_counts = scientific_audit["preferred_strategy"].value_counts().to_dict()
@@ -1220,13 +1259,13 @@ def _build_top10_scientific_markdown(
         [
             f"- Candidatos auditados: {len(scientific_audit)}",
             f"- Estrategias dominantes: {strategy_counts}",
-            f"- Clases de auditoría: {class_counts}",
+            f"- Clases de auditorÃ­a: {class_counts}",
             "",
-            "## Criterios de Interpretación y Limitaciones",
+            "## Criterios de InterpretaciÃ³n y Limitaciones",
             "- Esta lectura usa solo outputs internos del proyecto y no incorpora literatura ni bases externas.",
-            "- Un score alto no equivale a validación biológica definitiva.",
+            "- Un score alto no equivale a validaciÃ³n biolÃ³gica definitiva.",
             "- Las capas opcionales pueden mezclar datos demo, datos de usuario, cache local y proveedores controlados; revisar siempre la tabla de procedencia.",
-            "- Las variables de impacto clínico y daño al hospedero pueden venir de capas materializadas semicuradas o de proxies internos, según la procedencia registrada.",
+            "- Las variables de impacto clÃ­nico y daÃ±o al hospedero pueden venir de capas materializadas semicuradas o de proxies internos, segÃºn la procedencia registrada.",
             "",
         ]
     )
@@ -1237,12 +1276,12 @@ def _build_top10_scientific_markdown(
         lines.extend(
             [
                 f"## {int(row['rank'])}. {row['gene']} ({row['protein_id']})",
-                f"- Rol terapéutico: `{row['therapeutic_role']}` con prioridad `{row['therapeutic_priority_score']:.4f}`",
+                f"- Rol terapÃ©utico: `{row['therapeutic_role']}` con prioridad `{row['therapeutic_priority_score']:.4f}`",
                 f"- Fase 3: rank real `{row.get('rank_phase3_real_candidates', 'not_reported')}`, meta_priority_score_v3 `{float(row.get('meta_priority_score_v3', 0.0)):.4f}`, rol `{row.get('therapeutic_role_v3', 'not_reported')}`",
                 f"- Evidencia Fase 3: calidad `{float(row.get('evidence_quality_score', 0.0)):.4f}`, techo `{float(row.get('confidence_ceiling', 0.0)):.4f}`, teoria `{float(row.get('functional_node_theory_score', 0.0)):.4f}`, escape `{float(row.get('evolutionary_escape_risk_score', 0.0)):.4f}`, similitud hospedero `{float(row.get('host_similarity_risk', 0.0)):.4f}`",
                 f"- Estrategia preferida: `{row['preferred_strategy']}`",
                 f"- Juicio final: `{row['audit_class']}` con confianza `{row['audit_confidence']}`",
-                f"- Interpretación biológica: {row['biological_interpretation']}",
+                f"- InterpretaciÃ³n biolÃ³gica: {row['biological_interpretation']}",
                 f"- Fortalezas dentro del modelo: {row['main_positive_drivers']}",
                 f"- Riesgos o limitaciones: {row['methodological_risk']}",
                 f"- Soporte bibliografico curado: estado `{row.get('literature_support_status', 'not_reported')}`, score `{float(row.get('literature_support_score', 0.0)):.4f}`, calidad `{float(row.get('literature_source_quality', 0.0)):.4f}`",
@@ -1256,11 +1295,11 @@ def _build_top10_scientific_markdown(
 
     lines.extend(
         [
-            "## Conclusión General",
-            "- El top 10 mezcla perfiles antibióticos clásicos con perfiles antivirulencia y algunos candidatos más dependientes de la capa funcional.",
-            "- La ordenación gruesa parece útil como priorización interna, pero no debe sobrerinterpretarse sin revisar procedencia y sensibilidad.",
-            "- La debilidad metodológica dominante del ranking actual está en la procedencia de conservación, red funcional y anotación del hospedero.",
-            "- El dato adicional con mayor potencial para reordenar el top 10 sería incorporar evidencia curada externa o de usuario para contexto clínico, sitio de infección y conservación multicepa.",
+            "## ConclusiÃ³n General",
+            "- El top 10 mezcla perfiles antibiÃ³ticos clÃ¡sicos con perfiles antivirulencia y algunos candidatos mÃ¡s dependientes de la capa funcional.",
+            "- La ordenaciÃ³n gruesa parece Ãºtil como priorizaciÃ³n interna, pero no debe sobrerinterpretarse sin revisar procedencia y sensibilidad.",
+            "- La debilidad metodolÃ³gica dominante del ranking actual estÃ¡ en la procedencia de conservaciÃ³n, red funcional y anotaciÃ³n del hospedero.",
+            "- El dato adicional con mayor potencial para reordenar el top 10 serÃ­a incorporar evidencia curada externa o de usuario para contexto clÃ­nico, sitio de infecciÃ³n y conservaciÃ³n multicepa.",
         ]
     )
     return "\n".join(lines)
@@ -1268,18 +1307,40 @@ def _build_top10_scientific_markdown(
 
 def _build_top10_scientific_summary(scientific_audit: pd.DataFrame) -> str:
     if scientific_audit.empty:
-        return "# Resumen científico Top 10\n\nNo fue posible generar un resumen completo."
+        return "# Resumen cientÃ­fico Top 10\n\nNo fue posible generar un resumen completo."
     top_line = scientific_audit.iloc[0]
     unstable = scientific_audit.loc[scientific_audit["audit_class"].isin(["strategy_dependent", "borderline"])]
     return "\n".join(
         [
-            "# Resumen Científico del Top 10",
+            "# Resumen CientÃ­fico del Top 10",
             "",
-            f"- El candidato líder actual es `{top_line['gene']}` (`{top_line['protein_id']}`), con rol terapéutico `{top_line['therapeutic_role']}` y estrategia preferida `{top_line['preferred_strategy']}`.",
-            f"- {len(unstable)} de los 10 candidatos muestran fragilidad relevante por sensibilidad estratégica o por soporte demo.",
-            "- Ningún candidato debe considerarse validado biológicamente solo con estos outputs internos.",
+            f"- El candidato lÃ­der actual es `{top_line['gene']}` (`{top_line['protein_id']}`), con rol terapÃ©utico `{top_line['therapeutic_role']}` y estrategia preferida `{top_line['preferred_strategy']}`.",
+            f"- {len(unstable)} de los 10 candidatos muestran fragilidad relevante por sensibilidad estratÃ©gica o por soporte demo.",
+            "- NingÃºn candidato debe considerarse validado biolÃ³gicamente solo con estos outputs internos.",
         ]
     )
+
+
+def _empty_top10_scientific_lines(all_candidates: pd.DataFrame | None) -> list[str]:
+    excluded = 0
+    reasons = {}
+    if all_candidates is not None and not all_candidates.empty:
+        included = all_candidates.get(
+            "included_in_therapeutic_ranking",
+            pd.Series([False] * len(all_candidates), index=all_candidates.index),
+        ).fillna(False).astype(bool)
+        excluded = int((~included).sum())
+        if "ranking_inclusion_status" in all_candidates.columns:
+            reasons = all_candidates.loc[~included, "ranking_inclusion_status"].fillna("not_reported").value_counts().to_dict()
+    return [
+        "- No hay candidatos reales incluidos en el ranking terapeutico principal.",
+        f"- Registros excluidos: {excluded}",
+        f"- Motivos de exclusion: {reasons if reasons else 'no_reported'}",
+        "- Revisa `results/template_or_demo_records.csv` para ver plantillas/demo excluidas.",
+        "- Revisa `results/ranking_nodos_phase3.csv` y la columna `ranking_inclusion_status` para cada registro.",
+        "- Revisa `results/layer_evidence_summary.csv`, `results/provenance_user_summary.md` y `results/organism_profile_validation.md` para saber que datos faltan.",
+        "- Para habilitar candidatos reales, reemplaza demo/default/proxy con capas reales en `data_user/` o fuentes externas trazables.",
+    ]
 
 
 def _scientific_audit_report_view(scientific_audit: pd.DataFrame) -> pd.DataFrame:
@@ -1602,8 +1663,17 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
                 "rank_phase3_real_candidates",
                 "rank_phase3_all_records",
                 "included_in_therapeutic_ranking",
+                "candidate_record_type",
                 "is_template_or_demo_record",
                 "template_or_demo_reason",
+                "ranking_inclusion_status",
+                "ranking_inclusion_reason",
+                "evidence_mixture_label",
+                "real_evidence_layer_count",
+                "demo_or_default_layer_count",
+                "proxy_layer_count",
+                "missing_layer_count",
+                "negative_evidence_layer_count",
                 "therapeutic_role_v3",
                 "therapeutic_role_v3_reason",
                 "phase3_evidence_confidence_label",
@@ -1647,6 +1717,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
                         "meta_priority_score_v3",
                         "evidence_quality_score",
                         "functional_node_theory_score",
+                        "confidence_ceiling",
                         "meta_priority_score_v2",
                     ]
                     if column in phase2_ranking.columns
@@ -1677,8 +1748,17 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "rank_phase3_real_candidates",
         "rank_phase3_all_records",
         "included_in_therapeutic_ranking",
+        "candidate_record_type",
         "is_template_or_demo_record",
         "template_or_demo_reason",
+        "ranking_inclusion_status",
+        "ranking_inclusion_reason",
+        "evidence_mixture_label",
+        "real_evidence_layer_count",
+        "demo_or_default_layer_count",
+        "proxy_layer_count",
+        "missing_layer_count",
+        "negative_evidence_layer_count",
         "therapeutic_role_v3",
         "therapeutic_role_v3_reason",
         "functional_node_theory_score",
@@ -2038,7 +2118,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
     )
     scientific_audit.to_csv(results_dir / "top10_scientific_audit.csv", index=False)
     (results_dir / "top10_scientific_audit.md").write_text(
-        _build_top10_scientific_markdown(scientific_audit, provenance_summary),
+        _build_top10_scientific_markdown(scientific_audit, provenance_summary, phase2_ranking),
         encoding="utf-8",
     )
     (results_dir / "top10_scientific_summary.md").write_text(
@@ -2069,7 +2149,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "- Tabla de features: `data_processed/phase2_features.csv`",
         "- Tabla de scores: `data_processed/scored_nodes.csv`",
         "- Procedencia de datasets opcionales: `results/data_provenance_summary.csv`",
-        "- Resumen por rol terapéutico: `results/therapeutic_role_summary.csv`",
+        "- Resumen por rol terapÃ©utico: `results/therapeutic_role_summary.csv`",
         "- Auditoria por candidato: `results/candidate_audit.csv`",
         "- Auditoria por candidato en Markdown: `results/candidate_audit.md`",
         "- Revision top 10: `results/top10_candidate_review.csv`",
@@ -2079,7 +2159,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "",
     ]
 
-    report_lines.insert(10, "- Resumen por regla terapéutica: `results/therapeutic_rule_summary.csv`")
+    report_lines.insert(10, "- Resumen por regla terapÃ©utica: `results/therapeutic_rule_summary.csv`")
 
     report_lines.insert(10, "- Resolucion por capa: `results/layer_resolution_summary.csv`")
 
@@ -2178,7 +2258,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
             )
         report_lines.extend(
             [
-                "## Resumen Por Rol Terapéutico",
+                "## Resumen Por Rol TerapÃ©utico",
                 "",
                 _markdown_table(therapeutic_role_summary),
                 "",
@@ -2208,7 +2288,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
                 "",
                 _markdown_table(top_candidate_review),
                 "",
-                "## Auditoría Científica Estricta Top 10",
+                "## AuditorÃ­a CientÃ­fica Estricta Top 10",
                 "",
                 _markdown_table(_scientific_audit_report_view(scientific_audit)),
             ]
@@ -2218,7 +2298,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         try:
             audit_index = report_lines.index("## Auditoria Por Candidato")
             report_lines[audit_index:audit_index] = [
-                "## Resumen Por Regla Terapéutica",
+                "## Resumen Por Regla TerapÃ©utica",
                 "",
                 _markdown_table(therapeutic_rule_summary),
                 "",
@@ -2227,3 +2307,4 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
             pass
 
     (results_dir / "report_phase2.md").write_text("\n".join(report_lines), encoding="utf-8")
+
