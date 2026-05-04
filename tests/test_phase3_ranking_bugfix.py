@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 from src.nodos_funcionales.config import load_config
+from src.nodos_funcionales.reporting import _build_top10_scientific_audit
 from src.nodos_funcionales.scoring import build_phase3_scores
 from tests.helpers import PROJECT_ROOT
 
@@ -37,6 +38,10 @@ class Phase3RankingBugfixTests(unittest.TestCase):
                 "antibiotic_target_score": [0.82, 0.40, 1.00],
                 "antivirulence_target_score": [0.30, 0.78, 1.00],
                 "functional_node_score": [0.82, 0.70, 1.00],
+                "essential": [1, 1, 1],
+                "virulence_score": [0.70, 0.65, 1.00],
+                "human_homolog": [0, 0, 0],
+                "localization": ["cytoplasm", "outer_membrane", "example"],
                 "contextual_essentiality_score": [0.82, 0.70, 1.00],
                 "conservation_score": [0.80, 0.65, 1.00],
                 "evolutionary_space_constraint_score": [0.82, 0.68, 1.00],
@@ -102,6 +107,114 @@ class Phase3RankingBugfixTests(unittest.TestCase):
         self.assertFalse(bool(example["included_in_therapeutic_ranking"]))
         self.assertTrue(pd.isna(example["rank_phase3_real_candidates"]))
         self.assertNotIn("EXAMPLE_PROTEIN", set(real["protein_id"]))
+
+    def test_example_protein_always_excluded(self) -> None:
+        workspace = self._workspace()
+        features = self._base_features().tail(1).copy()
+
+        phase3, _ = build_phase3_scores(workspace, self._config(workspace), features)
+        example = phase3.iloc[0]
+
+        self.assertEqual(example["candidate_record_type"], "template_record")
+        self.assertEqual(example["ranking_inclusion_status"], "excluded_template_record")
+        self.assertFalse(bool(example["included_in_therapeutic_ranking"]))
+
+    def test_mixed_evidence_candidate_included_as_exploratory(self) -> None:
+        workspace = self._workspace()
+        features = self._base_features().head(1).copy()
+        features["essentiality_source_type"] = ["external"]
+        features["virulence_source_type"] = ["demo"]
+        features["functional_network_source_type"] = ["demo"]
+        features["localization_source_type"] = ["proxy"]
+
+        phase3, _ = build_phase3_scores(workspace, self._config(workspace), features)
+        row = phase3.iloc[0]
+
+        self.assertEqual(row["candidate_record_type"], "mixed_evidence_candidate")
+        self.assertEqual(row["ranking_inclusion_status"], "included_exploratory_with_demo_support")
+        self.assertTrue(bool(row["included_in_therapeutic_ranking"]))
+
+    def test_demo_only_candidate_excluded(self) -> None:
+        workspace = self._workspace()
+        features = self._base_features().head(1).copy()
+        for column in [col for col in features.columns if col.endswith("_source_type")]:
+            features[column] = ["demo"]
+        features["source_database"] = ["example_curated_demo"]
+
+        phase3, _ = build_phase3_scores(workspace, self._config(workspace), features)
+        row = phase3.iloc[0]
+
+        self.assertEqual(row["candidate_record_type"], "demo_record")
+        self.assertEqual(row["ranking_inclusion_status"], "excluded_demo_only_record")
+        self.assertFalse(bool(row["included_in_therapeutic_ranking"]))
+
+    def test_real_candidate_included(self) -> None:
+        workspace = self._workspace()
+        features = self._base_features().head(1).copy()
+        for column in [col for col in features.columns if col.endswith("_source_type")]:
+            features[column] = ["external"]
+        features["source_database"] = ["computed_uniprot_string"]
+
+        phase3, _ = build_phase3_scores(workspace, self._config(workspace), features)
+        row = phase3.iloc[0]
+
+        self.assertEqual(row["candidate_record_type"], "real_candidate")
+        self.assertEqual(row["ranking_inclusion_status"], "included_real_candidate")
+        self.assertTrue(bool(row["included_in_therapeutic_ranking"]))
+
+    def test_literature_missing_does_not_exclude(self) -> None:
+        workspace = self._workspace()
+        features = self._base_features().head(1).copy()
+        features["literature_support_score"] = [pd.NA]
+        features["literature_support_database"] = ["missing"]
+
+        phase3, _ = build_phase3_scores(workspace, self._config(workspace), features)
+        row = phase3.iloc[0]
+
+        self.assertTrue(bool(row["included_in_therapeutic_ranking"]))
+        self.assertNotEqual(row["ranking_inclusion_status"], "excluded_no_real_evidence")
+
+    def test_phase3_real_candidates_csv_has_headers_when_empty(self) -> None:
+        workspace = self._workspace()
+        features = self._base_features().tail(1).copy()
+
+        build_phase3_scores(workspace, self._config(workspace), features)
+        real = pd.read_csv(workspace / "results" / "ranking_nodos_phase3_real_candidates.csv")
+
+        self.assertEqual(len(real), 0)
+        self.assertIn("protein_id", real.columns)
+        self.assertIn("ranking_inclusion_status", real.columns)
+
+    def test_phase3_real_candidates_not_empty_for_partial_real_evidence(self) -> None:
+        workspace = self._workspace()
+        features = self._base_features().head(2).copy()
+
+        build_phase3_scores(workspace, self._config(workspace), features)
+        real = pd.read_csv(workspace / "results" / "ranking_nodos_phase3_real_candidates.csv")
+
+        self.assertGreater(len(real), 0)
+        self.assertNotIn("EXAMPLE_PROTEIN", set(real["protein_id"]))
+
+    def test_top10_csv_has_headers_when_no_real_candidates(self) -> None:
+        audit = _build_top10_scientific_audit(
+            phase2_ranking=pd.DataFrame(
+                {
+                    "protein_id": ["EXAMPLE_PROTEIN"],
+                    "gene": ["EXAMPLE_GENE"],
+                    "included_in_therapeutic_ranking": [False],
+                    "ranking_inclusion_status": ["excluded_template_record"],
+                }
+            ),
+            comparison_output=pd.DataFrame(),
+            sensitivity=pd.DataFrame(),
+            provenance_summary=pd.DataFrame(),
+            literature_support=pd.DataFrame(),
+            top_n=10,
+        )
+
+        self.assertEqual(len(audit), 0)
+        self.assertIn("protein_id", audit.columns)
+        self.assertIn("ranking_inclusion_status", audit.columns)
 
     def test_demo_records_do_not_raise_confidence(self) -> None:
         workspace = self._workspace()
