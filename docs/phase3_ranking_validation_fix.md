@@ -9,6 +9,11 @@ Esta iteracion corrige la persistencia y el ordenamiento de `meta_priority_score
 - `is_template_or_demo_record`: marca registros de ejemplo, plantilla o demo dominante.
 - `template_or_demo_reason`: explica por que un registro fue marcado.
 - `included_in_therapeutic_ranking`: indica si participa en el ranking terapeutico real.
+- `candidate_record_type`: clasifica `template_record`, `demo_record`, `real_candidate`, `mixed_evidence_candidate` o `insufficiently_supported_candidate`.
+- `ranking_inclusion_status`: explica si el candidato entra como real, entra como exploratorio o queda excluido.
+- `ranking_inclusion_reason`: razon corta y auditable de inclusion o exclusion.
+- `real_evidence_layer_count`, `demo_or_default_layer_count`, `proxy_layer_count`, `missing_layer_count`: conteos por candidato usados para no confundir evidencia mixta con plantilla pura.
+- `evidence_mixture_label`: resumen legible de la mezcla de evidencia.
 - `rank_phase3_real_candidates`: rank solo entre candidatos reales.
 - `rank_phase3_all_records`: rank del archivo completo, incluidos registros excluidos.
 - `literature_support_status`: distingue evidencia bibliografica curada de plantillas vacias o pendientes.
@@ -24,9 +29,21 @@ El orden de `ranking_nodos_phase3.csv` es:
 2. `meta_priority_score_v3` descendente;
 3. `evidence_quality_score` descendente;
 4. `functional_node_theory_score` descendente;
-5. `meta_priority_score_v2` descendente.
+5. `confidence_ceiling` descendente;
+6. `meta_priority_score_v2` descendente.
 
-Los registros demo/template se conservan para auditoria, pero no reciben `rank_phase3_real_candidates`.
+Los registros demo/template se conservan para auditoria, pero no reciben `rank_phase3_real_candidates`. `EXAMPLE_PROTEIN` siempre queda excluido como registro de plantilla o demo.
+
+Los umbrales default configurables en `config/params.yaml` son:
+
+- `min_real_layers_for_exploratory_inclusion: 1`
+- `min_real_layers_for_real_candidate: 3`
+- `max_demo_fraction_for_real_candidate: 0.50`
+- `allow_mixed_evidence_candidates: true`
+- `exclude_explicit_template_records: true`
+- `exclude_demo_only_records: true`
+
+Un candidato con evidencia real parcial y soporte demo/proxy/default puede entrar como `included_exploratory_with_demo_support`. Esa inclusion no valida el candidato: solo evita perder candidatos exploratorios por una regla binaria demasiado agresiva.
 
 ## Literature support
 
@@ -44,7 +61,7 @@ La capa `literature_support` no aumenta score ni confianza si solo contiene plan
 ## Pruebas recomendadas
 
 - `python -m pytest -m unit -q`
-- `python -m pytest -m "not slow and not online" -q`
+- `python -m pytest -m "not slow and not online and not e2e" -q`
 - `python -m pytest -m "online" -q` solo cuando se quiera validar proveedores externos.
 
 ## Limitaciones actuales

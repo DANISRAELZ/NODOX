@@ -215,6 +215,28 @@ def classify_layer_source(row: pd.Series, layer_name: str, variable_name: str) -
     retrieval = _lower(row.get(f"{layer_name}_retrieval_status", ""))
     database_text = _lower(row.get(_database_column(layer_name), ""))
     combined = " ".join([source_name, source_type, retrieval, database_text])
+    explicit_source_types = {
+        "user": "user_curated",
+        "raw": "user_curated",
+        "user_curated": "user_curated",
+        "literature": "literature_curated",
+        "literature_curated": "literature_curated",
+        "external": "external_real",
+        "external_real": "external_real",
+        "cache": "computed_from_real_data",
+        "computed": "computed_from_real_data",
+        "computed_from_real_data": "computed_from_real_data",
+        "controlled": "controlled_provider",
+        "controlled_provider": "controlled_provider",
+        "proxy": "proxy_inference",
+        "proxy_inference": "proxy_inference",
+        "default": "default_value",
+        "default_value": "default_value",
+        "demo": "demo_data",
+        "demo_data": "demo_data",
+    }
+    if source_type in explicit_source_types:
+        return explicit_source_types[source_type]
     if any(token in database_text for token in ["curated_online_pubmed", "curated_literature", "pubmed", "doi"]):
         return "literature_curated"
     if any(token in database_text for token in ["curated_online_ncbi", "curated_online_examples"]):
@@ -240,7 +262,7 @@ def classify_layer_source(row: pd.Series, layer_name: str, variable_name: str) -
     if "local_reproducible_orthology" in combined:
         return "computed_from_real_data"
     if bool(row.get(f"{layer_name}_is_external", False)) or any(
-        token in combined for token in ["uniprot", "string", "vfdb", "deg", "bvbrc", "interpro", "external_real"]
+        token in combined for token in ["uniprot", "string", "vfdb", "deg", "bvbrc", "interpro", "external", "external_real"]
     ):
         return "external_real"
     if any(token in combined for token in ["computed", "derived"]):

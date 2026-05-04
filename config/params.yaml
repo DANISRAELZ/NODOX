@@ -1,0 +1,894 @@
+runtime:
+  pipeline_mode: compare
+  legacy_baseline_enabled: true
+  report_top_n: 10
+  literature_support_enabled: false
+
+validation:
+  duplicate_policy: keep_first
+  strict_ranges: true
+  allowed_localizations:
+    extracellular: true
+    cell_wall: true
+    outer_membrane: true
+    periplasm: true
+    inner_membrane: true
+    cytoplasm: true
+    unknown: true
+
+thresholds:
+  min_score: 0.0
+  top_n: 10
+  evalue_significance: 1.0e-10
+
+mapping:
+  unknown_gene_symbol: unknown
+  mapping_confidence_default: 1.0
+
+layer_resolution:
+  default_strategy: user_preferred
+  user_data_dir: data_user
+  cache_data_dir: data_cache
+  external_data_dir: data_external
+  manifest_filename: layer_resolution_manifest.json
+  write_cache_from_external: true
+  proxy_confidence_default: 0.20
+  default_confidence_by_source:
+    user: 0.95
+    cache: 0.80
+    raw: 0.75
+    external: 0.70
+    proxy: 0.20
+  layers:
+    essentiality:
+      strategy: user_preferred
+      external_provider: curated_online_examples
+    virulence:
+      strategy: user_preferred
+      external_provider: curated_online_examples
+    human_homologs:
+      strategy: user_preferred
+      external_provider: uniprot_human_gene_lookup
+      fallback_provider: configurable_stub
+    localization:
+      strategy: user_preferred
+      external_provider: curated_online_examples
+    host_annotation:
+      strategy: user_preferred
+      external_provider: interpro_domain_overlap
+    strain_conservation:
+      strategy: user_preferred
+      external_provider: bvbrc_real
+    functional_network:
+      strategy: external_preferred
+      external_provider: string_real
+    clinical_impact:
+      strategy: user_preferred
+      external_provider: controlled_therapeutic_context_v2
+      proxy_name: scoring_proxy_default
+    curated_disease_context:
+      strategy: user_preferred
+      external_provider: controlled_therapeutic_context_v2
+      proxy_name: scoring_proxy_default
+    therapy_site_context:
+      strategy: user_preferred
+      external_provider: controlled_therapeutic_context_v2
+      proxy_name: scoring_proxy_default
+    literature_support:
+      strategy: external_preferred
+      external_provider: curated_online_examples
+
+taxonomy:
+  resolution_mode_default: cache_first
+  cache_filename: taxon_resolution_cache.json
+  external_api_enabled: true
+  provider_name: ncbi_eutils
+  provider_base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+  provider_docs_url: "https://www.ncbi.nlm.nih.gov/home/develop/api/"
+  provider_timeout_seconds: 10
+  provider_max_retries: 1
+  provider_backoff_seconds: 1.0
+  provider_user_agent: "nodos-funcionales-taxonomy/1.0 (offline-safe; contact=local-workspace)"
+  write_cache_by_default: true
+  legacy_mode_aliases:
+    local: offline_only
+  accepted_resolution_modes:
+    offline_only: true
+    cache_first: true
+    online_optional: true
+    api_stub: true
+    auto: true
+    local: true
+  source_priority:
+    cache: 1
+    local_catalog: 2
+    api_real: 3
+    api_stub: 4
+  external_api_notes: "Integracion online opcional via API publica de NCBI E-utilities con degradacion offline segura."
+online_sources:
+  default_source: string
+  source_mode_default: cache_first
+  accepted_modes:
+    offline_only: true
+    cache_first: true
+    online_optional: true
+  write_cache_by_default: true
+  string:
+    enabled: true
+    provider_name: string_db
+    provider_base_url: "https://string-db.org/api"
+    provider_docs_url: "https://string-db.org/help/api/"
+    provider_timeout_seconds: 15
+    provider_max_retries: 1
+    provider_backoff_seconds: 1.0
+    provider_user_agent: "nodos-funcionales-string/1.0 (offline-safe; contact=local-workspace)"
+    cache_filename: string_network_cache.json
+    required_score: 400
+    network_type: functional
+    network_flavor: confidence
+    database_label: computed_string_api_v1
+    allow_replace_demo_dataset: true
+  deg:
+    enabled: true
+    provider_name: deg_real
+    provider_base_url: "https://tubic.org/deg/public/index.php"
+    provider_timeout_seconds: 15
+    provider_max_retries: 1
+    provider_backoff_seconds: 1.0
+    provider_user_agent: "nodos-funcionales-deg/1.0 (offline-safe; contact=local-workspace)"
+    cache_filename: deg_essentiality_cache.json
+    database_label: deg_real_v1
+    confidence_real: 0.85
+    confidence_stub_fallback: 0.40
+  vfdb:
+    enabled: true
+    provider_name: vfdb_real
+    provider_base_url: "http://www.mgc.ac.cn/VFs/Down"
+    provider_timeout_seconds: 20
+    provider_max_retries: 1
+    provider_backoff_seconds: 1.0
+    provider_user_agent: "nodos-funcionales-vfdb/1.0 (offline-safe; contact=local-workspace)"
+    cache_filename: vfdb_virulence_cache.json
+    database_label: vfdb_real_v1
+    confidence_real: 0.82
+    confidence_stub_fallback: 0.40
+  bvbrc:
+    enabled: true
+    provider_name: bvbrc_real
+    provider_base_url: "https://www.bv-brc.org/api"
+    provider_timeout_seconds: 20
+    provider_max_retries: 1
+    provider_backoff_seconds: 1.0
+    provider_user_agent: "nodos-funcionales-bvbrc/1.0 (offline-safe; contact=local-workspace)"
+    cache_filename: bvbrc_conservation_cache.json
+    database_label: bvbrc_real_v1
+    confidence_real: 0.80
+    confidence_stub_fallback: 0.35
+  uniprot:
+    enabled: true
+    provider_name: uniprot_rest
+    provider_base_url: "https://rest.uniprot.org/uniprotkb/search"
+    provider_docs_url: "https://www.uniprot.org/help/api_queries"
+    provider_timeout_seconds: 15
+    provider_max_retries: 1
+    provider_backoff_seconds: 1.0
+    provider_user_agent: "nodos-funcionales-uniprot/1.0 (offline-safe; contact=local-workspace)"
+    cache_filename: uniprot_annotation_cache.json
+    database_label: computed_uniprot_api_v1
+    max_results_per_query: 5
+    fields: accession,id,protein_name,gene_names,reviewed,annotation_score,organism_name,cc_subcellular_location
+  human_homologs_lookup:
+    enabled: true
+    provider_name: uniprot_human_gene_lookup
+    provider_base_url: "https://rest.uniprot.org/uniprotkb/search"
+    provider_docs_url: "https://www.uniprot.org/help/api_queries"
+    provider_timeout_seconds: 15
+    provider_max_retries: 1
+    provider_backoff_seconds: 1.0
+    provider_user_agent: "nodos-funcionales-human-homologs/1.0 (offline-safe; contact=local-workspace)"
+    database_label: computed_uniprot_human_gene_lookup_v1
+    human_taxon_id: "9606"
+    max_results_per_query: 5
+    fields: accession,id,protein_name,gene_names,reviewed,organism_name
+    confidence_real_partial: 0.60
+    confidence_hybrid: 0.55
+    confidence_stub_fallback: 0.40
+    confidence_local_orthology: 0.82
+    local_orthology_enabled: true
+    local_orthology_filename: data_external/human_homologs_orthology.csv
+    local_orthology_database_label: local_reproducible_orthology_v1
+    local_orthology_min_confidence: 0.60
+  host_annotation:
+    enabled: true
+    provider_name: controlled_host_annotation_v1
+    database_label: computed_host_annotation_from_homology_v1
+    confidence_controlled: 0.58
+    notes: "Proveedor deterministico derivado de la capa human_homologs resuelta; no equivale a anotacion experimental de dominios humanos."
+  interpro:
+    enabled: true
+    provider_name: interpro_domain_overlap
+    provider_base_url: "https://www.ebi.ac.uk/interpro/api"
+    provider_docs_url: "https://interpro-documentation.readthedocs.io/en/latest/download.html"
+    provider_timeout_seconds: 20
+    provider_max_retries: 1
+    provider_backoff_seconds: 1.0
+    provider_user_agent: "nodos-funcionales-interpro/1.0 (offline-safe; contact=local-workspace)"
+    cache_filename: interpro_host_annotation_cache.json
+    database_label: computed_interpro_domain_overlap_v1
+    page_size: 200
+    confidence_real: 0.72
+    confidence_controlled_fallback: 0.56
+  human_essentiality:
+    enabled: true
+    provider_name: biosnap_human_essentiality
+    provider_download_url: "https://snap.stanford.edu/biodata/datasets/10033/files/G-HumanEssential.tsv.gz"
+    provider_docs_url: "https://snap.stanford.edu/biodata/datasets/10033/10033-G-HumanEssential.html"
+    ncbi_gene_api_url: "https://clinicaltables.nlm.nih.gov/api/ncbi_genes/v3/search"
+    provider_timeout_seconds: 20
+    provider_max_retries: 1
+    provider_backoff_seconds: 1.0
+    provider_user_agent: "nodos-funcionales-human-essentiality/1.0 (offline-safe; contact=local-workspace)"
+    cache_filename: human_essentiality_cache.json
+    criticality_weight: 0.20
+  therapeutic_context:
+    enabled: true
+    provider_name: controlled_therapeutic_context_v1
+    database_label: computed_controlled_therapeutic_context_v1
+    confidence_controlled: 0.62
+    notes: "Proveedor semicurado deterministico derivado de capas resueltas del workspace; no equivale a evidencia experimental."
+  therapeutic_context_v2:
+    enabled: true
+    provider_name: controlled_therapeutic_context_v2
+    database_label: computed_controlled_therapeutic_context_v2
+    confidence_controlled: 0.66
+    notes: "Proveedor semantico v2 deterministico con logicas separadas para impacto clinico, contexto de enfermedad y acceso terapeutico."
+  curated_therapeutic_catalogs:
+    enabled: true
+    base_dir: data_external/curated_catalogs
+    clinical_impact_catalog_dir: clinical_impact
+    therapy_site_context_catalog_dir: therapy_site_context
+    literature_support_catalog_dir: literature_support
+    essentiality_catalog_dir: essentiality
+    virulence_catalog_dir: virulence
+    localization_catalog_dir: localization
+    confidence_clinical_impact_catalog: 0.86
+    confidence_disease_site_context: 0.84
+    confidence_literature_support_catalog: 0.92
+    confidence_curated_layer_catalog: 0.90
+    default_disease_context: not_reported
+    default_infection_site: not_reported
+    notes: "Catalogos CSV curados opcionales y offline. Se leen antes del proveedor terapeutico controlado sin saltarse la resolucion por capa."
+
+provenance:
+  default_quality_by_type:
+    demo: 0.45
+    computed: 0.70
+    literature: 0.85
+    curated: 0.90
+    experimental: 1.0
+    controlled: 0.58
+    unknown: 0.50
+  database_type_overrides:
+    example_curated_demo: demo
+    computed_controlled_therapeutic_context_v1: controlled
+    computed_controlled_therapeutic_context_v2: controlled
+    computed_host_annotation_from_homology_v1: controlled
+  database_prefix_types:
+    example_: demo
+    demo_: demo
+    lit_: literature
+    curated_: curated
+    exp_: experimental
+    computed_: computed
+  confidence_influence: 0.10
+  confidence_source_classes:
+    user:
+      tier: user_validated
+      quality: 0.95
+    curated:
+      tier: curated_literature_or_catalog
+      quality: 0.86
+    literature:
+      tier: curated_literature_or_catalog
+      quality: 0.85
+    experimental:
+      tier: external_real_stable
+      quality: 0.90
+    computed:
+      tier: external_or_computed
+      quality: 0.70
+    controlled:
+      tier: controlled_provider_moderate
+      quality: 0.58
+    proxy:
+      tier: proxy_low
+      quality: 0.20
+    unknown:
+      tier: unknown
+      quality: 0.50
+
+localization:
+  physical_accessibility:
+    extracellular: 1.0
+    cell_wall: 0.9
+    outer_membrane: 0.85
+    periplasm: 0.65
+    inner_membrane: 0.55
+    cytoplasm: 0.30
+    unknown: 0.20
+  small_molecule_feasibility:
+    extracellular: 0.45
+    cell_wall: 0.60
+    outer_membrane: 0.55
+    periplasm: 0.75
+    inner_membrane: 0.70
+    cytoplasm: 0.80
+    unknown: 0.50
+  antibody_feasibility:
+    extracellular: 1.0
+    cell_wall: 0.95
+    outer_membrane: 0.90
+    periplasm: 0.35
+    inner_membrane: 0.25
+    cytoplasm: 0.05
+    unknown: 0.20
+  membrane_crossing_penalty:
+    extracellular: 0.05
+    cell_wall: 0.10
+    outer_membrane: 0.15
+    periplasm: 0.30
+    inner_membrane: 0.45
+    cytoplasm: 0.55
+    unknown: 0.35
+  infection_site_access:
+    extracellular: 0.95
+    cell_wall: 0.90
+    outer_membrane: 0.85
+    periplasm: 0.55
+    inner_membrane: 0.35
+    cytoplasm: 0.20
+    unknown: 0.40
+
+imputation:
+  neutral_unknown_score: 0.50
+  placeholder_defaults:
+    network_centrality: 0.50
+    pathway_bottleneck_score: 0.50
+    redundancy_penalty: 0.50
+    functional_dependency_score: 0.50
+    core_genome_presence: 0.50
+    strain_coverage_score: 0.50
+    allelic_conservation: 0.50
+    variant_burden: 0.50
+
+weights:
+  legacy:
+    essentiality: 0.30
+    virulence: 0.25
+    no_human_homolog: 0.25
+    accessibility: 0.15
+    host_risk: 0.05
+  antibiotic_target:
+    essentiality_support: 0.28
+    host_safety_score: 0.22
+    conservation_score: 0.18
+    small_molecule_feasibility: 0.16
+    low_redundancy_score: 0.10
+    evidence_confidence_score: 0.06
+  antivirulence_target:
+    virulence_support: 0.30
+    physical_accessibility: 0.18
+    antibody_feasibility: 0.12
+    host_damage_reduction_potential: 0.16
+    host_safety_score: 0.18
+    evidence_confidence_score: 0.06
+  functional_node:
+    network_centrality: 0.26
+    pathway_bottleneck_score: 0.24
+    functional_dependency_score: 0.24
+    low_redundancy_score: 0.18
+    evidence_confidence_score: 0.08
+  meta_priority:
+    antibiotic_target_score: 0.50
+    antivirulence_target_score: 0.35
+    functional_node_score: 0.15
+
+therapeutic_phase1:
+  priority_weights:
+    meta_priority_score: 0.35
+    host_safety_score: 0.20
+    host_damage_score: 0.15
+    infection_site_access_score: 0.15
+    infection_context_score: 0.15
+  classification_thresholds:
+    high_essentiality: 0.70
+    high_virulence: 0.70
+    good_access: 0.65
+    acceptable_access: 0.50
+    critical_access_floor: 0.20
+    low_host_risk: 0.65
+    host_safety_floor: 0.45
+    strong_functional: 0.60
+    high_context: 0.60
+    high_damage: 0.60
+    mixed_strategy_min_score: 0.60
+    strong_bactericidal_priority: 0.50
+    mixed_margin_max: 0.12
+    minimum_priority: 0.45
+    minimum_confidence: 0.45
+    minimum_coverage: 0.50
+
+evolutionary_escape_risk:
+  enabled: true
+  minimum_available_variables: 3
+  penalty_weight: 0.15
+  apply_to_meta_priority: false
+  weights:
+    mutation_tolerance_score: 0.20
+    functional_redundancy_escape_score: 0.15
+    compensatory_pathway_score: 0.15
+    resistance_emergence_risk: 0.20
+    inverse_fitness_cost_of_escape: 0.10
+    inverse_evolutionary_constraint_score: 0.10
+    inverse_multi_node_dependency_score: 0.10
+  reduced_space_weights:
+    evolutionary_constraint_score: 0.25
+    fitness_cost_of_escape: 0.25
+    multi_node_dependency_score: 0.20
+    inverse_functional_redundancy_escape_score: 0.15
+    inverse_compensatory_pathway_score: 0.15
+
+sensitivity:
+  enabled: true
+  top_n: 5
+  scenarios:
+    baseline_like:
+      meta_priority:
+        antibiotic_target_score: 0.55
+        antivirulence_target_score: 0.25
+        functional_node_score: 0.20
+    antivirulence_focus:
+      meta_priority:
+        antibiotic_target_score: 0.25
+        antivirulence_target_score: 0.55
+        functional_node_score: 0.20
+    network_focus:
+      meta_priority:
+        antibiotic_target_score: 0.25
+        antivirulence_target_score: 0.20
+        functional_node_score: 0.55
+  strategy_scenarios:
+    antibiotic_target:
+      safety_first:
+        essentiality_support: 0.22
+        host_safety_score: 0.30
+        conservation_score: 0.20
+        small_molecule_feasibility: 0.12
+        low_redundancy_score: 0.08
+        evidence_confidence_score: 0.08
+      penetration_first:
+        essentiality_support: 0.24
+        host_safety_score: 0.20
+        conservation_score: 0.14
+        small_molecule_feasibility: 0.24
+        low_redundancy_score: 0.10
+        evidence_confidence_score: 0.08
+    antivirulence_target:
+      accessibility_first:
+        virulence_support: 0.26
+        physical_accessibility: 0.24
+        antibody_feasibility: 0.16
+        host_damage_reduction_potential: 0.14
+        host_safety_score: 0.14
+        evidence_confidence_score: 0.06
+      damage_reduction_first:
+        virulence_support: 0.24
+        physical_accessibility: 0.14
+        antibody_feasibility: 0.10
+        host_damage_reduction_potential: 0.24
+        host_safety_score: 0.20
+        evidence_confidence_score: 0.08
+    functional_node:
+      centrality_first:
+        network_centrality: 0.34
+        pathway_bottleneck_score: 0.22
+        functional_dependency_score: 0.20
+        low_redundancy_score: 0.16
+        evidence_confidence_score: 0.08
+      dependency_first:
+        network_centrality: 0.18
+        pathway_bottleneck_score: 0.20
+        functional_dependency_score: 0.34
+        low_redundancy_score: 0.20
+        evidence_confidence_score: 0.08
+  therapeutic_priority_scenarios:
+    safety_first:
+      meta_priority_score: 0.25
+      host_safety_score: 0.35
+      host_damage_score: 0.10
+      infection_site_access_score: 0.15
+      infection_context_score: 0.15
+    context_first:
+      meta_priority_score: 0.20
+      host_safety_score: 0.15
+      host_damage_score: 0.20
+      infection_site_access_score: 0.20
+      infection_context_score: 0.25
+    bactericidal_first:
+      meta_priority_score: 0.45
+      host_safety_score: 0.20
+      host_damage_score: 0.05
+      infection_site_access_score: 0.20
+      infection_context_score: 0.10
+    damage_control_first:
+      meta_priority_score: 0.10
+      host_safety_score: 0.20
+      host_damage_score: 0.35
+      infection_site_access_score: 0.15
+      infection_context_score: 0.20
+
+phase3:
+  enabled: false
+  functional_node_theory:
+    weights:
+      w_functional_node: 0.25
+      w_contextual_essentiality: 0.18
+      w_pleiotropy: 0.12
+      w_conservation: 0.12
+      w_evolutionary_constraint: 0.20
+      w_evidence_quality: 0.13
+    penalties:
+      p_redundancy: 0.18
+      p_escape: 0.22
+      p_biofilm: 0.10
+      p_hgt: 0.10
+      p_host_similarity: 0.12
+    defaults:
+      functional_node_score: 0.0
+      contextual_essentiality_score: 0.0
+      pleiotropy_score: 0.0
+      conservation_score: 0.0
+      evolutionary_space_constraint_score: 0.0
+      evidence_quality_score: 0.0
+      redundancy_penalty: 0.0
+      evolutionary_escape_risk_score: 0.0
+      biofilm_escape_penalty: 0.0
+      horizontal_transfer_penalty: 0.0
+      host_similarity_penalty: 0.0
+      confidence_ceiling: 1.0
+    label_thresholds:
+      high_score: 0.75
+      promising_score: 0.55
+      minimum_evidence: 0.35
+      high_escape_risk: 0.65
+      high_redundancy: 0.65
+      antivirulence_signal: 0.65
+  meta_priority_v3:
+    weights:
+      w_antibiotic: 0.20
+      w_antivirulence: 0.15
+      w_theory: 0.35
+      w_evidence: 0.10
+      w_combination: 0.10
+    penalties:
+      p_escape: 0.18
+      p_redundancy: 0.16
+      p_biofilm: 0.08
+      p_hgt: 0.08
+    role_thresholds:
+      high_antibiotic: 0.70
+      high_antivirulence: 0.70
+      high_theory: 0.70
+      high_combination: 0.65
+      high_escape_risk: 0.65
+      high_host_similarity_risk: 0.70
+      minimum_evidence: 0.35
+      dual_margin: 0.10
+  ranking_inclusion:
+    min_real_layers_for_exploratory_inclusion: 1
+    min_real_layers_for_real_candidate: 3
+    max_demo_fraction_for_real_candidate: 0.50
+    allow_mixed_evidence_candidates: true
+    exclude_explicit_template_records: true
+    exclude_demo_only_records: true
+  evidence_quality:
+    default_quality: 0.0
+    demo_only_ceiling: 0.40
+    controlled_provider_only_ceiling: 0.50
+    external_database_ceiling: 0.70
+    curated_literature_ceiling: 0.80
+    user_external_curated_ceiling: 0.95
+    experimental_ceiling: 1.0
+    user_data_weight: 0.25
+    curated_literature_weight: 0.25
+    external_database_weight: 0.20
+    experimental_weight: 0.25
+    multi_source_weight: 0.05
+    demo_penalty_weight: 0.25
+    controlled_only_penalty_weight: 0.20
+    conflict_penalty_weight: 0.25
+    source_type_weights:
+      user_curated: 1.00
+      literature_curated: 0.95
+      external_real: 0.90
+      computed_from_real_data: 0.80
+      controlled_provider: 0.60
+      proxy_inference: 0.40
+      default_value: 0.20
+      demo_data: 0.10
+      missing: 0.00
+  collateral_sensitivity:
+    enabled: true
+    default_score: 0.0
+    rule_based_mode: true
+  virulence_layers:
+    missing_signal_default: 0.0
+    direct_host_damage_weight: 0.20
+    colonization_weight: 0.15
+    immune_evasion_weight: 0.15
+    biofilm_persistence_weight: 0.15
+    toxin_activity_weight: 0.15
+    nutritional_immunity_escape_weight: 0.10
+    quorum_sensing_weight: 0.10
+  contextual_essentiality:
+    missing_context_default: 0.5
+    infection_site_weight: 0.25
+    host_stress_weight: 0.20
+    iron_limitation_weight: 0.15
+    oxidative_stress_weight: 0.15
+    intracellular_survival_weight: 0.15
+    biofilm_weight: 0.10
+  redundancy:
+    missing_data_default: 0.3
+    paralog_weight: 0.35
+    pathway_alternative_weight: 0.35
+    functional_backup_weight: 0.30
+    max_paralog_count: 5.0
+    max_pathway_alternative_count: 5.0
+    metabolic_bypass_weight: 0.50
+    regulatory_bypass_weight: 0.50
+    protective_adjustment_weight: 0.25
+  evolutionary_escape:
+    defaults:
+      essentiality_score: 0.50
+      contextual_essentiality_score: 0.50
+      conservation_score: 0.50
+      pleiotropy_score: 0.50
+      redundancy_penalty: 0.50
+      variant_burden: 0.50
+      known_escape_mutation_score: 0.0
+      inferred_functional_tolerance_score: 0.50
+      module_participation_score: 0.50
+      paralog_count_score: 0.50
+      alternative_pathway_score: 0.50
+      network_centrality: 0.50
+      biofilm_escape_penalty: 0.0
+      horizontal_transfer_penalty: 0.0
+      collateral_sensitivity_score: 0.0
+    weights:
+      mutational_tolerance_score:
+        variant_burden: 0.30
+        low_conservation_score: 0.25
+        known_escape_mutation_score: 0.20
+        low_essentiality_score: 0.15
+        inferred_functional_tolerance_score: 0.10
+      fitness_cost_score:
+        essentiality_score: 0.25
+        conservation_score: 0.25
+        pleiotropy_score: 0.20
+        low_redundancy_score: 0.20
+        module_participation_score: 0.10
+      compensation_difficulty_score:
+        low_redundancy_score: 0.30
+        low_paralog_score: 0.20
+        low_alternative_pathway_score: 0.20
+        network_centrality: 0.15
+        contextual_essentiality_score: 0.15
+      evolutionary_escape_risk_score:
+        mutational_tolerance_score: 0.25
+        redundancy_penalty: 0.20
+        biofilm_escape_penalty: 0.15
+        horizontal_transfer_penalty: 0.15
+        low_fitness_cost_score: 0.15
+        low_compensation_difficulty_score: 0.10
+      evolutionary_space_constraint_score:
+        conservation_score: 0.15
+        max_essentiality_score: 0.15
+        pleiotropy_score: 0.12
+        fitness_cost_score: 0.14
+        compensation_difficulty_score: 0.14
+        collateral_sensitivity_score: 0.10
+        low_redundancy_score: 0.08
+        low_mutational_tolerance_score: 0.06
+        low_biofilm_escape_penalty: 0.03
+        low_horizontal_transfer_penalty: 0.03
+  scoring:
+    weights:
+      contextual_essentiality_score: 1.0
+      pleiotropy_score: 1.0
+      conservation_score: 1.0
+      evolutionary_space_constraint_score: 1.0
+      evidence_quality_score: 1.0
+    penalties:
+      redundancy_penalty: 1.0
+      evolutionary_escape_risk_score: 1.0
+      biofilm_escape_penalty: 1.0
+      horizontal_transfer_penalty: 1.0
+      host_similarity_penalty: 1.0
+
+dataset_import:
+  required_common_columns:
+    protein_id:
+      protein_id: true
+      protein: true
+      locus_tag: true
+      gene_id: true
+      feature_id: true
+    gene:
+      gene: true
+      gene_name: true
+      symbol: true
+      preferred_name: true
+    database:
+      database: true
+      source_database: true
+      source: true
+      provenance: true
+  dataset_column_aliases:
+    essentiality:
+      essential:
+        essential: true
+        is_essential: true
+        essentiality_flag: true
+      evidence:
+        evidence: true
+        evidence_note: true
+        comment: true
+    virulence:
+      virulence_score:
+        virulence_score: true
+        score: true
+        virulence: true
+      virulence_factor:
+        virulence_factor: true
+        is_virulence_factor: true
+        vf_flag: true
+    human_homologs:
+      human_homolog:
+        human_homolog: true
+        has_human_homolog: true
+        homolog_flag: true
+      evalue:
+        evalue: true
+        blast_evalue: true
+        best_evalue: true
+      human_gene:
+        human_gene: true
+        host_gene: true
+        human_symbol: true
+    localization:
+      localization:
+        localization: true
+        localisation: true
+        subcellular_location: true
+    strain_conservation:
+      core_genome_presence:
+        core_genome_presence: true
+        core_presence: true
+      strain_coverage_score:
+        strain_coverage_score: true
+        coverage_score: true
+      allelic_conservation:
+        allelic_conservation: true
+        allele_conservation: true
+      variant_burden:
+        variant_burden: true
+        variation_burden: true
+    functional_network:
+      network_centrality:
+        network_centrality: true
+        centrality: true
+      pathway_bottleneck_score:
+        pathway_bottleneck_score: true
+        bottleneck_score: true
+      redundancy_penalty:
+        redundancy_penalty: true
+        redundancy: true
+      functional_dependency_score:
+        functional_dependency_score: true
+        dependency_score: true
+    host_annotation:
+      domain_overlap_score:
+        domain_overlap_score: true
+        domain_overlap: true
+      host_criticality_penalty:
+        host_criticality_penalty: true
+        host_criticality: true
+    clinical_impact:
+      host_damage_reduction_potential:
+        host_damage_reduction_potential: true
+        damage_reduction_potential: true
+      disease_severity_association:
+        disease_severity_association: true
+        severity_association: true
+      clinical_impact_score:
+        clinical_impact_score: true
+        impact_score: true
+      host_damage_score:
+        host_damage_score: true
+        damage_score: true
+    curated_disease_context:
+      infection_context_score:
+        infection_context_score: true
+        disease_context_score: true
+        context_score: true
+    therapy_site_context:
+      infection_site_access:
+        infection_site_access: true
+        infection_site_access_score: true
+        site_access_score: true
+      infection_site:
+        infection_site: true
+        site_of_infection: true
+        anatomical_site: true
+      access_evidence_type:
+        access_evidence_type: true
+        evidence_type: true
+        accessibility_evidence_type: true
+      access_evidence_reference:
+        access_evidence_reference: true
+        reference: true
+        citation: true
+        doi_or_url: true
+      access_evidence_note:
+        access_evidence_note: true
+        notes: true
+        comment: true
+    literature_support:
+      literature_support_score:
+        literature_support_score: true
+        literature_score: true
+        support_score: true
+      evidence_type:
+        evidence_type: true
+        literature_evidence_type: true
+      reference:
+        reference: true
+        citation: true
+        source_reference: true
+      doi_or_url:
+        doi_or_url: true
+        doi: true
+        url: true
+      notes:
+        notes: true
+        comment: true
+      source_quality:
+        source_quality: true
+        literature_source_quality: true
+    evolutionary_escape_risk:
+      mutation_tolerance_score:
+        mutation_tolerance_score: true
+        mutational_tolerance_score: true
+      functional_redundancy_escape_score:
+        functional_redundancy_escape_score: true
+        redundancy_escape_score: true
+      compensatory_pathway_score:
+        compensatory_pathway_score: true
+        alternative_pathway_score: true
+      fitness_cost_of_escape:
+        fitness_cost_of_escape: true
+        fitness_cost_score: true
+      evolutionary_constraint_score:
+        evolutionary_constraint_score: true
+        evolutionary_space_constraint_score: true
+      resistance_emergence_risk:
+        resistance_emergence_risk: true
+        resistance_risk: true
+      multi_node_dependency_score:
+        multi_node_dependency_score: true
+        functional_dependency_score: true
+      evidence_source:
+        evidence_source: true
+        reference: true
+        citation: true

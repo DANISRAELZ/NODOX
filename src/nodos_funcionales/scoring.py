@@ -45,6 +45,15 @@ DEFAULT_META_PRIORITY_V3_CONFIG = {
     },
 }
 
+DEFAULT_PHASE3_RANKING_INCLUSION_CONFIG = {
+    "min_real_layers_for_exploratory_inclusion": 1,
+    "min_real_layers_for_real_candidate": 3,
+    "max_demo_fraction_for_real_candidate": 0.50,
+    "allow_mixed_evidence_candidates": True,
+    "exclude_explicit_template_records": True,
+    "exclude_demo_only_records": True,
+}
+
 
 PRIMARY_EVIDENCE_COLUMNS = [
     "essential",
@@ -1281,7 +1290,7 @@ def build_phase3_scores(base_dir: Path, config: dict, phase2_features: pd.DataFr
     features, layer_evidence_audit, layer_evidence_summary = apply_phase3_evidence_audit(features, config)
     features = compute_functional_node_theory_score(features, config)
     features["meta_priority_score_v3"] = _compute_meta_priority_score_v3(features, config)
-    features = _apply_template_or_demo_flags(features)
+    features = _apply_template_or_demo_flags(features, config)
     features = _limit_template_or_demo_confidence(features)
     phase3_roles = features.apply(lambda row: _classify_therapeutic_role_v3(row, config), axis=1)
     features["therapeutic_role_v3"] = phase3_roles.map(lambda item: item[0])
@@ -1308,9 +1317,18 @@ def build_phase3_scores(base_dir: Path, config: dict, phase2_features: pd.DataFr
         "meta_priority_score_v3",
         "therapeutic_role",
         "therapeutic_role_v3",
+        "candidate_record_type",
         "is_template_or_demo_record",
         "template_or_demo_reason",
         "included_in_therapeutic_ranking",
+        "ranking_inclusion_status",
+        "ranking_inclusion_reason",
+        "evidence_mixture_label",
+        "real_evidence_layer_count",
+        "demo_or_default_layer_count",
+        "proxy_layer_count",
+        "missing_layer_count",
+        "negative_evidence_layer_count",
         "rank_phase3_real_candidates",
         "rank_phase3_all_records",
         "functional_node_theory_score",
@@ -1506,14 +1524,19 @@ def _sanitize_literature_support_features(features: pd.DataFrame) -> pd.DataFram
     return result
 
 
-def _apply_template_or_demo_flags(features: pd.DataFrame) -> pd.DataFrame:
+def _apply_template_or_demo_flags(features: pd.DataFrame, config: dict | None = None) -> pd.DataFrame:
     result = features.copy()
     if result.empty:
+        result["candidate_record_type"] = pd.Series(dtype=object)
         result["is_template_or_demo_record"] = pd.Series(dtype=bool)
         result["template_or_demo_reason"] = pd.Series(dtype=object)
         result["included_in_therapeutic_ranking"] = pd.Series(dtype=bool)
+        result["ranking_inclusion_status"] = pd.Series(dtype=object)
+        result["ranking_inclusion_reason"] = pd.Series(dtype=object)
+        result["evidence_mixture_label"] = pd.Series(dtype=object)
         return result
 
+    cfg = _phase3_ranking_inclusion_config(config or {})
     protein = result.get("protein_id", pd.Series([""] * len(result), index=result.index)).fillna("").astype(str).str.upper()
     gene = result.get("gene", pd.Series([""] * len(result), index=result.index)).fillna("").astype(str).str.upper()
     text_columns = [
@@ -1526,29 +1549,129 @@ def _apply_template_or_demo_flags(features: pd.DataFrame) -> pd.DataFrame:
     ]
     combined = result[text_columns].fillna("").astype(str).agg(" ".join, axis=1).str.lower() if text_columns else pd.Series([""] * len(result), index=result.index)
     explicit_template = protein.eq("EXAMPLE_PROTEIN") | gene.eq("EXAMPLE_GENE")
-    demo_text = combined.str.contains("demo|template|example_|example_curated_demo|pending_manual_curation", regex=True)
+    explicit_demo_text = combined.str.contains("template_record|demo_only_record|example_protein|example_gene", regex=True)
     demo_counts = result[[column for column in result.columns if column.endswith("_source_type")]].fillna("").astype(str).apply(
         lambda col: col.str.lower().isin(["demo", "demo_data", "template"]).astype(int)
     ).sum(axis=1) if any(column.endswith("_source_type") for column in result.columns) else pd.Series([0] * len(result), index=result.index)
-    real_layer_count = pd.to_numeric(result.get("phase3_real_evidence_layer_count", pd.Series([0] * len(result), index=result.index)), errors="coerce").fillna(0)
+    real_layer_count = pd.to_numeric(result.get("phase3_real_evidence_layer_count", pd.Series([0] * len(result), index=result.index)), errors="coerce").fillna(0).astype(int)
+    demo_default_count = pd.to_numeric(result.get("phase3_demo_default_layer_count", pd.Series([0] * len(result), index=result.index)), errors="coerce").fillna(0).astype(int)
+    proxy_count = pd.to_numeric(result.get("phase3_proxy_layer_count", pd.Series([0] * len(result), index=result.index)), errors="coerce").fillna(0).astype(int)
+    missing_count = pd.to_numeric(result.get("phase3_missing_layer_count", pd.Series([0] * len(result), index=result.index)), errors="coerce").fillna(0).astype(int)
+    negative_count = pd.to_numeric(result.get("phase3_negative_evidence_count", pd.Series([0] * len(result), index=result.index)), errors="coerce").fillna(0).astype(int)
+    demo_or_default_layer_count = pd.concat([demo_default_count, demo_counts.astype(int)], axis=1).max(axis=1).astype(int)
     data_realism = result.get("data_realism_flag", pd.Series([""] * len(result), index=result.index)).fillna("").astype(str).str.lower()
-    is_demo = explicit_template | demo_counts.ge(3) | (data_realism.eq("demo_only") & real_layer_count.eq(0))
+    total_observed = (real_layer_count + demo_or_default_layer_count + proxy_count).clip(lower=1)
+    demo_fraction = (demo_or_default_layer_count / total_observed).clip(0.0, 1.0)
 
-    reasons = []
+    record_types: list[str] = []
+    included_values: list[bool] = []
+    inclusion_statuses: list[str] = []
+    inclusion_reasons: list[str] = []
+    template_flags: list[bool] = []
+    template_reasons: list[str] = []
+    mixture_labels: list[str] = []
     for idx in result.index:
-        row_reasons = []
+        row_reasons: list[str] = []
         if bool(explicit_template.loc[idx]):
             row_reasons.append("explicit_example_identifier")
-        if bool(demo_counts.loc[idx] >= 3):
-            row_reasons.append("demo_source_type_in_multiple_layers")
-        if bool(is_demo.loc[idx]) and bool(demo_text.loc[idx]):
+        if bool(explicit_demo_text.loc[idx]):
             row_reasons.append("source_or_literature_marked_demo_template")
-        reasons.append(";".join(dict.fromkeys(row_reasons)) if row_reasons else "not_demo_or_template")
+        real = int(real_layer_count.loc[idx])
+        demo_default = int(demo_or_default_layer_count.loc[idx])
+        proxy = int(proxy_count.loc[idx])
+        missing = int(missing_count.loc[idx])
+        negative = int(negative_count.loc[idx])
+        fraction = float(demo_fraction.loc[idx])
+        explicit = bool(explicit_template.loc[idx])
+        demo_only = real == 0 and (demo_default > 0 or data_realism.loc[idx] == "demo_only")
+        mixed = real >= int(cfg["min_real_layers_for_exploratory_inclusion"]) and (demo_default > 0 or proxy > 0 or missing > 0)
 
-    result["is_template_or_demo_record"] = is_demo.astype(bool)
-    result["template_or_demo_reason"] = reasons
-    result["included_in_therapeutic_ranking"] = ~result["is_template_or_demo_record"]
-    return result
+        if explicit and bool(cfg["exclude_explicit_template_records"]):
+            record_type = "template_record"
+            included = False
+            status = "excluded_template_record"
+            reason = "EXAMPLE_PROTEIN/EXAMPLE_GENE o plantilla explicita; se conserva solo para pruebas."
+            template_flag = True
+        elif demo_only and bool(cfg["exclude_demo_only_records"]):
+            record_type = "demo_record"
+            included = False
+            status = "excluded_demo_only_record"
+            reason = "registro sin capas reales; demo/default/proxy no habilitan ranking terapeutico real."
+            template_flag = True
+            row_reasons.append("demo_or_default_without_real_evidence")
+        elif real <= 0:
+            record_type = "insufficiently_supported_candidate"
+            included = False
+            status = "excluded_no_real_evidence"
+            reason = "sin evidencia real; missing no es evidencia negativa, pero no alcanza para ranking real."
+            template_flag = False
+        elif real >= int(cfg["min_real_layers_for_real_candidate"]) and fraction <= float(cfg["max_demo_fraction_for_real_candidate"]):
+            record_type = "real_candidate"
+            included = True
+            status = "included_real_candidate"
+            reason = f"{real} capas reales y fraccion demo/default {fraction:.2f}; candidato real interpretable con cautela."
+            template_flag = False
+        elif mixed and bool(cfg["allow_mixed_evidence_candidates"]):
+            record_type = "mixed_evidence_candidate"
+            included = True
+            status = "included_exploratory_with_demo_support"
+            reason = f"{real} capas reales con soporte demo/proxy/default parcial; entra como exploratorio, no validado."
+            template_flag = False
+        else:
+            record_type = "insufficiently_supported_candidate"
+            included = False
+            status = "excluded_no_real_evidence"
+            reason = "no alcanza umbrales configurados de inclusion."
+            template_flag = False
+
+        record_types.append(record_type)
+        included_values.append(included)
+        inclusion_statuses.append(status)
+        inclusion_reasons.append(reason)
+        template_flags.append(template_flag)
+        template_reasons.append(";".join(dict.fromkeys(row_reasons)) if row_reasons else "not_template_record")
+        mixture_labels.append(_evidence_mixture_label(real, demo_default, proxy, missing, negative))
+
+    additions = pd.DataFrame(
+        {
+            "candidate_record_type": record_types,
+            "is_template_or_demo_record": template_flags,
+            "template_or_demo_reason": template_reasons,
+            "included_in_therapeutic_ranking": included_values,
+            "ranking_inclusion_status": inclusion_statuses,
+            "ranking_inclusion_reason": inclusion_reasons,
+            "real_evidence_layer_count": real_layer_count,
+            "demo_or_default_layer_count": demo_or_default_layer_count,
+            "proxy_layer_count": proxy_count,
+            "missing_layer_count": missing_count,
+            "negative_evidence_layer_count": negative_count,
+            "evidence_mixture_label": mixture_labels,
+        },
+        index=result.index,
+    )
+    return pd.concat([result.drop(columns=[column for column in additions.columns if column in result.columns], errors="ignore"), additions], axis=1).copy()
+
+
+def _phase3_ranking_inclusion_config(config: dict) -> dict[str, object]:
+    cfg = dict(DEFAULT_PHASE3_RANKING_INCLUSION_CONFIG)
+    configured = config.get("phase3", {}).get("ranking_inclusion", {}) if isinstance(config, dict) else {}
+    if isinstance(configured, dict):
+        cfg.update(configured)
+    return cfg
+
+
+def _evidence_mixture_label(real: int, demo_default: int, proxy: int, missing: int, negative: int) -> str:
+    if negative > 0 and real > 0:
+        return "real_evidence_with_negative_signal"
+    if real > 0 and (demo_default > 0 or proxy > 0):
+        return "mixed_real_demo_proxy"
+    if real > 0 and missing > 0:
+        return "partial_real_with_missing_layers"
+    if real > 0:
+        return "mostly_real_evidence"
+    if demo_default > 0 or proxy > 0:
+        return "demo_proxy_only"
+    return "missing_only"
 
 
 def _limit_template_or_demo_confidence(features: pd.DataFrame) -> pd.DataFrame:
@@ -1589,6 +1712,7 @@ def _phase3_sort_columns(df: pd.DataFrame) -> list[str]:
         "meta_priority_score_v3",
         "evidence_quality_score",
         "functional_node_theory_score",
+        "confidence_ceiling",
         "meta_priority_score_v2",
     ]
     return [column for column in columns if column in df.columns]
@@ -1598,14 +1722,15 @@ def _sort_phase3_records(features: pd.DataFrame) -> pd.DataFrame:
     result = features.copy()
     if "included_in_therapeutic_ranking" not in result.columns:
         result["included_in_therapeutic_ranking"] = True
-    for column in ["meta_priority_score_v3", "evidence_quality_score", "functional_node_theory_score", "meta_priority_score_v2"]:
+    for column in ["meta_priority_score_v3", "evidence_quality_score", "functional_node_theory_score", "confidence_ceiling", "meta_priority_score_v2"]:
         if column not in result.columns:
             result[column] = 0.0
         result[column] = pd.to_numeric(result[column], errors="coerce").fillna(0.0).clip(0.0, 1.0)
     result["included_in_therapeutic_ranking"] = result["included_in_therapeutic_ranking"].fillna(False).astype(bool)
+    sort_columns = _phase3_sort_columns(result)
     return result.sort_values(
-        _phase3_sort_columns(result),
-        ascending=[False, False, False, False, False],
+        sort_columns,
+        ascending=[False] * len(sort_columns),
         kind="mergesort",
     ).reset_index(drop=True)
 
@@ -1616,7 +1741,17 @@ def _assign_phase3_ranks(features: pd.DataFrame) -> pd.DataFrame:
     ranked["rank_phase3"] = ranked["rank_phase3_all_records"]
     ranked["rank_phase3_real_candidates"] = pd.NA
     included = ranked["included_in_therapeutic_ranking"].fillna(False).astype(bool)
-    ranked.loc[included, "rank_phase3_real_candidates"] = range(1, int(included.sum()) + 1)
+    real_order = ranked.loc[included].sort_values(
+        ["meta_priority_score_v3", "evidence_quality_score", "functional_node_theory_score", "confidence_ceiling", "meta_priority_score_v2"],
+        ascending=[False, False, False, False, False],
+        kind="mergesort",
+    )
+    ranked.loc[real_order.index, "rank_phase3_real_candidates"] = range(1, len(real_order) + 1)
+    ranked = ranked.sort_values(
+        ["included_in_therapeutic_ranking", "rank_phase3_real_candidates", "rank_phase3_all_records"],
+        ascending=[False, True, True],
+        kind="mergesort",
+    ).reset_index(drop=True)
     return ranked
 
 
@@ -1816,8 +1951,17 @@ def _write_phase3_rankings(features: pd.DataFrame, results_dir: Path) -> None:
         "rank_phase3",
         "rank_phase3_real_candidates",
         "included_in_therapeutic_ranking",
+        "candidate_record_type",
         "is_template_or_demo_record",
         "template_or_demo_reason",
+        "ranking_inclusion_status",
+        "ranking_inclusion_reason",
+        "evidence_mixture_label",
+        "real_evidence_layer_count",
+        "demo_or_default_layer_count",
+        "proxy_layer_count",
+        "missing_layer_count",
+        "negative_evidence_layer_count",
         "protein_id",
         "gene",
         "meta_priority_score_v2",
