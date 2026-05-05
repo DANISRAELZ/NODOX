@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 import pandas as pd
 
-from .online.online_utils import normalize_online_mode
+from .online.provider_modes import normalize_provider_mode
 
 
 STRING_SOURCE_MODES = {"offline_only", "cache_first", "online_optional", "local", "auto", "api_stub"}
@@ -24,15 +24,7 @@ def _utc_now() -> str:
 
 
 def _normalize_mode(mode: str, config: dict[str, Any]) -> str:
-    accepted = {
-        str(key)
-        for key, enabled in config["online_sources"]["accepted_modes"].items()
-        if enabled
-    }
-    accepted.update({"local", "auto", "api_stub"})
-    if mode not in accepted:
-        raise ValueError(f"online source mode no soportado: {mode}")
-    return normalize_online_mode(mode)
+    return normalize_provider_mode(mode, config)
 
 
 def _json_load(path: Path) -> dict[str, Any]:

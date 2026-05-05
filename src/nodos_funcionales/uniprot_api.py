@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 
 import pandas as pd
 
-from .online.online_utils import normalize_online_mode
+from .online.provider_modes import accepted_provider_modes, normalize_provider_mode
 
 UNIPROT_SOURCE_MODES = {"offline_only", "cache_first", "online_optional", "local", "auto", "api_stub"}
 
@@ -324,10 +324,10 @@ def fetch_uniprot_annotations(
     workspace = Path(workspace)
     if not workspace.exists():
         raise FileNotFoundError(f"Workspace no encontrado: {workspace}")
-    if mode not in UNIPROT_SOURCE_MODES:
+    if mode not in accepted_provider_modes(config):
         raise ValueError(f"online source mode no soportado: {mode}")
     requested_mode = mode
-    mode = normalize_online_mode(mode)
+    mode = normalize_provider_mode(mode, config)
 
     proteins = _get_candidate_proteins(workspace)
     cache = load_uniprot_cache(workspace, config)
