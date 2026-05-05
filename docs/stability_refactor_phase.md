@@ -9,8 +9,10 @@ Esta fase endurece el proyecto sin cambiar su contrato historico. Mantiene Fase 
 - `scoring_components.py` concentra calculos testeables de score legacy, scores por estrategia, meta-prioridad y seleccion de estrategia preferida.
 - `user_explanations.py` genera explicaciones simples por candidato sin afirmar evidencia externa cuando solo hay demo, proxy, cache o datos incompletos.
 - `online/online_utils.py` explicita los modos `offline_only`, `local`, `cache_first`, `online_optional`, `auto` y `api_stub`.
+- `online/provider_modes.py` centraliza la normalizacion de modos para conectores rastreados como STRING y UniProt.
 - `online/provenance.py` agrega campos de procedencia operativa: `source_version`, `retrieval_mode`, `cache_status` y `provenance`.
 - `tests/conftest.py` garantiza marcadores pytest operativos para separar suites offline, online, lentas e integracion.
+- `ranking_snapshots.py` genera snapshots compactos para comparar cambios de ranking sin depender de todo el reporte.
 
 ## Compatibilidad preservada
 
@@ -30,6 +32,8 @@ Los nuevos reportes son adicionales:
 
 - `results/candidate_explanations_simple.csv`
 - `results/candidate_explanations_simple.md`
+- `results/ranking_snapshot.csv`
+- `results/ranking_snapshot_comparison.csv` si existe `results/ranking_snapshot_reference.csv`
 
 ## Evidencia ausente vs evidencia negativa
 
@@ -50,5 +54,5 @@ Los errores de lectura/escritura deben indicar acciones concretas: cerrar Excel,
 ## Pasos futuros
 
 - Mover gradualmente mas bloques de `scoring.py` a helpers pequenos cuando haya pruebas de equivalencia por ranking.
-- Dividir `online_sources.py` por familias de proveedores cuando los contratos de capa esten completamente cubiertos por pruebas.
-- Agregar snapshots de ranking para comparar cambios numericos esperados en datasets controlados.
+- Dividir `online_sources.py` por familias de proveedores cuando el archivo este incorporado al control de versiones o se decida versionarlo explicitamente.
+- Crear snapshots de referencia curados para organismos demo y reales controlados.

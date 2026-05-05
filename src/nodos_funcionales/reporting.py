@@ -7,6 +7,7 @@ import pandas as pd
 
 from .organism_profile import write_organism_profile_validation
 from .provenance_user_summary import write_provenance_user_summary
+from .ranking_snapshots import write_ranking_snapshot_outputs
 from .user_explanations import build_simple_candidate_explanations, build_simple_candidate_explanations_markdown
 
 from .layer_registry import TARGET_LAYER_KEYS
@@ -1815,6 +1816,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         legacy_output.to_csv(results_dir / "ranking_nodos.csv")
     else:
         phase2_output.to_csv(results_dir / "ranking_nodos.csv")
+    _, ranking_snapshot_comparison_path = write_ranking_snapshot_outputs(results_dir, phase2_ranking)
     simple_explanations = build_simple_candidate_explanations(phase2_ranking, top_n)
     simple_explanations.to_csv(results_dir / "candidate_explanations_simple.csv", index=False)
     (results_dir / "candidate_explanations_simple.md").write_text(
@@ -2141,6 +2143,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         f"- Candidatos evaluados: {len(features)}",
         f"- Modo de pipeline: `{mode}`",
         "- Ranking principal: `results/ranking_nodos.csv`",
+        "- Snapshot compacto de ranking: `results/ranking_snapshot.csv`",
         "- Ranking legacy: `results/ranking_nodos_legacy.csv`",
         "- Resumen ejecutivo: `results/resumen_ejecutivo.md`",
         "- Explicacion simple para usuarios no tecnicos: `results/candidate_explanations_simple.md`",
@@ -2166,6 +2169,8 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "## Top candidatos",
         "",
     ]
+    if ranking_snapshot_comparison_path is not None:
+        report_lines.insert(10, "- Comparacion contra snapshot de referencia: `results/ranking_snapshot_comparison.csv`")
 
     report_lines.insert(10, "- Resumen por regla terapÃ©utica: `results/therapeutic_rule_summary.csv`")
 
