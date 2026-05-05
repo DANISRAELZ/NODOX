@@ -66,6 +66,26 @@ class UserHardeningTests(unittest.TestCase):
         self.assertTrue(bool(human["evidence_is_negative"]))
         self.assertIn("human_homologs.human_homolog", human["negative_evidence_reason"])
 
+    def test_demo_and_proxy_values_are_not_negative_evidence(self) -> None:
+        df = pd.DataFrame(
+            {
+                "protein_id": ["DEMO", "PROXY"],
+                "gene": ["demo", "proxy"],
+                "human_homolog": [1, 1],
+                "human_homologs_source_type": ["demo", "proxy"],
+                "human_homologs_source_name": ["example_demo", "proxy_default"],
+            }
+        )
+
+        audit = build_layer_evidence_audit(df)
+        human = audit.loc[
+            (audit["layer_name"] == "human_homologs")
+            & (audit["variable_name"] == "human_homolog")
+        ]
+
+        self.assertFalse(human["evidence_is_negative"].astype(bool).any())
+        self.assertTrue(set(human["evidence_source_type"]).issubset({"demo_data", "proxy_inference"}))
+
     def test_organism_profile_classifies_demo_workspace(self) -> None:
         workspace = self.make_workspace()
         features = pd.DataFrame({"protein_id": ["EXAMPLE_PROTEIN"], "essentiality_source_type": ["demo"]})
@@ -80,6 +100,16 @@ class UserHardeningTests(unittest.TestCase):
 
         self.assertIn("Excel", message)
         self.assertIn("OneDrive", message)
+        self.assertIn("ruta absoluta", message)
+
+    def test_io_error_messages_suggest_concrete_windows_actions(self) -> None:
+        missing = explain_io_error(FileNotFoundError("missing"), Path("C:/Users/x/OneDrive/missing file.csv"), "leer")
+        os_error = explain_io_error(OSError("sync"), Path("C:/Users/x/OneDrive/results/report.md"), "escribir")
+
+        self.assertIn("ruta absoluta", missing)
+        self.assertIn("sincronizacion", missing)
+        self.assertIn("Cierra Excel", os_error)
+        self.assertIn("carpeta local", os_error)
 
     def test_read_csv_wraps_permission_error(self) -> None:
         with patch("pandas.read_csv", side_effect=PermissionError("locked")):

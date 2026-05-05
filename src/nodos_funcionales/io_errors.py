@@ -21,17 +21,19 @@ def explain_io_error(exc: BaseException, path: str | Path, operation: str) -> st
     if isinstance(exc, PermissionError):
         return (
             f"{base} Parece que el archivo esta abierto en Excel, bloqueado por OneDrive o sin permisos de escritura."
-            f" Cierra el archivo, revisa permisos o usa un workspace fuera de OneDrive.{one_drive_hint} {detail}"
+            f" Cierra Excel, revisa permisos, usa una ruta absoluta o mueve el workspace fuera de OneDrive.{one_drive_hint} {detail}"
         )
     if isinstance(exc, FileNotFoundError):
         return (
             f"{base} La ruta no existe o OneDrive aun no la descargo localmente."
-            f" Revisa el nombre de la carpeta, espacios en la ruta y el estado de sincronizacion.{one_drive_hint} {detail}"
+            f" Revisa el nombre de la carpeta, usa una ruta absoluta, confirma espacios/caracteres especiales "
+            f"y espera a que termine la sincronizacion.{one_drive_hint} {detail}"
         )
     if isinstance(exc, OSError):
         return (
             f"{base} El sistema operativo reporto un problema de archivo. Puede ser bloqueo por Excel, ruta solo-nube, "
-            f"conflicto de sincronizacion o permisos insuficientes.{one_drive_hint} {detail}"
+            f"conflicto de sincronizacion o permisos insuficientes. Cierra Excel, espera la sincronizacion, "
+            f"usa una ruta absoluta o copia el workspace a una carpeta local.{one_drive_hint} {detail}"
         )
     return f"{base} {detail}"
 

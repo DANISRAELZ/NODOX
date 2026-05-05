@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 import pandas as pd
 
 from .online.provider_modes import accepted_provider_modes, normalize_provider_mode
+from .online.provenance import provider_provenance
 
 UNIPROT_SOURCE_MODES = {"offline_only", "cache_first", "online_optional", "local", "auto", "api_stub"}
 
@@ -305,6 +306,16 @@ def _build_cache_served_manifest(cached_manifest: dict[str, Any], mode: str) -> 
         "data_realism_flag": "computed_cached",
         "provenance_summary": f"provider={provider}; source_used=cache; cache_hit=True; api_success=False",
     }
+    served.update(
+        provider_provenance(
+            provider,
+            "cache",
+            float(cached_manifest.get("confidence", 0.80)),
+            retrieval_mode=mode,
+            cache_status="cache_hit",
+            source_version=str(cached_manifest.get("generated_at_utc", ""))[:10] or None,
+        )
+    )
     notes = list(served.get("notes", []))
     if "served_from_cache" not in notes:
         notes.append("served_from_cache")
@@ -397,8 +408,20 @@ def fetch_uniprot_annotations(
         "notes": notes,
         "generated_at_utc": _utc_now(),
         "data_realism_flag": "computed_online",
+        "confidence": 0.90,
         "provenance_summary": f"provider={cfg['provider_name']}; source_used=api_real; cache_hit=False; api_success=True",
     }
+    manifest.update(
+        provider_provenance(
+            str(cfg["provider_name"]),
+            str(manifest["source_used"]),
+            float(manifest["confidence"]),
+            retrieval_mode=mode,
+            cache_status="cache_miss",
+            source_version=str(manifest["generated_at_utc"])[:10],
+            incomplete=exact == 0 and partial == 0,
+        )
+    )
 
     if not no_write_cache:
         cache["entries"][cache_key] = {

@@ -102,6 +102,7 @@ Revise primero:
 - `results/ranking_nodos.csv`: ranking principal de la corrida actual. En `compare` representa Fase 2; en `legacy` copia el ranking legacy como salida primaria.
 - `results/report_phase2.md`: reporte tecnico con tablas, sensibilidad, procedencia y auditorias.
 - `results/candidate_explanations_simple.md`: explicacion para usuarios no tecnicos.
+- `results/ranking_snapshot.csv`: resumen compacto y determinista para detectar cambios de ranking entre corridas.
 - `results/ranking_nodos_phase3_real_candidates.csv`: candidatos incluidos en el ranking terapeutico real o exploratorio.
 - `results/ranking_nodos_phase3.csv`: todos los registros, incluidos demo/template, con banderas de exclusion.
 - `results/template_or_demo_records.csv`: registros excluidos por demo/template.
@@ -110,6 +111,16 @@ Revise primero:
 - `results/organism_profile_validation.md`: preparacion del organismo para demo, exploracion o analisis mas robusto.
 
 `included_real_candidate` indica varias capas reales convergentes. `included_exploratory_with_demo_support` indica evidencia real parcial mezclada con demo/proxy/default; puede revisarse, pero requiere curacion adicional.
+
+## Como usar snapshots de ranking
+
+Para guardar una referencia de una corrida que considere estable:
+
+```powershell
+Copy-Item results\ranking_snapshot.csv results\ranking_snapshot_reference.csv
+```
+
+Cuando vuelva a ejecutar el pipeline, si existe `ranking_snapshot_reference.csv`, se generara `results/ranking_snapshot_comparison.csv`. Ese archivo marca candidatos agregados, removidos, cambios de rank, cambios de score o ausencia de cambios.
 
 ## Por que mi ranking real esta vacio?
 
