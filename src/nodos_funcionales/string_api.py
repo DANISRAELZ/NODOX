@@ -381,6 +381,8 @@ def _build_cache_served_manifest(cached_manifest: dict[str, Any], mode: str) -> 
     provider = str(cached_manifest.get("provider", "string"))
     served = {
         **cached_manifest,
+        "source": cached_manifest.get("source", "string"),
+        "provider": provider,
         "mode": mode,
         "source_used": "cache",
         "cache_hit": True,
@@ -400,6 +402,12 @@ def _build_cache_served_manifest(cached_manifest: dict[str, Any], mode: str) -> 
             source_version=str(cached_manifest.get("generated_at_utc", ""))[:10] or None,
         )
     )
+    served.setdefault("taxon_id", cached_manifest.get("taxon_id"))
+    served.setdefault("protein_count_requested", int(cached_manifest.get("protein_count_requested", 0)))
+    served.setdefault("protein_count_mapped", int(cached_manifest.get("protein_count_mapped", 0)))
+    served.setdefault("mapping_gene_matches", int(cached_manifest.get("mapping_gene_matches", 0)))
+    served.setdefault("mapping_gene_mismatches", int(cached_manifest.get("mapping_gene_mismatches", 0)))
+    served.setdefault("edge_count", int(cached_manifest.get("edge_count", 0)))
     notes = list(served.get("notes", []))
     if "served_from_cache" not in notes:
         notes.append("served_from_cache")
