@@ -15,6 +15,14 @@ from .functional_node_theory import compute_functional_node_theory_score
 from .layer_registry import TARGET_LAYER_KEYS
 from .phase3_evidence import apply_phase3_evidence_audit
 from .redundancy_analysis import compute_redundancy_features
+from .scoring_components import (
+    assign_preferred_strategy,
+    calculate_legacy_score,
+    calculate_meta_priority_score,
+    calculate_strategy_scores,
+    human_similarity_score,
+    validate_scoring_inputs,
+)
 from .therapeutic_role_stability import build_therapeutic_role_stability_audit, build_therapeutic_role_stability_report
 from .virulence_layers import compute_virulence_layer_features
 
@@ -671,6 +679,7 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
     processed_dir = base_dir / "data_processed"
     integrated = pd.read_csv(processed_dir / "integrated_nodes.csv")
     features = integrated.copy()
+    validate_scoring_inputs(features)
 
     threshold = float(config["thresholds"]["evalue_significance"])
     neutral = float(config["imputation"]["neutral_unknown_score"])
@@ -794,19 +803,7 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
     )
     features = _defragment_frame(features)
 
-    def human_similarity(row: pd.Series) -> float:
-        human_homolog = row.get("human_homolog")
-        evalue = row.get("evalue")
-        if pd.isna(human_homolog):
-            return neutral
-        if int(human_homolog) == 0:
-            return 0.0
-        if pd.isna(evalue):
-            return 0.6
-        value = max(float(evalue), 1e-300)
-        return min(1.0, max(0.0, -math.log10(value) / 50.0))
-
-    features["human_similarity_score"] = features.apply(human_similarity, axis=1)
+    features["human_similarity_score"] = features.apply(lambda row: human_similarity_score(row, neutral), axis=1)
     if "domain_overlap_score" in features.columns:
         features["domain_overlap_score"] = pd.to_numeric(features["domain_overlap_score"], errors="coerce")
         features["domain_overlap_score_is_empirical"] = features["domain_overlap_score"].notna()
@@ -976,57 +973,29 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
     )
     _use_empirical_or_proxy(features, "infection_context_score", infection_context_proxy, "infection_context_score_is_proxy")
 
-    legacy_weights = config["weights"]["legacy"]
-    legacy_no_human = features["human_homolog"].map(lambda value: 1.0 if pd.isna(value) else 1.0 - float(value))
-    legacy_accessibility = features["physical_accessibility"]
-    legacy_host_risk = features.apply(
-        lambda row: 0.0
-        if pd.isna(row.get("human_homolog")) and neutral < 1
-        else (
-            neutral
-            if pd.isna(row.get("human_homolog"))
-            else (
-                0.0
-                if int(row["human_homolog"]) == 0
-                else (1.0 if (not pd.isna(row.get("evalue")) and float(row["evalue"]) <= threshold) else 0.5)
-            )
-        ),
-        axis=1,
-    )
-    features["legacy_score_final"] = _clamp(
-        legacy_weights["essentiality"] * features["essentiality_support"]
-        + legacy_weights["virulence"] * features["virulence_support"]
-        + legacy_weights["no_human_homolog"] * legacy_no_human
-        + legacy_weights["accessibility"] * legacy_accessibility
-        - legacy_weights["host_risk"] * legacy_host_risk
+    features["legacy_score_final"] = calculate_legacy_score(
+        features,
+        config["weights"]["legacy"],
+        neutral_unknown_score=neutral,
+        evalue_significance_threshold=threshold,
     )
 
-    antibiotic_score, antibiotic_contributions = _weighted_score(features, config["weights"]["antibiotic_target"])
-    antivirulence_score, antivirulence_contributions = _weighted_score(features, config["weights"]["antivirulence_target"])
-    functional_score, functional_contributions = _weighted_score(features, config["weights"]["functional_node"])
-
-    features["antibiotic_target_score"] = antibiotic_score
-    features["antivirulence_target_score"] = antivirulence_score
-    features["functional_node_score"] = functional_score
+    strategy_score_columns, strategy_contributions = calculate_strategy_scores(features, config["weights"])
+    for column, values in strategy_score_columns.items():
+        features[column] = values
+    antibiotic_contributions = strategy_contributions["antibiotic_target_score"]
+    antivirulence_contributions = strategy_contributions["antivirulence_target_score"]
+    functional_contributions = strategy_contributions["functional_node_score"]
     features = _defragment_frame(features)
 
-    meta_input = features[
-        ["antibiotic_target_score", "antivirulence_target_score", "functional_node_score"]
-    ].copy()
-    meta_score, meta_contributions = _weighted_score(meta_input, config["weights"]["meta_priority"])
+    meta_score, meta_contributions = calculate_meta_priority_score(features, config["weights"]["meta_priority"])
+    meta_input = features[list(config["weights"]["meta_priority"].keys())].copy()
     features["meta_priority_score"] = meta_score
     features = compute_evolutionary_escape_risk_features(features, config)
 
-    strategy_scores = features[STRATEGY_SCORE_COLUMNS].copy()
-    strategy_labels = {
-        "antibiotic_target_score": "antibiotic_target",
-        "antivirulence_target_score": "antivirulence_target",
-        "functional_node_score": "functional_node",
-    }
-    features["preferred_strategy"] = strategy_scores.idxmax(axis=1).map(strategy_labels)
-    features["preferred_strategy_score"] = strategy_scores.max(axis=1)
-    features["runner_up_strategy_score"] = strategy_scores.apply(lambda row: row.nlargest(2).iloc[-1], axis=1)
-    features["strategy_margin_score"] = (features["preferred_strategy_score"] - features["runner_up_strategy_score"]).round(4)
+    preferred_strategy_columns = assign_preferred_strategy(features)
+    for column in preferred_strategy_columns.columns:
+        features[column] = preferred_strategy_columns[column]
     therapeutic_priority, _ = _weighted_score(features, therapeutic_cfg["priority_weights"])
     features["therapeutic_priority_score"] = therapeutic_priority
     thresholds = therapeutic_cfg["classification_thresholds"]

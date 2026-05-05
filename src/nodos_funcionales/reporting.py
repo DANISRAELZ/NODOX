@@ -7,6 +7,7 @@ import pandas as pd
 
 from .organism_profile import write_organism_profile_validation
 from .provenance_user_summary import write_provenance_user_summary
+from .user_explanations import build_simple_candidate_explanations, build_simple_candidate_explanations_markdown
 
 from .layer_registry import TARGET_LAYER_KEYS
 
@@ -1814,6 +1815,12 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         legacy_output.to_csv(results_dir / "ranking_nodos.csv")
     else:
         phase2_output.to_csv(results_dir / "ranking_nodos.csv")
+    simple_explanations = build_simple_candidate_explanations(phase2_ranking, top_n)
+    simple_explanations.to_csv(results_dir / "candidate_explanations_simple.csv", index=False)
+    (results_dir / "candidate_explanations_simple.md").write_text(
+        build_simple_candidate_explanations_markdown(simple_explanations),
+        encoding="utf-8",
+    )
     (results_dir / "resumen_ejecutivo.md").write_text(
         _build_executive_summary(phase2_ranking, top_n, literature_support, workspace_metadata),
         encoding="utf-8",
@@ -2136,6 +2143,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "- Ranking principal: `results/ranking_nodos.csv`",
         "- Ranking legacy: `results/ranking_nodos_legacy.csv`",
         "- Resumen ejecutivo: `results/resumen_ejecutivo.md`",
+        "- Explicacion simple para usuarios no tecnicos: `results/candidate_explanations_simple.md`",
         "- Soporte bibliografico interpretativo: `results/literature_support_summary.csv`",
         "- Fuerza de evidencia interpretativa: `results/evidence_strength_audit.csv`",
         "- Auditoria de homologos humanos: `results/human_homologs_audit.csv`",
