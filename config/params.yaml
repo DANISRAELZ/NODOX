@@ -110,8 +110,11 @@ online_sources:
   source_mode_default: cache_first
   accepted_modes:
     offline_only: true
+    local: true
     cache_first: true
     online_optional: true
+    api_stub: true
+    auto: true
   write_cache_by_default: true
   string:
     enabled: true
