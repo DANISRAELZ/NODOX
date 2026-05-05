@@ -38,6 +38,10 @@ SLOW_FILE_KEYWORDS = {
     "run_pipeline",
 }
 
+SNAPSHOT_FILE_KEYWORDS = {
+    "ranking_snapshots",
+}
+
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Ensure every test has an explicit operational class marker."""
@@ -54,6 +58,9 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
                 item.add_marker(pytest.mark.unit)
 
         existing = {marker.name for marker in item.iter_markers()}
+        if "snapshot" not in existing and any(keyword in filename for keyword in SNAPSHOT_FILE_KEYWORDS):
+            item.add_marker(pytest.mark.snapshot)
+            existing = {marker.name for marker in item.iter_markers()}
         if "online" in existing:
             item.add_marker(pytest.mark.slow)
         elif "slow" not in existing and any(keyword in filename for keyword in SLOW_FILE_KEYWORDS):
