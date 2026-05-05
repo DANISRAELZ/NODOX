@@ -7,6 +7,7 @@ __pycache__/
 .pip_tmp/
 .tmp_tests/
 .tmp_source_audit/
+.tmp*/
 .snakemake/
 .vendor/
 
@@ -37,6 +38,12 @@ Thumbs.db
 
 # Logs
 *.log
+*.tmp
+*.bak
+~$*
+*.swp
+*.part
+desktop.ini
 
 # Generated pipeline outputs
 data_processed/
@@ -48,3 +55,11 @@ data_sessions/*/results/
 data_sessions/*/.cache/
 data_sessions/*/cache/
 data_sessions/*/logs/
+data_sessions/*/data_external/
+data_sessions/*/data_cache/
+
+# Keep these tracked intentionally when the repository is packaged:
+# - data_templates/
+# - docs/
+# - config/*.yaml and config/*.json examples
+# - data_demo/ when explicitly used as packaged demo input

@@ -29,6 +29,12 @@ python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow
 
 El demo sirve para verificar que el pipeline funciona. Cualquier fila marcada como `demo_data`, `default_value` o `template_record` no debe interpretarse como evidencia biologica real.
 
+Para correr el modo minimo de compatibilidad Fase 1/Fase 2:
+
+```powershell
+python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare --taxon-resolution-mode offline_only
+```
+
 ## Correr un organismo nuevo
 
 ```powershell
@@ -36,6 +42,20 @@ python run_pipeline.py --organism "Nombre bacteriano" --strain "Cepa" --workspac
 ```
 
 Para evitar problemas de sincronizacion en Windows, use un workspace local estable. Si OneDrive bloquea archivos, pruebe una carpeta fuera de OneDrive.
+
+## Perfil minimo por organismo
+
+Antes de interpretar un ranking real, documente como minimo:
+
+- `organism`: nombre cientifico.
+- `strain`: cepa o aislado.
+- `taxon_id`: identificador taxonomico, o modo de resolucion taxonomica documentado.
+- Lista de genes/proteinas/nodos: al menos `protein_id` y, si existe, `gene`.
+- Evidencia funcional minima: esencialidad, virulencia o anotacion funcional trazable.
+- Datos de conservacion si existen.
+- Fuente de anotacion: base de datos, archivo de usuario, version o fecha.
+
+El pipeline permite analisis exploratorio con datos parciales, pero marcara baja confianza cuando falten capas criticas.
 
 ## Archivos minimos que debe llenar el usuario
 
@@ -55,6 +75,14 @@ Para fortalecer Fase 3, agregue:
 - `data_user/clinical_impact.csv`
 - `data_user/therapy_site_context.csv`
 
+## Sustituir demo por datos reales
+
+1. Copie una plantilla desde `data_templates/` hacia `data_user/` o al workspace del organismo.
+2. Rellene valores reales y referencias en las columnas de evidencia.
+3. Mantenga columnas de procedencia como `database`, `source`, `reference`, `doi_or_url` o equivalentes cuando existan.
+4. Ejecute sin `--allow-demo-data` si desea comprobar que no depende de ejemplos.
+5. Revise `results/provenance_user_summary.md` y `results/organism_profile_validation.md` antes de interpretar candidatos.
+
 ## Tipos de evidencia
 
 - `user_curated`: datos curados por el usuario.
@@ -71,6 +99,9 @@ Para fortalecer Fase 3, agregue:
 
 Revise primero:
 
+- `results/ranking_nodos.csv`: ranking principal de la corrida actual. En `compare` representa Fase 2; en `legacy` copia el ranking legacy como salida primaria.
+- `results/report_phase2.md`: reporte tecnico con tablas, sensibilidad, procedencia y auditorias.
+- `results/candidate_explanations_simple.md`: explicacion para usuarios no tecnicos.
 - `results/ranking_nodos_phase3_real_candidates.csv`: candidatos incluidos en el ranking terapeutico real o exploratorio.
 - `results/ranking_nodos_phase3.csv`: todos los registros, incluidos demo/template, con banderas de exclusion.
 - `results/template_or_demo_records.csv`: registros excluidos por demo/template.
