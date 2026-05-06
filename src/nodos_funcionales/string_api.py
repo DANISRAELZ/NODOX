@@ -135,7 +135,11 @@ def _get_candidate_proteins(workspace: Path) -> pd.DataFrame:
             if not protein_id:
                 continue
             gene = str(row.get("gene", "")).strip() or protein_id
-            candidates.setdefault(protein_id.upper(), {"protein_id": protein_id.upper(), "gene": gene})
+            locus_tag = str(row.get("locus_tag", "") or row.get("locusTag", "") or "").strip()
+            candidates.setdefault(
+                protein_id.upper(),
+                {"protein_id": protein_id.upper(), "gene": gene, "locus_tag": locus_tag},
+            )
     if not candidates:
         raise ValueError("No hay proteínas base en el workspace para consultar STRING.")
     proteins = pd.DataFrame(candidates.values()).sort_values("protein_id").reset_index(drop=True)
@@ -181,12 +185,66 @@ def _extract_string_mappings(payload: Any) -> pd.DataFrame:
         rows.append(
             {
                 "protein_id": query_term.upper(),
+                "query_sent_to_string": query_term,
                 "string_id": str(item.get("stringId") or "").strip(),
                 "preferred_name": str(item.get("preferredName") or query_term).strip(),
+                "ncbi_taxon_id": str(item.get("ncbiTaxonId") or item.get("taxonId") or "").strip(),
                 "annotation": str(item.get("annotation") or "").strip(),
             }
         )
     return pd.DataFrame(rows)
+
+
+def _normalize_identifier(value: object) -> str:
+    if pd.isna(value):
+        return ""
+    return str(value or "").strip().casefold()
+
+
+def _string_id_suffix(string_id: object) -> str:
+    if pd.isna(string_id):
+        return ""
+    value = str(string_id or "").strip()
+    if "." in value:
+        return value.rsplit(".", 1)[-1]
+    return value
+
+
+def _clean_text(value: object) -> str:
+    if pd.isna(value):
+        return ""
+    return str(value or "").strip()
+
+
+def _classify_mapping(row: pd.Series, expected_taxon_id: str | None) -> tuple[str, float, str]:
+    protein_id = _normalize_identifier(row.get("protein_id"))
+    gene = _normalize_identifier(row.get("gene"))
+    locus_tag = _normalize_identifier(row.get("locus_tag"))
+    preferred_name = _normalize_identifier(row.get("preferred_name"))
+    string_id = _clean_text(row.get("string_id"))
+    string_suffix = _normalize_identifier(_string_id_suffix(string_id))
+    ncbi_taxon_id = _clean_text(row.get("ncbi_taxon_id"))
+    annotation = _normalize_identifier(row.get("annotation"))
+    mapping_count = int(row.get("mapping_candidate_count") or 0)
+    expected_taxon = str(expected_taxon_id or "").strip()
+
+    if not string_id:
+        return "missing_mapping", 0.0, "STRING returned no stringId for this local protein_id."
+    if expected_taxon and ncbi_taxon_id and ncbi_taxon_id != expected_taxon:
+        return "taxon_mismatch", 0.0, f"STRING taxon {ncbi_taxon_id} differs from expected taxon {expected_taxon}."
+    if mapping_count > 1:
+        return "ambiguous_mapping", 0.40, "STRING returned multiple candidate mappings for the same query."
+    if gene and (preferred_name == gene or string_suffix == gene):
+        return "exact_match", 0.90, ""
+    if locus_tag and (preferred_name == locus_tag or string_suffix == locus_tag):
+        return "locus_tag_match", 0.82, ""
+    if gene and gene in annotation:
+        return "synonym_match", 0.65, "Local gene appears in STRING annotation but not as preferredName."
+    if protein_id and (preferred_name == protein_id or string_suffix == protein_id):
+        if gene and preferred_name and preferred_name != gene:
+            return "preferred_name_mismatch", 0.55, "STRING id matches local protein_id but preferredName differs from local gene."
+        return "exact_match", 0.90, ""
+    return "ambiguous_mapping", 0.40, "STRING mapping could not be reconciled with local protein_id, gene, or locus_tag."
 
 
 def _extract_edges(payload: Any) -> pd.DataFrame:
@@ -269,12 +327,31 @@ def _derive_functional_network(
     api_attempted: bool,
     api_success: bool,
     fallback_reason: str | None,
+    taxon_id: str | None = None,
 ) -> pd.DataFrame:
-    merged = proteins.merge(mappings, on="protein_id", how="left")
+    mapping_counts = (
+        mappings.groupby("protein_id").size().rename("mapping_candidate_count")
+        if not mappings.empty and "protein_id" in mappings.columns
+        else pd.Series(dtype="int64", name="mapping_candidate_count")
+    )
+    mapping_single = mappings.drop_duplicates(subset=["protein_id"], keep="first") if not mappings.empty else mappings
+    merged = proteins.merge(mapping_single, on="protein_id", how="left")
+    if not mapping_counts.empty:
+        merged = merged.merge(mapping_counts.reset_index(), on="protein_id", how="left")
+    else:
+        merged["mapping_candidate_count"] = 0
+    for column in ["query_sent_to_string", "string_id", "preferred_name", "ncbi_taxon_id", "annotation", "locus_tag"]:
+        if column not in merged.columns:
+            merged[column] = ""
+    merged["mapping_candidate_count"] = merged["mapping_candidate_count"].fillna(0).astype(int)
     merged["mapping_matches_input_gene"] = (
         merged["gene"].fillna("").astype(str).str.casefold()
         == merged["preferred_name"].fillna("").astype(str).str.casefold()
     )
+    mapping_audit = merged.apply(lambda row: _classify_mapping(row, taxon_id), axis=1)
+    merged["mapping_status"] = mapping_audit.map(lambda item: item[0])
+    merged["mapping_confidence"] = mapping_audit.map(lambda item: item[1])
+    merged["mapping_warning"] = mapping_audit.map(lambda item: item[2])
     string_to_protein = {
         str(row["string_id"]): str(row["protein_id"])
         for _, row in merged.dropna(subset=["string_id"]).iterrows()
@@ -335,10 +412,88 @@ def _derive_functional_network(
                 "string_id": protein.get("string_id", ""),
                 "string_preferred_name": protein.get("preferred_name", ""),
                 "input_gene": protein.get("gene", ""),
+                "input_locus_tag": protein.get("locus_tag", ""),
+                "query_sent_to_string": protein.get("query_sent_to_string", protein_id),
+                "string_id_returned": protein.get("string_id", ""),
+                "preferred_name_returned": protein.get("preferred_name", ""),
+                "ncbi_taxon_id": protein.get("ncbi_taxon_id", ""),
+                "mapping_status": protein.get("mapping_status", "unresolved"),
+                "mapping_confidence": round(float(protein.get("mapping_confidence", 0.0)), 3),
+                "mapping_warning": protein.get("mapping_warning", ""),
+                "mapping_candidate_count": int(protein.get("mapping_candidate_count", 0)),
                 "mapping_matches_input_gene": bool(protein.get("mapping_matches_input_gene", False)),
+                "used_as_final_protein_id": protein_id,
+                "used_as_final_gene": protein.get("gene", ""),
+                "evidence_source": source_used,
+                "cache_status": "cache_hit" if cache_hit else "cache_miss",
+                "run_kind": "cache_reuse_run" if cache_hit and not api_attempted else ("fresh_api_run" if api_attempted and api_success else "fallback_mapping"),
+                "interaction_partner_count": len(adjacency.get(protein_id, set())),
             }
         )
     return pd.DataFrame(rows)
+
+
+def _write_string_mapping_audit(workspace: Path, functional_network: pd.DataFrame, manifest: dict[str, Any]) -> tuple[Path, Path]:
+    results_dir = workspace / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    audit_path = results_dir / "string_mapping_audit.csv"
+    report_path = results_dir / "string_mapping_audit.md"
+    columns = [
+        "input_protein_id",
+        "input_gene",
+        "input_locus_tag",
+        "query_sent_to_string",
+        "string_id_returned",
+        "preferred_name_returned",
+        "ncbi_taxon_id",
+        "mapping_status",
+        "mapping_confidence",
+        "mapping_warning",
+        "used_as_final_protein_id",
+        "used_as_final_gene",
+        "evidence_source",
+        "run_kind",
+        "cache_status",
+        "interaction_partner_count",
+    ]
+    audit = pd.DataFrame()
+    if not functional_network.empty:
+        audit = functional_network.copy()
+        audit["input_protein_id"] = audit.get("protein_id", pd.Series(dtype=str))
+        for column in columns:
+            if column not in audit.columns:
+                audit[column] = ""
+        audit = audit[columns]
+    audit.to_csv(audit_path, index=False)
+
+    status_counts = audit["mapping_status"].value_counts().to_dict() if "mapping_status" in audit.columns else {}
+    ambiguous_count = int(
+        audit.get("mapping_status", pd.Series(dtype=str)).astype(str).isin(
+            ["preferred_name_mismatch", "taxon_mismatch", "ambiguous_mapping", "missing_mapping", "fallback_mapping", "unresolved"]
+        ).sum()
+    ) if not audit.empty else 0
+    lines = [
+        "# STRING Mapping Audit",
+        "",
+        f"- Source used: `{manifest.get('source_used', '')}`",
+        f"- Run kind: `{manifest.get('run_kind', '')}`",
+        f"- Cache status: `{'cache_hit' if manifest.get('cache_hit') else 'cache_miss'}`",
+        f"- Queries sent: `{manifest.get('protein_count_requested', 0)}`",
+        f"- Exact matches: `{status_counts.get('exact_match', 0)}`",
+        f"- Synonym matches: `{status_counts.get('synonym_match', 0)}`",
+        f"- Locus-tag matches: `{status_counts.get('locus_tag_match', 0)}`",
+        f"- Preferred-name mismatches: `{status_counts.get('preferred_name_mismatch', 0)}`",
+        f"- Ambiguous mappings: `{status_counts.get('ambiguous_mapping', 0)}`",
+        f"- Missing mappings: `{status_counts.get('missing_mapping', 0)}`",
+        f"- Taxon mismatches: `{status_counts.get('taxon_mismatch', 0)}`",
+        f"- Ambiguous or degraded records: `{ambiguous_count}`",
+        "",
+        "## Interpretation",
+        "",
+        "Mappings with degraded status remain traceable and should not be promoted to curated evidence without review.",
+    ]
+    report_path.write_text("\n".join(lines), encoding="utf-8")
+    return audit_path, report_path
 
 
 def _write_manifest_and_report(workspace: Path, manifest: dict[str, Any]) -> tuple[Path, Path]:
@@ -407,12 +562,31 @@ def _build_cache_served_manifest(cached_manifest: dict[str, Any], mode: str) -> 
     served.setdefault("protein_count_mapped", int(cached_manifest.get("protein_count_mapped", 0)))
     served.setdefault("mapping_gene_matches", int(cached_manifest.get("mapping_gene_matches", 0)))
     served.setdefault("mapping_gene_mismatches", int(cached_manifest.get("mapping_gene_mismatches", 0)))
+    served.setdefault("mapping_status_counts", cached_manifest.get("mapping_status_counts", {}))
+    served.setdefault("degraded_mapping_count", int(cached_manifest.get("degraded_mapping_count", 0)))
     served.setdefault("edge_count", int(cached_manifest.get("edge_count", 0)))
+    served["run_kind"] = "cache_reuse_run"
     notes = list(served.get("notes", []))
     if "served_from_cache" not in notes:
         notes.append("served_from_cache")
     served["notes"] = notes
     return served
+
+
+def _mark_cached_functional_network(functional_network: pd.DataFrame, fallback_reason: str | None = None) -> pd.DataFrame:
+    cached = functional_network.copy()
+    if cached.empty:
+        return cached
+    cached["source_used"] = "cache"
+    cached["cache_hit"] = True
+    cached["api_attempted"] = bool(fallback_reason)
+    cached["api_success"] = False
+    cached["fallback_reason"] = fallback_reason or ""
+    cached["data_realism_flag"] = "computed_cached"
+    cached["evidence_source"] = "cache"
+    cached["cache_status"] = "cache_fallback" if fallback_reason else "cache_hit"
+    cached["run_kind"] = "fallback_after_api_failure" if fallback_reason else "cache_reuse_run"
+    return cached
 
 
 def fetch_string_functional_network(
@@ -439,7 +613,7 @@ def fetch_string_functional_network(
     if not refresh_cache and normalized_mode in {"offline_only", "cache_first", "online_optional"}:
         cached_entry = cache["entries"].get(cache_key)
         if cached_entry:
-            cached_df = pd.DataFrame(cached_entry.get("functional_network_rows", []))
+            cached_df = _mark_cached_functional_network(pd.DataFrame(cached_entry.get("functional_network_rows", [])))
             manifest = _build_cache_served_manifest(cached_entry.get("manifest", {}), normalized_mode)
             manifest["requested_mode"] = requested_mode
             manifest["output_written"] = False
@@ -451,6 +625,10 @@ def fetch_string_functional_network(
             )
             manifest["output_written"] = bool(output_path)
             manifest["output_path"] = str(output_path) if output_path else None
+            manifest["run_kind"] = "cache_reuse_run"
+            audit_path, audit_report_path = _write_string_mapping_audit(workspace, cached_df, manifest)
+            manifest["mapping_audit_path"] = str(audit_path)
+            manifest["mapping_audit_report_path"] = str(audit_report_path)
             manifest_path, report_path = _write_manifest_and_report(workspace, manifest)
             return {
                 "functional_network": cached_df,
@@ -475,7 +653,10 @@ def fetch_string_functional_network(
     if mappings.empty:
         if normalized_mode == "online_optional" and cache["entries"].get(cache_key):
             cached_entry = cache["entries"][cache_key]
-            cached_df = pd.DataFrame(cached_entry.get("functional_network_rows", []))
+            cached_df = _mark_cached_functional_network(
+                pd.DataFrame(cached_entry.get("functional_network_rows", [])),
+                fallback_reason="mapping_failed_fallback_cache",
+            )
             manifest = {
                 **cached_entry.get("manifest", {}),
                 "source_used": "cache",
@@ -499,6 +680,10 @@ def fetch_string_functional_network(
             output_path = _write_functional_network_output(workspace, cached_df, config, replace_existing=replace_existing)
             manifest["output_written"] = bool(output_path)
             manifest["output_path"] = str(output_path) if output_path else None
+            manifest["run_kind"] = "fallback_after_api_failure"
+            audit_path, audit_report_path = _write_string_mapping_audit(workspace, cached_df, manifest)
+            manifest["mapping_audit_path"] = str(audit_path)
+            manifest["mapping_audit_report_path"] = str(audit_report_path)
             manifest_path, report_path = _write_manifest_and_report(workspace, manifest)
             return {
                 "functional_network": cached_df,
@@ -513,7 +698,10 @@ def fetch_string_functional_network(
     notes.extend(edge_errors)
     if edge_payload is None and normalized_mode == "online_optional" and cache["entries"].get(cache_key):
         cached_entry = cache["entries"][cache_key]
-        cached_df = pd.DataFrame(cached_entry.get("functional_network_rows", []))
+        cached_df = _mark_cached_functional_network(
+            pd.DataFrame(cached_entry.get("functional_network_rows", [])),
+            fallback_reason="network_fetch_failed_fallback_cache",
+        )
         manifest = {
             **cached_entry.get("manifest", {}),
             "source_used": "cache",
@@ -537,6 +725,10 @@ def fetch_string_functional_network(
         output_path = _write_functional_network_output(workspace, cached_df, config, replace_existing=replace_existing)
         manifest["output_written"] = bool(output_path)
         manifest["output_path"] = str(output_path) if output_path else None
+        manifest["run_kind"] = "fallback_after_api_failure"
+        audit_path, audit_report_path = _write_string_mapping_audit(workspace, cached_df, manifest)
+        manifest["mapping_audit_path"] = str(audit_path)
+        manifest["mapping_audit_report_path"] = str(audit_report_path)
         manifest_path, report_path = _write_manifest_and_report(workspace, manifest)
         return {
             "functional_network": cached_df,
@@ -557,12 +749,27 @@ def fetch_string_functional_network(
         api_attempted=True,
         api_success=api_success and edge_payload is not None,
         fallback_reason=fallback_reason,
+        taxon_id=taxon_id,
     )
     mapped_gene_matches = int(derived["mapping_matches_input_gene"].sum()) if "mapping_matches_input_gene" in derived.columns else 0
     mapped_gene_mismatches = int(len(derived) - mapped_gene_matches)
+    mapping_status_counts = (
+        derived["mapping_status"].fillna("unresolved").astype(str).value_counts().to_dict()
+        if "mapping_status" in derived.columns
+        else {}
+    )
+    degraded_mapping_count = int(
+        derived.get("mapping_status", pd.Series(dtype=str)).astype(str).isin(
+            ["preferred_name_mismatch", "taxon_mismatch", "ambiguous_mapping", "missing_mapping", "fallback_mapping", "unresolved"]
+        ).sum()
+    )
     if mapped_gene_mismatches:
         notes.append(
             f"Se detectaron {mapped_gene_mismatches} discrepancias entre `gene` local y `string_preferred_name`; usar este enriquecimiento con cautela."
+        )
+    if degraded_mapping_count:
+        notes.append(
+            f"STRING mapping audit registro {degraded_mapping_count} mappings degradados o ambiguos; revisar string_mapping_audit.csv antes de curar snapshots."
         )
     manifest = {
         "source": "string",
@@ -577,6 +784,8 @@ def fetch_string_functional_network(
         "protein_count_mapped": int(mappings["string_id"].astype(str).str.strip().ne("").sum()),
         "mapping_gene_matches": mapped_gene_matches,
         "mapping_gene_mismatches": mapped_gene_mismatches,
+        "mapping_status_counts": mapping_status_counts,
+        "degraded_mapping_count": degraded_mapping_count,
         "edge_count": int(len(edges)),
         "source_used": "api_real",
         "cache_hit": False,
@@ -587,6 +796,7 @@ def fetch_string_functional_network(
         "generated_at_utc": _utc_now(),
         "data_realism_flag": "computed_online",
         "confidence": 0.88 if edge_payload is not None else 0.78,
+        "run_kind": "fresh_api_run" if edge_payload is not None else "fallback_mapping",
         "provenance_summary": (
             f"provider={cfg['provider_name']}; source_used=api_real; cache_hit=False; api_success={edge_payload is not None}"
         ),
@@ -617,6 +827,9 @@ def fetch_string_functional_network(
     output_path = _write_functional_network_output(workspace, derived, config, replace_existing=replace_existing)
     manifest["output_written"] = bool(output_path)
     manifest["output_path"] = str(output_path) if output_path else None
+    audit_path, audit_report_path = _write_string_mapping_audit(workspace, derived, manifest)
+    manifest["mapping_audit_path"] = str(audit_path)
+    manifest["mapping_audit_report_path"] = str(audit_report_path)
     manifest_path, report_path = _write_manifest_and_report(workspace, manifest)
     return {
         "functional_network": derived,

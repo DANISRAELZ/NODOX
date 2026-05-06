@@ -93,8 +93,14 @@ class StringApiTests(unittest.TestCase):
         df = pd.read_csv(workspace / "data_raw" / "functional_network.csv")
         self.assertIn("network_centrality", df.columns)
         self.assertIn("provider", df.columns)
+        self.assertIn("mapping_status", df.columns)
+        self.assertTrue((workspace / "results" / "string_mapping_audit.csv").exists())
+        audit = pd.read_csv(workspace / "results" / "string_mapping_audit.csv")
+        self.assertIn("mapping_status", audit.columns)
+        self.assertIn("preferred_name_mismatch", set(audit["mapping_status"]))
         self.assertEqual(result["manifest"]["source_used"], "api_real")
         self.assertTrue(result["manifest"]["api_success"])
+        self.assertGreater(result["manifest"]["degraded_mapping_count"], 0)
 
     def test_fetch_string_functional_network_offline_uses_cache(self) -> None:
         workspace = self.make_workspace("string_cache")
@@ -126,8 +132,76 @@ class StringApiTests(unittest.TestCase):
         self.assertTrue(result["manifest"]["cache_hit"])
         self.assertFalse(result["manifest"]["api_attempted"])
         self.assertFalse(result["manifest"]["api_success"])
+        df = pd.read_csv(workspace / "data_raw" / "functional_network.csv")
+        self.assertIn("mapping_status", df.columns)
+        self.assertTrue(df["run_kind"].astype(str).eq("cache_reuse_run").all())
+        self.assertTrue(df["cache_status"].astype(str).eq("cache_hit").all())
         cache = load_string_cache(workspace, config)
         self.assertTrue(cache["entries"])
+
+    def test_string_mapping_audit_classifies_exact_mismatch_missing_and_taxon(self) -> None:
+        workspace = self.make_workspace("string_mapping_status")
+        config = load_config(workspace / "config" / "params.yaml")
+        with patch("src.nodos_funcionales.string_api.urlopen") as urlopen_mock:
+            urlopen_mock.side_effect = [
+                FakeResponse(
+                    [
+                        {"queryItem": "PA0001", "stringId": "287.gyrB", "preferredName": "gyrB", "ncbiTaxonId": 287},
+                        {"queryItem": "PA0002", "stringId": "287.PA0002", "preferredName": "dnaN", "ncbiTaxonId": 287},
+                        {"queryItem": "PA0003", "stringId": "999.ftsZ", "preferredName": "ftsZ", "ncbiTaxonId": 999},
+                    ]
+                ),
+                FakeResponse([]),
+            ]
+            fetch_string_functional_network(
+                workspace=workspace,
+                organism_name="Pseudomonas aeruginosa",
+                taxon_id="287",
+                config=config,
+                mode="online_optional",
+                replace_existing=True,
+            )
+
+        audit = pd.read_csv(workspace / "results" / "string_mapping_audit.csv")
+        by_protein = dict(zip(audit["input_protein_id"], audit["mapping_status"]))
+        self.assertEqual(by_protein["PA0001"], "exact_match")
+        self.assertEqual(by_protein["PA0002"], "preferred_name_mismatch")
+        self.assertEqual(by_protein["PA0003"], "taxon_mismatch")
+        self.assertEqual(by_protein["PA0004"], "missing_mapping")
+        confidence = dict(zip(audit["input_protein_id"], audit["mapping_confidence"]))
+        self.assertGreater(confidence["PA0001"], confidence["PA0002"])
+        self.assertEqual(confidence["PA0003"], 0.0)
+
+    def test_string_mapping_audit_classifies_ambiguous_duplicate_mapping(self) -> None:
+        workspace = self.make_workspace("string_mapping_ambiguous")
+        config = load_config(workspace / "config" / "params.yaml")
+        with patch("src.nodos_funcionales.string_api.urlopen") as urlopen_mock:
+            urlopen_mock.side_effect = [
+                FakeResponse(
+                    [
+                        {"queryItem": "PA0001", "stringId": "287.PA0001", "preferredName": "gyrB", "ncbiTaxonId": 287},
+                        {"queryItem": "PA0001", "stringId": "287.PA0001_alt", "preferredName": "gyrB_alt", "ncbiTaxonId": 287},
+                    ]
+                    + [
+                        {"queryItem": f"PA000{i}", "stringId": f"287.PA000{i}", "preferredName": f"gene{i}", "ncbiTaxonId": 287}
+                        for i in range(2, 11)
+                    ]
+                ),
+                FakeResponse([]),
+            ]
+            fetch_string_functional_network(
+                workspace=workspace,
+                organism_name="Pseudomonas aeruginosa",
+                taxon_id="287",
+                config=config,
+                mode="online_optional",
+                replace_existing=True,
+            )
+
+        audit = pd.read_csv(workspace / "results" / "string_mapping_audit.csv")
+        row = audit.loc[audit["input_protein_id"] == "PA0001"].iloc[0]
+        self.assertEqual(row["mapping_status"], "ambiguous_mapping")
+        self.assertEqual(int(row["mapping_confidence"] * 100), 40)
 
     def test_invalidate_string_cache_entry(self) -> None:
         workspace = self.make_workspace("string_invalidate")
