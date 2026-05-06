@@ -1,0 +1,2 @@
+candidate_id,gene,protein_id,organism,strain,mutation_tolerance_score,functional_redundancy_escape_score,compensatory_pathway_score,fitness_cost_of_escape,evolutionary_constraint_score,resistance_emergence_risk,multi_node_dependency_score,evidence_source,source_type,confidence,notes
+example_candidate,gyrB,PA0001,Pseudomonas aeruginosa,PAO1,,,,,,,,curated_reference_or_dataset,user,low,Replace this example with curated organism-specific evidence.

@@ -1,0 +1,2 @@
+protein_id,gene,network_centrality,pathway_bottleneck_score,redundancy_penalty,functional_dependency_score,database
+EXAMPLE_PROTEIN,example_gene,0.70,0.60,0.20,0.75,example_user_curated

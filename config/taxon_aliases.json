@@ -1,0 +1,37 @@
+{
+  "entries": [
+    {
+      "canonical_name": "Pseudomonas aeruginosa",
+      "taxon_id": "287",
+      "rank": "species",
+      "aliases": [
+        "Pseudomonas aeruginosa",
+        "P. aeruginosa",
+        "pseudomonas aeruginosa"
+      ],
+      "known_strains": ["PAO1"]
+    },
+    {
+      "canonical_name": "Corynebacterium pseudotuberculosis",
+      "taxon_id": "1719",
+      "rank": "species",
+      "aliases": [
+        "Corynebacterium pseudotuberculosis",
+        "C. pseudotuberculosis",
+        "corynebacterium pseudotuberculosis"
+      ],
+      "known_strains": []
+    },
+    {
+      "canonical_name": "Mycobacterium tuberculosis",
+      "taxon_id": "1773",
+      "rank": "species",
+      "aliases": [
+        "Mycobacterium tuberculosis",
+        "M. tuberculosis",
+        "mycobacterium tuberculosis"
+      ],
+      "known_strains": ["H37Rv"]
+    }
+  ]
+}

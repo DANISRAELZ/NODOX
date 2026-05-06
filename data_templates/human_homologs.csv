@@ -1,0 +1,2 @@
+protein_id,gene,human_homolog,evalue,human_gene,database
+EXAMPLE_PROTEIN,example_gene,0,1.0,none,example_user_curated

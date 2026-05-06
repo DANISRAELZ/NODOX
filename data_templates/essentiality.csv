@@ -1,0 +1,2 @@
+protein_id,gene,essential,evidence,database
+EXAMPLE_PROTEIN,example_gene,1,TnSeq,example_user_curated

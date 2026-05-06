@@ -1,0 +1,19 @@
+{
+  "entries": [
+    {
+      "canonical_name": "Pseudomonas aeruginosa",
+      "strain": "PAO1",
+      "dataset_kind": "packaged_demo",
+      "notes": "Demo local en data_demo/ para validar el flujo reproducible. No representa una adquisicion automatica real.",
+      "files": [
+        "essentiality.csv",
+        "virulence.csv",
+        "human_homologs.csv",
+        "localization.csv",
+        "strain_conservation.csv",
+        "functional_network.csv",
+        "host_annotation.csv"
+      ]
+    }
+  ]
+}

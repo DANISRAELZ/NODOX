@@ -1,0 +1,2 @@
+protein_id,gene,evidence_quality_score,confidence_ceiling,evidence_source_type,evidence_notes,audit_flags,phase3_notes,database
+EXAMPLE_PROTEIN,example_gene,0.75,0.75,curated_literature,short_traceable_note_about_phase3_evidence,example_only,phase3_optional_not_used_in_current_ranking,example_phase3_evidence_quality

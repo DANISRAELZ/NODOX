@@ -1,0 +1,12 @@
+organism: ""
+strain: ""
+taxon_id: ""
+host: ""
+disease: ""
+infection_site: ""
+analysis_mode: "user_data_plus_external"
+allow_demo_data: false
+external_sources:
+  string: false
+  uniprot: false
+notes: ""

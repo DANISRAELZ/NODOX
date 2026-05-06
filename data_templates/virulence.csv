@@ -1,0 +1,2 @@
+protein_id,gene,virulence_score,virulence_factor,database
+EXAMPLE_PROTEIN,example_gene,0.80,1,example_user_curated

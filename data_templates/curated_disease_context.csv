@@ -1,0 +1,2 @@
+protein_id,gene,infection_context_score,disease_context,infection_stage,context_evidence_type,context_evidence_reference,context_evidence_note,database
+EXAMPLE_PROTEIN,example_gene,0.75,pneumonia,acute_infection,curated_literature,doi_or_local_reference,short_note_about_infection_context,example_user_curated

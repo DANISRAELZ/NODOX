@@ -1,0 +1,2 @@
+protein_id,gene,organism,disease_context,evidence_type,therapeutic_relevance,virulence_relevance,essentiality_relevance,resistance_relevance,host_safety_relevance,evolutionary_escape_relevance,citation,doi,pubmed_id,year,evidence_strength,evidence_source_type,curator_notes,literature_support_score,source_quality,database
+EXAMPLE_PROTEIN,example_gene,example_organism,example_context,pending_manual_curation,0,0,0,0,0,0,TO_BE_CURATED,,TO_BE_CURATED,,0.0,missing,Example row only; replace before analysis,0.0,0.0,example_template
