@@ -27,3 +27,6 @@ Thumbs.db
 .idea/
 
 data_demo/
+
+# Vendored/local dependencies
+.vendor/
