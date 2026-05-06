@@ -3,6 +3,9 @@
 ## Riesgos actuales
 
 - `online_sources.py` aparece no rastreado en este workspace.
+- Bug operativo documentado el 04/05/2026: `--taxon-resolution-mode offline_only`
+  bloqueaba la resolucion taxonomica online, pero no impedia que proveedores de
+  capas externas intentaran red desde `online_sources.py`.
 - APIs externas pueden cambiar contratos, limites, campos o disponibilidad.
 - Cache obsoleto puede parecer evidencia actual si no se revisa `cache_status` y fecha.
 - Diferencias de punto flotante pueden aparecer aunque no cambie la formula.
@@ -13,8 +16,15 @@
 ## Mitigaciones implementadas
 
 - Modos online normalizados en `online/online_utils.py` y `online/provider_modes.py`.
+- `run_pipeline.py` acepta `--online-source-mode` y fuerza modo offline seguro para
+  fuentes externas cuando se usa `--offline-only`, `--taxon-resolution-mode offline_only`,
+  `local` o `api_stub`.
+- `fetch_layer_external_source()` actua como cortafuegos central antes de proveedores
+  reales: en `offline_only`, `local` y `api_stub` no llama UniProt, STRING, DEG, VFDB,
+  BV-BRC, InterPro ni ningun `urllib.request.urlopen`.
 - Procedencia estandarizada con `source_name`, `source_version`, `retrieval_mode`, `cache_status`, `provenance` y `confidence`.
 - Tests offline que verifican que cache/local/offline no abren red para STRING y UniProt.
+- Tests offline especificos para `human_homologs` con `uniprot_human_gene_lookup`.
 - Separacion explicita entre evidencia ausente y evidencia negativa.
 - Mensajes de error para OneDrive/Excel con acciones concretas.
 - `ranking_snapshot.csv` y referencia curada PAO1 para detectar regresiones.

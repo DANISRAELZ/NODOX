@@ -2126,6 +2126,10 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         top_n=top_n,
     )
     scientific_audit.to_csv(results_dir / "top10_scientific_audit.csv", index=False)
+    (results_dir / "top10_scientific_audit.json").write_text(
+        json.dumps(scientific_audit.to_dict(orient="records"), indent=2, ensure_ascii=True),
+        encoding="utf-8",
+    )
     (results_dir / "top10_scientific_audit.md").write_text(
         _build_top10_scientific_markdown(scientific_audit, provenance_summary, phase2_ranking),
         encoding="utf-8",

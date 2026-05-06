@@ -13,6 +13,52 @@ Validar conectores externos reales sin volver obligatoria la red para la suite o
 - `auto`: alias conservador de `cache_first`.
 - `online_optional`: unico modo que permite red; si falla debe degradar a cache, stub o missing cuando el conector lo permita.
 
+## Taxonomia vs fuentes externas
+
+`taxon_resolution_mode` controla solo como se resuelve el organismo y su `taxon_id`.
+`online_source_mode` controla si las capas externas pueden abrir red.
+
+Para ejecuciones completamente offline, `--offline-only`, `--taxon-resolution-mode offline_only`,
+`--taxon-resolution-mode local` y `--taxon-resolution-mode api_stub` fuerzan
+`online_source_mode=offline_only` durante la ejecucion del pipeline. Esto evita que
+capas como `human_homologs`, `functional_network`, `localization`, `host_annotation`,
+`essentiality`, `virulence` o `strain_conservation` llamen proveedores reales.
+
+El argumento compatible para controlar fuentes externas es:
+
+```powershell
+python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --online-source-mode online_optional
+```
+
+## Comandos recomendados
+
+Ejecucion completamente offline/cache segura:
+
+```powershell
+python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare --taxon-resolution-mode offline_only
+```
+
+PAO1 demo reproducible sin red:
+
+```powershell
+python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare --taxon-resolution-mode offline_only
+```
+
+Validacion online controlada:
+
+```powershell
+python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare --taxon-resolution-mode cache_first --online-source-mode online_optional
+```
+
+## Interpretacion de procedencia
+
+- `api_real_success` o `api_real`: evidencia externa real recuperada durante una llamada permitida.
+- `cache_hit`: dato servido desde cache local; no implica actualidad.
+- `cache_miss_offline_mode` o `api_not_requested_offline_mode`: no se abrio red por modo offline seguro.
+- `stub` o `configurable_stub`: relleno trazable para conservar el contrato; no es evidencia real.
+- `proxy`: valor por defecto explicito para mantener compatibilidad; no es evidencia real.
+- `missing` o `absence`: ausencia de dato, no evidencia biologica negativa.
+
 ## Comandos manuales PowerShell
 
 Auditoria controlada STRING/UniProt en workspace separado:

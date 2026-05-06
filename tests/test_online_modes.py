@@ -6,9 +6,13 @@ from unittest.mock import patch
 import pytest
 
 from src.nodos_funcionales.config import load_config
+from src.nodos_funcionales import online_sources
+from src.nodos_funcionales.layer_resolver import resolve_layer_inputs
+from src.nodos_funcionales.online_sources import fetch_layer_external_source
 from src.nodos_funcionales.online.online_utils import describe_online_mode, mode_allows_network, normalize_online_mode
 from src.nodos_funcionales.online.provider_modes import accepted_provider_modes, normalize_provider_mode
 from src.nodos_funcionales.online.provenance import provider_provenance
+from run_pipeline import main as run_pipeline_main
 from src.nodos_funcionales.string_api import (
     _build_cache_served_manifest as build_string_cache_manifest,
     _cache_key as string_cache_key,
@@ -66,6 +70,104 @@ def test_provider_modes_respect_config_and_aliases() -> None:
     assert normalize_provider_mode("local", config) == "offline_only"
     assert normalize_provider_mode("auto", config) == "cache_first"
     assert "api_stub" in accepted_provider_modes(config)
+
+
+@pytest.mark.parametrize("mode", ["offline_only", "local", "api_stub"])
+def test_layer_human_homologs_offline_modes_do_not_open_network(tmp_path, mode: str) -> None:
+    workspace = _workspace_with_candidates(tmp_path, protein_count=2)
+    config = load_config(PROJECT_ROOT / "config" / "params.yaml")
+    config["online_sources"]["source_mode_effective"] = mode
+
+    with patch("src.nodos_funcionales.online_sources.urlopen", side_effect=AssertionError("network opened")):
+        result = fetch_layer_external_source(
+            layer_key="human_homologs",
+            workspace=workspace,
+            filename="human_homologs.csv",
+            config=config,
+            provider_name="uniprot_human_gene_lookup",
+        )
+
+    assert result["status"] == "api_not_requested_offline_mode"
+    assert result["source_name"] == "configurable_stub_human_homologs_v1"
+    assert result["path"]
+
+
+@pytest.mark.parametrize(
+    ("layer_key", "filename", "provider_name", "patch_target"),
+    [
+        ("functional_network", "functional_network.csv", "string_real", "src.nodos_funcionales.string_api.urlopen"),
+        ("localization", "localization.csv", "uniprot_real", "src.nodos_funcionales.uniprot_api.urlopen"),
+    ],
+)
+def test_layer_real_providers_offline_only_do_not_open_network(
+    tmp_path,
+    layer_key: str,
+    filename: str,
+    provider_name: str,
+    patch_target: str,
+) -> None:
+    workspace = _workspace_with_candidates(tmp_path, protein_count=2)
+    config = load_config(PROJECT_ROOT / "config" / "params.yaml")
+    config["online_sources"]["source_mode_effective"] = "offline_only"
+
+    with patch(patch_target, side_effect=AssertionError("network opened")):
+        result = fetch_layer_external_source(
+            layer_key=layer_key,
+            workspace=workspace,
+            filename=filename,
+            config=config,
+            provider_name=provider_name,
+        )
+
+    assert result["status"] == "api_not_requested_offline_mode"
+    assert result["path"] is None
+
+
+def test_layer_online_optional_can_call_network_when_requested(tmp_path) -> None:
+    workspace = _workspace_with_candidates(tmp_path, protein_count=2)
+    config = load_config(PROJECT_ROOT / "config" / "params.yaml")
+    config["online_sources"]["source_mode_effective"] = "online_optional"
+
+    with patch("src.nodos_funcionales.online_sources._query_uniprot_human_gene") as gene_mock:
+        gene_mock.side_effect = [(None, [])] * 4
+        with patch("src.nodos_funcionales.online_sources._query_uniprot_human_protein_name", return_value=(None, [])):
+            fetch_layer_external_source(
+                layer_key="human_homologs",
+                workspace=workspace,
+                filename="human_homologs.csv",
+                config=config,
+                provider_name="uniprot_human_gene_lookup",
+            )
+
+    assert gene_mock.called
+
+
+def test_layer_cache_first_uses_layer_cache_before_string_network(tmp_path) -> None:
+    workspace = _workspace_with_candidates(tmp_path, protein_count=2)
+    (workspace / "results").mkdir(parents=True, exist_ok=True)
+    (workspace / "data_cache").mkdir(parents=True, exist_ok=True)
+    (workspace / "data_cache" / "functional_network.csv").write_text(
+        "\n".join(
+            [
+                "protein_id,gene,network_centrality,pathway_bottleneck_score,redundancy_penalty,functional_dependency_score,database",
+                "PA0001,gyrB,0.7,0.6,0.2,0.8,cache_layer",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_config(PROJECT_ROOT / "config" / "params.yaml")
+    config["online_sources"]["source_mode_effective"] = "cache_first"
+
+    def guarded_fetch(**kwargs):
+        if kwargs.get("layer_key") == "functional_network":
+            raise AssertionError("functional_network external fetch requested")
+        return online_sources.fetch_layer_external_source(**kwargs)
+
+    with patch("src.nodos_funcionales.layer_resolver.fetch_layer_external_source", side_effect=guarded_fetch):
+        manifest = resolve_layer_inputs(workspace, config)
+
+    assert manifest["functional_network"]["resolved_from"] == "cache"
+    assert manifest["functional_network"]["retrieval_status"] == "resolved_from_cache"
 
 
 @pytest.mark.parametrize(
@@ -184,6 +286,59 @@ def test_uniprot_cache_modes_do_not_open_network(tmp_path, mode: str) -> None:
     assert result["manifest"]["source_used"] == "cache"
     assert result["manifest"]["retrieval_mode"] in {"offline_only", "cache_first"}
     assert result["manifest"]["cache_status"] == "cache_hit"
+
+
+def test_pipeline_pao1_compare_offline_only_completes_without_network(tmp_path) -> None:
+    workspace = tmp_path / "pao1_offline_pipeline"
+    network_error = AssertionError("network opened")
+
+    patches = [
+        patch("src.nodos_funcionales.online_sources.urlopen", side_effect=network_error),
+        patch("src.nodos_funcionales.string_api.urlopen", side_effect=network_error),
+        patch("src.nodos_funcionales.uniprot_api.urlopen", side_effect=network_error),
+        patch("src.nodos_funcionales.interpro_api.urlopen", side_effect=network_error),
+        patch("src.nodos_funcionales.deg_api.urlopen", side_effect=network_error),
+        patch("src.nodos_funcionales.vfdb_api.urlopen", side_effect=network_error),
+        patch("src.nodos_funcionales.bvbrc_api.urlopen", side_effect=network_error),
+    ]
+    for item in patches:
+        item.start()
+    try:
+        exit_code = run_pipeline_main(
+            [
+                "--organism",
+                "Pseudomonas aeruginosa",
+                "--strain",
+                "PAO1",
+                "--allow-demo-data",
+                "--mode",
+                "compare",
+                "--workspace",
+                str(workspace),
+                "--taxon-resolution-mode",
+                "offline_only",
+            ]
+        )
+    finally:
+        for item in reversed(patches):
+            item.stop()
+
+    assert exit_code == 0
+    expected_outputs = [
+        "results/ranking_nodos_legacy.csv",
+        "data_processed/phase2_features.csv",
+        "data_processed/scored_nodes.csv",
+        "results/ranking_nodos.csv",
+        "results/phase_comparison.csv",
+        "results/sensitivity_analysis.csv",
+        "results/report_phase2.md",
+        "results/top10_scientific_audit.csv",
+        "results/top10_scientific_audit.md",
+        "results/top10_scientific_audit.json",
+        "results/ranking_snapshot.csv",
+    ]
+    for relative_path in expected_outputs:
+        assert (workspace / relative_path).exists(), relative_path
 
 
 def _workspace_with_candidates(tmp_path, protein_count: int):

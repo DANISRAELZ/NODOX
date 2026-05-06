@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+import uuid
 from pathlib import Path
 
 import pytest
@@ -41,6 +43,19 @@ SLOW_FILE_KEYWORDS = {
 SNAPSHOT_FILE_KEYWORDS = {
     "ranking_snapshots",
 }
+
+
+@pytest.fixture
+def tmp_path(request: pytest.FixtureRequest) -> Path:
+    """Workspace-local tmp path to avoid locked Windows/OneDrive temp roots."""
+    project_root = Path(__file__).resolve().parents[1]
+    safe_name = "".join(char if char.isalnum() else "_" for char in request.node.name)[:80]
+    path = project_root / ".tmp_tests" / f"{safe_name}_{uuid.uuid4().hex[:8]}"
+    path.mkdir(parents=True, exist_ok=True)
+    try:
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:

@@ -23,6 +23,7 @@ genero los archivos historicos:
 - `results/report_phase2.md`
 - `results/top10_scientific_audit.csv`
 - `results/top10_scientific_audit.md`
+- `results/top10_scientific_audit.json`
 
 Tambien genero los reportes nuevos sin reemplazar salidas anteriores:
 
@@ -83,6 +84,24 @@ Los modos quedan normalizados asi:
 - `cache_first`: modo conservador con cache primero.
 - `auto`: alias conservador de `cache_first`.
 - `online_optional`: unico modo que permite red y debe degradar trazablemente.
+
+`taxon_resolution_mode` y `online_source_mode` son controles separados. El primero
+resuelve el organismo/taxon; el segundo gobierna proveedores externos por capa.
+Para evitar el bug operativo observado el 04/05/2026, `--offline-only`,
+`--taxon-resolution-mode offline_only`, `local` y `api_stub` fuerzan
+`online_source_mode=offline_only` durante `run_pipeline.py`.
+
+Comando PAO1 offline/cache seguro validado:
+
+```powershell
+C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare --taxon-resolution-mode offline_only
+```
+
+Validacion online controlada, solo cuando se desea permitir red:
+
+```powershell
+C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare --taxon-resolution-mode cache_first --online-source-mode online_optional
+```
 
 Los manifiestos cache-served de STRING y UniProt conservan:
 

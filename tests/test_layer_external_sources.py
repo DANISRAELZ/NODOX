@@ -326,8 +326,6 @@ class LayerExternalSourceTests(unittest.TestCase):
         genes = ["gyrB", "rpoB", "ftsZ", "murA", "fabI", "acpP", "oprD", "lasB", "algD", "pvdA"]
         for gene in genes:
             side_effect.append(UniProtFakeResponse(self._empty_human_lookup_payload()))
-            if gene == "gyrB":
-                side_effect.append(UniProtFakeResponse(self._empty_human_lookup_payload()))
             if gene == "rpoB":
                 side_effect.append(
                     UniProtFakeResponse(
@@ -344,8 +342,6 @@ class LayerExternalSourceTests(unittest.TestCase):
                         }
                     )
                 )
-            if gene == "acpP":
-                side_effect.append(UniProtFakeResponse(self._empty_human_lookup_payload()))
         with patch("src.nodos_funcionales.online_sources.urlopen") as urlopen_mock:
             urlopen_mock.side_effect = side_effect
             result = fetch_layer_external_source(
