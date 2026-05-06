@@ -1,0 +1,11 @@
+protein_id,gene,human_homolog,evalue,human_gene
+PA0001,gyrB,1,1.2e-45,TOP2A
+PA0002,rpoB,0,1.0,none
+PA0003,ftsZ,0,0.85,none
+PA0004,murA,0,0.92,none
+PA0005,fabI,0,0.63,none
+PA0006,acpP,1,3.5e-20,ACACA
+PA0007,oprD,0,1.0,none
+PA0008,lasB,0,0.95,none
+PA0009,algD,0,0.72,none
+PA0010,pvdA,0,0.88,none

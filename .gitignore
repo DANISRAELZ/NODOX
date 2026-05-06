@@ -1,65 +1,27 @@
-# Python cache
+﻿
+# Python / pytest
 __pycache__/
 *.py[cod]
-*$py.class
-
-# Local installer/test scratch
-.pip_tmp/
+.pytest_cache/
+.pytest_tmp/
+pytest_tmp_run/
+pytest_tmp_single/
 .tmp_tests/
 .tmp_source_audit/
-.tmp*/
-.snakemake/
-.vendor/
 
-# Virtual environments
-.venv/
-venv/
-env/
-ENV/
+# Local/generated data
+data_cache/
+data_external/
+data_raw/
+data_sessions/
+data_user/
 
-# Environment files
-.env
-.env.*
+# Generated outputs
+results/
+data_processed/
 
-# Test/type/coverage caches
-.pytest_cache/
-pytest-cache-files-*/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-dist/
-build/
-*.egg-info/
-
-# OS files
+# OS / editor
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
-*.tmp
-*.bak
-~$*
-*.swp
-*.part
-desktop.ini
-
-# Generated pipeline outputs
-data_processed/
-results/
-
-# Generated session outputs
-data_sessions/*/data_processed/
-data_sessions/*/results/
-data_sessions/*/.cache/
-data_sessions/*/cache/
-data_sessions/*/logs/
-data_sessions/*/data_external/
-data_sessions/*/data_cache/
-
-# Keep these tracked intentionally when the repository is packaged:
-# - data_templates/
-# - docs/
-# - config/*.yaml and config/*.json examples
-# - data_demo/ when explicitly used as packaged demo input
+.vscode/
+.idea/

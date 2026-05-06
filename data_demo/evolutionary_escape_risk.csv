@@ -1,0 +1,11 @@
+candidate_id,gene,protein_id,organism,strain,mutation_tolerance_score,functional_redundancy_escape_score,compensatory_pathway_score,fitness_cost_of_escape,evolutionary_constraint_score,resistance_emergence_risk,multi_node_dependency_score,evidence_source,source_type,confidence,notes
+demo_PA0001,gyrB,PA0001,Pseudomonas aeruginosa,PAO1,,,,,,,,packaged_demo_placeholder,demo,low,Demo placeholder only; not organism-curated evolutionary evidence.
+demo_PA0002,rpoB,PA0002,Pseudomonas aeruginosa,PAO1,,,,,,,,packaged_demo_placeholder,demo,low,Demo placeholder only; not organism-curated evolutionary evidence.
+demo_PA0003,ftsZ,PA0003,Pseudomonas aeruginosa,PAO1,,,,,,,,packaged_demo_placeholder,demo,low,Demo placeholder only; not organism-curated evolutionary evidence.
+demo_PA0004,murA,PA0004,Pseudomonas aeruginosa,PAO1,,,,,,,,packaged_demo_placeholder,demo,low,Demo placeholder only; not organism-curated evolutionary evidence.
+demo_PA0005,fabI,PA0005,Pseudomonas aeruginosa,PAO1,,,,,,,,packaged_demo_placeholder,demo,low,Demo placeholder only; not organism-curated evolutionary evidence.
+demo_PA0006,acpP,PA0006,Pseudomonas aeruginosa,PAO1,,,,,,,,packaged_demo_placeholder,demo,low,Demo placeholder only; not organism-curated evolutionary evidence.
+demo_PA0007,oprD,PA0007,Pseudomonas aeruginosa,PAO1,,,,,,,,packaged_demo_placeholder,demo,low,Demo placeholder only; not organism-curated evolutionary evidence.
+demo_PA0008,lasB,PA0008,Pseudomonas aeruginosa,PAO1,,,,,,,,packaged_demo_placeholder,demo,low,Demo placeholder only; not organism-curated evolutionary evidence.
+demo_PA0009,algD,PA0009,Pseudomonas aeruginosa,PAO1,,,,,,,,packaged_demo_placeholder,demo,low,Demo placeholder only; not organism-curated evolutionary evidence.
+demo_PA0010,pvdA,PA0010,Pseudomonas aeruginosa,PAO1,,,,,,,,packaged_demo_placeholder,demo,low,Demo placeholder only; not organism-curated evolutionary evidence.

@@ -1,0 +1,6 @@
+protein_id,gene_id,gene,literature_support_score,evidence_type,reference,doi_or_url,notes,source_quality,database
+PA0004,PA0004,murA,0.50,pending_manual_curation,TO_BE_CURATED,pending_manual_curation,Known antimicrobial biology candidate; curate source before scientific use,0.50,demo_pending_curation
+PA0002,PA0002,rpoB,0.50,pending_manual_curation,TO_BE_CURATED,pending_manual_curation,Known antibacterial target class; curate source before scientific use,0.50,demo_pending_curation
+PA0003,PA0003,ftsZ,0.50,pending_manual_curation,TO_BE_CURATED,pending_manual_curation,Cell division candidate; curate source before scientific use,0.50,demo_pending_curation
+PA0005,PA0005,fabI,0.50,pending_manual_curation,TO_BE_CURATED,pending_manual_curation,Fatty-acid synthesis candidate; curate source before scientific use,0.50,demo_pending_curation
+PA0008,PA0008,lasB,0.50,pending_manual_curation,TO_BE_CURATED,pending_manual_curation,Virulence-associated candidate; curate source before scientific use,0.50,demo_pending_curation
