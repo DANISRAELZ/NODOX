@@ -2,7 +2,13 @@
 
 ## Estado de control de versiones
 
-En este workspace, `src/nodos_funcionales/online_sources.py` aparece como archivo no rastreado en `git status`. No se borro ni se movio durante esta consolidacion.
+Estado verificado el 2026-05-07:
+
+- `git status --short` no reporta cambios.
+- `git diff --ignore-space-at-eol --stat` no reporta diferencias.
+- `src/nodos_funcionales/online_sources.py` esta rastreado y sigue siendo parte del contrato operativo del repositorio.
+
+No hay evidencia actual de cambios solo por LF/CRLF que deban separarse de cambios funcionales.
 
 ## Resumen ejecutivo
 
@@ -25,6 +31,8 @@ No se detectaron clases. El archivo esta compuesto por funciones y constantes.
 - `THERAPEUTIC_CONTEXT_PROVIDER`
 - `THERAPEUTIC_CONTEXT_PROVIDER_V2`
 - `THERAPEUTIC_CONTEXT_PROVIDERS`
+- `NETWORK_BLOCKED_MODES = {"offline_only"}`
+- `NETWORK_PROVIDERS`
 
 ## Contenido funcional
 
@@ -78,11 +86,11 @@ Salidas:
 
 ## Duplicaciones detectadas con `online/`
 
-- Normalizacion de modos: debe consolidarse en `online/provider_modes.py`.
-- Procedencia: debe usar `online/provenance.py`.
-- Cache status: debe alinearse con `online/cache.py`.
-- Mensajes/fallback: debe alinearse con `online/fallback.py`.
-- Normalizacion de identificadores: debe alinearse con `online/normalization.py`.
+- Normalizacion de modos: ya existe en `online/provider_modes.py` y `online_sources.py` la usa para el modo efectivo.
+- Procedencia: existe en `online/provenance.py`, pero `online_sources.py` aun devuelve procedencia con diccionarios ad hoc en varios bloques.
+- Cache status: existe en `online/cache.py`, pero la mayor parte del estado de cache sigue delegada a conectores especificos o al resolvedor.
+- Mensajes/fallback: existe en `online/fallback.py`, pero la logica de fallback operativo todavia vive en `online_sources.py`.
+- Normalizacion de identificadores: existe en `online/normalization.py`, pero `online_sources.py` conserva helpers locales de normalizacion de proteinas y slugs de catalogo.
 
 Actualmente no se recomienda reescribir todo de una vez porque `fetch_layer_external_source()` mezcla multiples familias de proveedores y fallback.
 
@@ -93,11 +101,44 @@ Actualmente no se recomienda reescribir todo de una vez porque `fetch_layer_exte
 | `fetch_layer_external_source()` | conservar y cubrir antes de mover | Contrato principal del resolvedor por capa. |
 | `fetch_online_source()` | conservar | Despacha STRING/UniProt y mantiene compatibilidad. |
 | Catalogos curados | migrar a `online/catalogs.py` | Es logica offline estable y separable. |
-| Proveedores controlados terapeuticos | migrar despues de pruebas | No son evidencia externa real; necesitan trazabilidad estricta. |
+| Proveedores controlados terapeuticos | cubrir con pruebas antes de mover | No son evidencia externa real; necesitan trazabilidad estricta. |
 | Homologos humanos stub/hibrido | cubrir con pruebas antes de mover | Mezcla real lookup, local orthology y fallback stub. |
 | Helpers HTTP internos | deprecar tras migracion | STRING/UniProt ya tienen modulos propios; evitar duplicacion futura. |
 | Escritura `data_external` | conservar temporalmente | Forma parte del contrato actual de materializacion. |
 | Proveedores DEG/VFDB/BV-BRC/InterPro | conservar temporalmente | Son integraciones reales delegadas a modulos especificos. |
+
+## Contrato operativo y consumidores
+
+| Archivo consumidor | Funcion usada | Tipo de dependencia | Riesgo si se mueve |
+| --- | --- | --- | --- |
+| `src/nodos_funcionales/layer_resolver.py` | `effective_online_source_mode()`, `fetch_layer_external_source()` | Directa, runtime del resolvedor por capa | Alto: puede impedir materializar `data_external/` y romper procedencia por capa. |
+| `fetch_online_data.py` | `SUPPORTED_ONLINE_SOURCES`, `fetch_online_source()` | Directa, CLI manual para STRING/UniProt | Medio: rompe herramienta de auditoria/fetch manual aunque el pipeline principal siga funcionando. |
+| `src/nodos_funcionales/online_audit.py` | `fetch_online_source()` | Directa, auditoria online controlada | Medio-alto: rompe comparaciones fresh/cache y validaciones documentadas. |
+| `tests/test_online_modes.py` | `fetch_layer_external_source()` y patch del import en `layer_resolver` | Directa, contrato offline y modos | Alto: perderia proteccion contra llamadas de red en modos seguros. |
+| `tests/test_layer_resolver.py` | patch de `layer_resolver.fetch_layer_external_source` | Indirecta a traves del resolvedor | Alto: valida que la prioridad user/cache/external no se salte. |
+| `tests/test_layer_external_sources.py` | `fetch_layer_external_source()` | Directa, proveedores externos/controlados | Alto: valida salida de cada proveedor y sus fallbacks. |
+| `tests/test_string_api.py` | `fetch_online_source()` | Directa, despacho STRING | Medio: afecta compatibilidad del CLI y del wrapper de fuente online. |
+| `audit_online_sources.py` | usa `src.nodos_funcionales.online_audit` | Indirecta | Medio: depende de que `online_audit.py` conserve su wrapper hacia `fetch_online_source()`. |
+| `src/nodos_funcionales/pipeline.py` | no importa estas funciones directamente | Indirecta via `layer_resolver.resolve_layer_inputs()` | Alto si se rompe el resolvedor; bajo si se mantiene una capa de compatibilidad. |
+
+Conclusion: `online_sources.py` sigue siendo contrato operativo. Cualquier migracion debe conservar imports publicos o introducir wrappers de compatibilidad hasta que todos los consumidores cambien con pruebas.
+
+## Estrategia de congelamiento propuesta
+
+No se migra codigo en esta fase. Los puntos de corte recomendados son:
+
+| Modulo futuro | Responsabilidad | Punto de corte seguro |
+| --- | --- | --- |
+| `src/nodos_funcionales/online/catalogs.py` | Slugs, candidatos de catalogo y lectura/materializacion de catalogos curados offline. | Extraer primero porque no requiere red y se prueba con CSV locales. |
+| `src/nodos_funcionales/online/controlled_context.py` | Capas terapeuticas controladas v1/v2 y host annotation controlado. | Mover despues de pruebas que confirmen reglas, confidence y banderas de incompletitud. |
+| `src/nodos_funcionales/online/human_homologs.py` | Stub, ortologia local, lookup humano UniProt y fusion real+stub. | Mover solo tras fijar offline_only, local orthology y fallback stub sin red. |
+| `src/nodos_funcionales/online/layer_external_sources.py` | Despacho principal de `fetch_layer_external_source()`. | Ultimo corte; debe conservar el contrato publico y delegar a modulos especializados. |
+| `src/nodos_funcionales/online/provider_modes.py` | Modos aceptados y normalizacion. | Ya existe; mantenerlo como fuente unica para nuevos modulos. |
+| `src/nodos_funcionales/online/provenance.py` | Diccionarios de procedencia, confidence caps, retrieval/cache status. | Ampliar antes de migrar proveedores para evitar formatos ad hoc nuevos. |
+| `src/nodos_funcionales/online/cache.py` | Estados de cache y helpers comunes de lectura/escritura cuando aplique. | Usar solo para utilidades comunes; no reemplazar caches especificos sin pruebas. |
+| `src/nodos_funcionales/online/fallback.py` | Mensajes y clasificacion de fallback trazable. | Convertir en helper comun para `missing`, `stub`, `controlled` y `cache`. |
+
+Durante el congelamiento, `src/nodos_funcionales/online_sources.py` debe quedar como fachada estable. Los commits de migracion futuros deben ser refactors sin cambio funcional observable.
 
 ## Dependencias internas
 

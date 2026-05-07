@@ -89,6 +89,10 @@ def test_layer_human_homologs_offline_modes_do_not_open_network(tmp_path, mode: 
 
     assert result["status"] == "api_not_requested_offline_mode"
     assert result["source_name"] == "configurable_stub_human_homologs_v1"
+    assert result["confidence"] == config["online_sources"]["human_homologs_lookup"]["confidence_stub_fallback"]
+    assert "stub fallback" in result["provenance"]
+    assert "no negative homology evidence inferred" in result["provenance"]
+    assert "api_real" not in result["status"]
     assert result["path"]
 
 

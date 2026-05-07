@@ -2,7 +2,7 @@
 
 ## Riesgos actuales
 
-- `online_sources.py` aparece no rastreado en este workspace.
+- `online_sources.py` esta rastreado y sigue siendo un contrato operativo grande; el riesgo actual es migrarlo sin pruebas de equivalencia.
 - Bug operativo documentado el 04/05/2026: `--taxon-resolution-mode offline_only`
   bloqueaba la resolucion taxonomica online, pero no impedia que proveedores de
   capas externas intentaran red desde `online_sources.py`.
@@ -32,7 +32,7 @@
 
 ## Mitigaciones pendientes
 
-- Versionar `online_sources.py` completo o dividirlo bajo control de versiones.
+- Dividir `online_sources.py` en modulos especializados solo con pruebas de equivalencia y fachada compatible.
 - Ejecutar validacion online manual en una red estable y guardar manifiestos.
 - Definir politica de expiracion/renovacion de cache por proveedor.
 - Crear snapshots curados para un organismo real no demo.

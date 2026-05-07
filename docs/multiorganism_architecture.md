@@ -78,6 +78,18 @@ Las capas pueden provenir de:
 - datos demo;
 - proxies derivadas.
 
+La integracion de proveedores reales debe pasar por el resolvedor de capas y por `fetch_layer_external_source()` o una fachada compatible. No se debe saltar la prioridad configurable por capa (`user_preferred`, `external_preferred`, `merge_with_priority`).
+
+## Snapshots curados de referencia
+
+Los snapshots curados son referencias congeladas para comparar ejecuciones, no fuentes online vivas. La estructura recomendada separa:
+
+- PAO1 como demo controlado y validacion STRING/UniProt cerrada;
+- `Corynebacterium pseudotuberculosis` como organismo real prioritario, pendiente de cepa/taxon id curados;
+- H37Rv como validacion cruzada real.
+
+Cada snapshot debe registrar organismo, cepa, taxon id, fecha de adquisicion, modo de adquisicion, fuente STRING, fuente UniProt, estado de cache, estado de evidencia, confidence por fuente, procedencia, limitaciones y checksums.
+
 ## Auditoria y ranking
 
 Cada capa resuelta propaga tipo de fuente, nombre, cache, proxy, confianza y estado de recuperacion. Los reportes separan datos de usuario, externos, curados, demo, proxy y controlados. El ranking conserva Fase 1/Fase 2 y agrega columnas progresivas de contexto terapeutico, rol terapeutico y riesgo evolutivo.

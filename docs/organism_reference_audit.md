@@ -29,3 +29,15 @@ Estos elementos se conservan como ejemplos de uso y no como restricciones del mo
 ## Decision
 
 No se eliminaron organismos concretos. Se reclasificaron como demos, casos de prueba, cache reproducible, ejemplos de documentacion o paquetes de curacion opcionales.
+
+## Referencias para snapshots curados
+
+Para la fase de consolidacion de fuentes online y snapshots, las referencias se clasifican asi:
+
+| Organismo | Cepa | Uso esperado | Advertencia |
+| --- | --- | --- | --- |
+| `Pseudomonas aeruginosa` | PAO1 | Organismo demo controlado y referencia de validacion STRING/UniProt ya cerrada. | No confundir el snapshot demo con evidencia real nueva. |
+| `Corynebacterium pseudotuberculosis` | Pendiente de cepa curada explicita | Organismo real prioritario del proyecto. | No congelar snapshot hasta definir cepa, taxon id y fuentes curadas autorizadas. |
+| `Mycobacterium tuberculosis` | H37Rv | Organismo real para validacion cruzada por cobertura publica estable. | Registrar si cada fuente resuelve a cepa H37Rv o a nivel especie. |
+
+Estas referencias no imponen defaults globales al motor. Solo orientan la preparacion de snapshots reproducibles y auditables.

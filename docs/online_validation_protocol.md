@@ -4,6 +4,8 @@
 
 Validar conectores externos reales sin volver obligatoria la red para la suite offline. Las pruebas online deben estar marcadas con `online` y no ejecutarse con `-m "not online"`.
 
+La fase de congelamiento posterior al cierre limpio del 2026-05-06 no debe ejecutar validacion fresh contra STRING ni UniProt. Su alcance es auditar contratos, documentar puntos de corte y reforzar pruebas offline.
+
 ## Modos esperados
 
 - `offline_only`: no abre red; requiere cache/datos locales o falla trazablemente.
@@ -113,6 +115,7 @@ Cada validacion online debe revisar manifiestos o reportes y registrar:
 - `cache_first` debe servir cache si existe antes de intentar red.
 - `online_optional` puede llamar red, pero debe registrar fallos y fallback.
 - Si una API cambia o falla, el pipeline no debe presentar cache/stub/missing como evidencia externa real.
+- Durante fases de documentacion o congelamiento, cualquier comando `online_optional` debe quedar como protocolo escrito, no ejecutado, salvo instruccion explicita de validacion online.
 
 ## Evidencia y procedencia obligatoria
 

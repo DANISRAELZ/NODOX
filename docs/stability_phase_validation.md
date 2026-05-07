@@ -152,6 +152,6 @@ Se recomienda `-p no:cacheprovider` en OneDrive para evitar fallos o demoras al 
 
 ## Riesgos restantes
 
-- `online_sources.py` sigue siendo un archivo grande y, en este workspace, aparece como no rastreado. Conviene decidir si se versiona completo antes de dividirlo por familias de proveedores.
+- `online_sources.py` sigue siendo un archivo grande y ya esta rastreado. Conviene dividirlo despues en familias de proveedores, manteniendo una fachada compatible y pruebas de equivalencia.
 - Las pruebas online reales no se ejecutaron en esta auditoria; la validacion fue offline/cache-safe.
 - Los snapshots de referencia deben curarse y conservarse explicitamente para detectar derivas historicas entre versiones.
