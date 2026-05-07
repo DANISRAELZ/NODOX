@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "organism": "Pseudomonas aeruginosa",
+  "strain": "PAO1",
+  "canonical_organism_name": "Pseudomonas aeruginosa",
+  "taxon_id": "208964",
+  "snapshot_id": "pseudomonas_aeruginosa_pao1_demo_controlled_v1",
+  "snapshot_label": "PAO1 demo controlled snapshot v1",
+  "created_at_utc": "2026-05-07T00:00:00Z",
+  "acquisition_mode": "curated_snapshot_offline",
+  "network_policy": "no_fresh_network_calls",
+  "allowed_sources": [
+    "controlled_fixture",
+    "curated_demo",
+    "frozen_cache_reference",
+    "fallback_contract"
+  ],
+  "source_versions": {
+    "STRING": "not_refreshed_in_this_snapshot",
+    "UniProt": "not_refreshed_in_this_snapshot",
+    "curated_demo_fixture": "v1"
+  },
+  "cache_policy": "Snapshot may reference previously validated cache state, but does not version volatile provider caches.",
+  "evidence_status": "controlled_demo_reference",
+  "confidence_policy": "Controlled fixtures use limited confidence and must not be interpreted as fresh external evidence.",
+  "provenance_policy": "Every source row must declare source status, retrieval status, cache status, evidence kind, flags and notes.",
+  "limitations": [
+    "This snapshot validates snapshot contracts and provenance only.",
+    "No STRING or UniProt fresh request was executed to create this snapshot.",
+    "Representative annotations are controlled fixtures, not full PAO1 biological evidence.",
+    "Taxon id 208964 is used as the PAO1 strain-level identifier for snapshot labeling; species-level provider examples elsewhere may use 287."
+  ],
+  "generated_by": "Codex curated snapshot offline phase",
+  "reproducibility_notes": [
+    "Files are small, deterministic and hand-auditable.",
+    "Do not replace this snapshot with data_session outputs.",
+    "Do not add raw provider cache payloads unless a later protocol explicitly freezes and documents them."
+  ]
+}

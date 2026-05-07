@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "source_name": "curated_demo_functional_annotations",
+  "evidence_kind": "controlled_fixture",
+  "annotations": [
+    {
+      "protein_id": "PA0004",
+      "gene": "murA",
+      "annotation": "cell wall biosynthesis representative",
+      "fixture_reason": "Top bactericidal candidate in demo ranking snapshot.",
+      "is_controlled": true
+    },
+    {
+      "protein_id": "PA0008",
+      "gene": "lasB",
+      "annotation": "virulence representative",
+      "fixture_reason": "Mixed strategy candidate in demo ranking snapshot.",
+      "is_controlled": true
+    },
+    {
+      "protein_id": "PA0007",
+      "gene": "oprD",
+      "annotation": "outer membrane access representative",
+      "fixture_reason": "Antivirulence/accessibility candidate in demo ranking snapshot.",
+      "is_controlled": true
+    }
+  ],
+  "notes": [
+    "Representative records are intentionally small.",
+    "These records validate snapshot provenance, not PAO1 biology completeness."
+  ]
+}

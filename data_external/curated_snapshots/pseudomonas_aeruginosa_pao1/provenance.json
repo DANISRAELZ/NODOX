@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "snapshot_id": "pseudomonas_aeruginosa_pao1_demo_controlled_v1",
+  "provenance_summary": "Offline curated demo snapshot created to validate source contracts and reproducibility without fresh network access.",
+  "created_from": [
+    "tests/fixtures/ranking_snapshots/pao1_demo_reference.csv",
+    "docs/online_validation_runs/pao1_string_uniprot_clean_baseline_validation.md",
+    "project documentation and curated demo conventions"
+  ],
+  "not_created_from": [
+    "fresh STRING request",
+    "fresh UniProt request",
+    "data_sessions generated outputs",
+    "volatile provider cache payloads"
+  ],
+  "audit_rules": [
+    "Controlled fixtures must set is_controlled=true and is_real_external=false.",
+    "Cached external references must use cache_reuse_run or equivalent, never fresh_api_run.",
+    "Fallback rows must include notes explaining that they are not biological evidence."
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "source_name": "STRING",
+  "snapshot_id": "pseudomonas_aeruginosa_pao1_demo_controlled_v1",
+  "evidence_policy": "no_fresh_network_no_raw_payload",
+  "retrieval_status": "cache_reuse_run",
+  "cache_status": "frozen_cache_reference",
+  "representative_rows": [],
+  "notes": [
+    "No STRING request was executed for this snapshot.",
+    "This file exists to keep the snapshot structure explicit without versioning volatile provider cache payloads."
+  ]
+}
