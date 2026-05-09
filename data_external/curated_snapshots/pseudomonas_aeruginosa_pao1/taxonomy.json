@@ -3,11 +3,21 @@
   "organism": "Pseudomonas aeruginosa",
   "strain": "PAO1",
   "canonical_organism_name": "Pseudomonas aeruginosa",
+  "biovar": null,
   "taxon_id": "208964",
+  "strain_scope": "PAO1 demo controlled reference",
   "taxon_scope": "strain",
   "species_taxon_id": "287",
+  "taxonomy_resolution_mode": "controlled_reference",
   "taxonomy_status": "controlled_reference",
   "taxonomy_source": "project_curated_snapshot_metadata",
+  "cache_key": "pseudomonas aeruginosa::pao1",
+  "confidence": 0.75,
+  "limitations": [
+    "The snapshot uses 208964 for PAO1 strain-level labeling.",
+    "Some existing tests and provider fixtures use species-level taxon id 287.",
+    "No fresh taxonomy network lookup was executed for this snapshot."
+  ],
   "notes": [
     "The snapshot uses 208964 for PAO1 strain-level labeling.",
     "Some existing tests and provider fixtures use species-level taxon id 287."

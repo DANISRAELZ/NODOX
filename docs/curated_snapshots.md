@@ -4,11 +4,40 @@
 
 Un snapshot curado es una referencia pequena, versionada y auditable que describe un conjunto estable de evidencias y procedencia para un organismo. No es una corrida del pipeline, no es un cache vivo y no reemplaza datos de usuario.
 
-El primer snapshot creado es:
+## Multiorganism design principle
+
+Nodos Funcionales esta disenado para priorizar blancos terapeuticos en cualquier organismo bacteriano ingresado por el usuario, siempre que sus capas de evidencia puedan resolverse de forma trazable. PAO1, `Corynebacterium pseudotuberculosis` y H37Rv son casos de referencia; no definen los limites del sistema.
+
+Los snapshots curados son ejemplos congelados para validar contratos, procedencia y reproducibilidad. No son una lista cerrada de organismos soportados. El mismo contrato debe aceptar:
+
+- bacterias con cepa definida;
+- bacterias sin cepa definida;
+- organismos con `taxon_id` resuelto;
+- organismos con `taxon_id` pendiente, si declaran limitaciones explicitas;
+- datos aportados por el usuario;
+- evidencia externa real validada;
+- evidencia controlada/offline;
+- evidencia parcial, cacheada, stub o fallback.
+
+Las capas de evidencia deben resolverse por contrato y procedencia, no por reglas especificas de organismo. La ausencia de evidencia externa debe registrarse como `missing`, `not_queried`, `cache_miss`, `stub` o `fallback`, pero nunca interpretarse automaticamente como evidencia biologica negativa.
+
+Cuando no existan fuentes externas completas, el sistema debe aceptar datos de usuario y snapshots controlados, marcando la incompletitud de forma explicita. Cualquier evidencia externa real debe quedar separada de ejemplos controlados y debe conservar `retrieval_status`, `cache_status`, `confidence` y notas de limitacion.
+
+## Snapshots disponibles
+
+El primer snapshot de referencia creado es:
 
 ```text
 data_external/curated_snapshots/pseudomonas_aeruginosa_pao1/
 ```
+
+El segundo snapshot extiende el contrato a un organismo adicional usado como ejemplo generico:
+
+```text
+data_external/curated_snapshots/corynebacterium_pseudotuberculosis_biovar_ovis/
+```
+
+Estos directorios son fixtures auditables. Nuevos organismos deben poder agregarse sin cambiar el validador si cumplen el mismo contrato.
 
 ## Por que PAO1 primero
 
@@ -39,6 +68,72 @@ data_external/curated_snapshots/
     provenance.json
     README.md
 ```
+
+## Corynebacterium pseudotuberculosis Biovar Ovis Controlled Snapshot
+
+Proposito:
+
+- preparar un snapshot curado/controlado para validar el contrato multi-organismo;
+- fijar un contrato reproducible antes de validar STRING/UniProt;
+- mantener separada la evidencia controlada de la evidencia externa real.
+
+Alcance:
+
+- organismo: `Corynebacterium pseudotuberculosis`;
+- biovar: `ovis`;
+- strain scope: `generic controlled example`;
+- `taxon_id`: `1719`, tomado de `config/taxon_resolution_cache.json`;
+- acquisition mode: `controlled_curated_offline`;
+- network policy: `no_network`;
+- evidence status: `controlled_reference_snapshot`.
+
+Diferencias frente a PAO1:
+
+- PAO1 es demo controlado con validacion STRING/UniProt ya cerrada y documentada.
+- Corynebacterium es un ejemplo generico multi-organismo; este snapshot todavia no contiene evidencia online fresca.
+- STRING y UniProt aparecen solo como `not_queried_no_network`, con `is_real_external=false`.
+- Las anotaciones funcionales son representativas y controladas; validan estructura y procedencia, no ranking.
+
+Archivos:
+
+```text
+data_external/curated_snapshots/
+  corynebacterium_pseudotuberculosis_biovar_ovis/
+    snapshot_metadata.json
+    taxonomy.json
+    sources_manifest.json
+    functional_annotations.json
+    provenance.json
+    README.md
+```
+
+Anotaciones controladas incluidas:
+
+- `pld`
+- `dtxR`
+- `sodC`
+- `fagABCD`
+- `hmuTUV`
+- `ciuABCDE`
+- `gyrA`
+- `rpoB`
+- `murA`
+- `tuf`
+
+Limitaciones:
+
+- no es descarga fresca;
+- no representa evidencia online validada en tiempo real;
+- no es pangenoma ni viruloma completo;
+- no sustituye datos de usuario ni altera scoring;
+- no representa una coleccion particular de aislados ni datos de un proyecto externo.
+
+Proximos pasos:
+
+- definir organismo y cepa opcional antes de cualquier refresh externo;
+- ejecutar STRING/UniProt solo bajo protocolo `online_optional` controlado;
+- congelar manifiestos y checksums despues de revision humana;
+- mantener evidencia externa real separada de scaffolds controlados.
 
 ## Contrato de `snapshot_metadata.json`
 
@@ -99,6 +194,8 @@ Reglas de interpretacion:
 El modulo `src/nodos_funcionales/curated_snapshots.py` valida:
 
 - campos obligatorios;
+- taxonomia con taxon id o limitacion explicita;
+- anotaciones funcionales controladas con `source_reference` y `notes`;
 - contradicciones entre `is_stub`, `is_controlled` e `is_real_external`;
 - uso indebido de `fresh_api_run` en snapshots offline;
 - fuentes controladas marcadas como API fresca;
@@ -121,9 +218,9 @@ C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\p
 
 ## Extension futura
 
-La siguiente expansion debe crear snapshots reales curados, en commits separados, para:
+La siguiente expansion debe profundizar snapshots reales curados, en commits separados, para:
 
-- `Corynebacterium pseudotuberculosis`: primero definir cepa, taxon id y fuentes autorizadas.
+- `Corynebacterium pseudotuberculosis`: pasar del scaffold controlado a evidencia externa validada cuando exista protocolo online.
 - `Mycobacterium tuberculosis` H37Rv: usar como validacion cruzada por cobertura publica estable.
 
 Ambos deben mantener la misma separacion entre evidencia externa real, controlada, stub, fallback y cache.

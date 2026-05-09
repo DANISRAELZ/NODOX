@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "organism": "Corynebacterium pseudotuberculosis",
+  "strain": "biovar ovis",
+  "canonical_organism_name": "Corynebacterium pseudotuberculosis",
+  "biovar": "ovis",
+  "strain_scope": "generic controlled example",
+  "taxon_id": "1719",
+  "snapshot_id": "corynebacterium_pseudotuberculosis_biovar_ovis_controlled_v1",
+  "snapshot_label": "Corynebacterium pseudotuberculosis biovar ovis controlled snapshot v1",
+  "created_at_utc": "2026-05-07T00:00:00Z",
+  "acquisition_mode": "controlled_curated_offline",
+  "network_policy": "no_network",
+  "allowed_sources": [
+    "taxonomy_cache",
+    "controlled_curated_snapshot",
+    "user_provided_context",
+    "not_queried_no_network"
+  ],
+  "source_versions": {
+    "taxonomy_cache": "config/taxon_resolution_cache.json schema_version=2",
+    "STRING": "not_queried",
+    "UniProt": "not_queried",
+    "controlled_snapshot": "v1"
+  },
+  "cache_policy": "Uses the project taxon resolution cache as documented provenance; does not version volatile provider caches.",
+  "evidence_status": "controlled_reference_snapshot",
+  "confidence_policy": "Controlled entries use limited confidence and must not be interpreted as fresh external validation.",
+  "provenance_policy": "Sources must separate taxonomy cache, controlled context, user context, no-network external placeholders, stub, fallback and cache.",
+  "limitations": [
+    "No STRING or UniProt request was executed to create this snapshot.",
+    "Taxon id 1719 is taken from config/taxon_resolution_cache.json for cache key corynebacterium pseudotuberculosis::biovar ovis.",
+    "The strain scope is a generic controlled example, not an isolate collection or pangenome.",
+    "Functional annotations are controlled representative examples and do not alter scoring or ranking."
+  ],
+  "generated_by": "Codex curated snapshot offline phase",
+  "reproducibility_notes": [
+    "This snapshot is small, deterministic and hand-auditable.",
+    "Do not replace with data_sessions outputs.",
+    "Future STRING/UniProt refresh must happen under an explicit online validation protocol."
+  ]
+}

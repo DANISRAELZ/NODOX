@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "organism": "Corynebacterium pseudotuberculosis",
+  "canonical_organism_name": "Corynebacterium pseudotuberculosis",
+  "taxon_id": "1719",
+  "strain_scope": "generic controlled example",
+  "biovar": "ovis",
+  "taxonomy_resolution_mode": "cache_first",
+  "taxonomy_source": "config/taxon_resolution_cache.json",
+  "cache_key": "corynebacterium pseudotuberculosis::biovar ovis",
+  "confidence": 0.9,
+  "limitations": [
+    "Cache entry resolves the species taxon and recognizes biovar ovis as strain context.",
+    "No fresh taxonomy network lookup was executed for this snapshot.",
+    "Isolate-level taxon identifiers are not asserted."
+  ]
+}

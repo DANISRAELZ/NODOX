@@ -61,8 +61,11 @@ Layer materialization uses:
 - `<workspace>/data_external/<layer>.csv`
 - `<workspace>/data_external/curated_catalogs/<catalog>/<organism-or-taxon>.csv`
 - repository-level `data_external/curated_catalogs/` as a fallback for curated catalogs
+- repository-level `data_external/curated_snapshots/<organism-scope>/` for small versioned snapshot contracts
 
 Curated catalogs are offline inputs. They are not fresh online evidence and should use source names such as `curated_online_*_catalog` with explicit confidence.
+
+Curated snapshots are not volatile provider caches. They may reference cache provenance, but must not store raw fresh provider payloads unless a later protocol explicitly freezes and documents them.
 
 ## Evidence boundaries
 
@@ -71,6 +74,12 @@ Curated catalogs are offline inputs. They are not fresh online evidence and shou
 - `controlled_*` providers are deterministic workspace-derived evidence, not experimental evidence.
 - `configurable_stub_*` and `workspace_stub` preserve pipeline shape, but must never be interpreted as real negative or positive biological evidence.
 - `missing` or `external_unavailable_*` means absence of usable data, not biological absence.
+
+## Multiorganism design principle
+
+Cache and snapshot policy is organism-agnostic. PAO1, `Corynebacterium pseudotuberculosis` and H37Rv are reference cases only. New organisms may have complete external evidence, user-provided evidence, partial cache, controlled offline evidence or no resolved taxon id yet.
+
+For any organism, source status must describe what happened: queried, not queried, cache hit, cache miss, controlled, stub, fallback or missing. Lack of STRING/UniProt coverage must not be treated as negative biological evidence.
 
 ## Limitations
 

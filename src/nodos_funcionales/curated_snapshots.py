@@ -45,16 +45,71 @@ REQUIRED_SOURCE_FIELDS = {
     "notes",
 }
 
+REQUIRED_TAXONOMY_FIELDS = {
+    "schema_version",
+    "organism",
+    "canonical_organism_name",
+    "taxon_id",
+    "strain_scope",
+    "taxonomy_resolution_mode",
+    "taxonomy_source",
+    "confidence",
+    "limitations",
+}
+
+REQUIRED_FUNCTIONAL_ANNOTATION_FIELDS = {
+    "gene_or_node_id",
+    "display_name",
+    "functional_category",
+    "therapeutic_relevance",
+    "evidence_status",
+    "evidence_kind",
+    "is_controlled",
+    "source_reference",
+    "confidence",
+    "notes",
+}
+
 REAL_FORBIDDEN_RETRIEVAL_MARKERS = ("stub", "fallback", "controlled_fixture")
 FRESH_RETRIEVAL_STATUSES = {"fresh_api_run", "api_real", "api_real_success"}
+NO_NETWORK_POLICIES = {"no_fresh_network_calls", "no_network"}
+
+
+def validate_snapshot(snapshot_path: str | Path) -> list[str]:
+    """Generic alias for validating any organism snapshot by contract."""
+    return validate_curated_snapshot(snapshot_path)
 
 
 def load_curated_snapshot(snapshot_dir: str | Path) -> dict[str, Any]:
-    """Load the two contract files required by every curated snapshot."""
+    """Load the contract files required by every curated snapshot."""
     root = Path(snapshot_dir)
     metadata = _read_json(root / "snapshot_metadata.json")
     sources_manifest = _read_json(root / "sources_manifest.json")
-    return {"metadata": metadata, "sources_manifest": sources_manifest}
+    taxonomy = _read_json(root / "taxonomy.json")
+    functional_annotations = _read_json(root / "functional_annotations.json")
+    return {
+        "metadata": metadata,
+        "sources_manifest": sources_manifest,
+        "taxonomy": taxonomy,
+        "functional_annotations": functional_annotations,
+    }
+
+
+def list_available_snapshots(snapshots_root: str | Path) -> list[Path]:
+    """Return snapshot directories that expose the required metadata manifest."""
+    root = Path(snapshots_root)
+    if not root.exists():
+        return []
+    return sorted(path for path in root.iterdir() if path.is_dir() and (path / "snapshot_metadata.json").exists())
+
+
+def load_curated_snapshot_by_id(snapshots_root: str | Path, snapshot_id: str) -> dict[str, Any]:
+    """Load a curated snapshot by metadata snapshot_id without assuming an organism name."""
+    for snapshot_dir in list_available_snapshots(snapshots_root):
+        snapshot = load_curated_snapshot(snapshot_dir)
+        if snapshot["metadata"].get("snapshot_id") == snapshot_id:
+            return snapshot
+    raise FileNotFoundError(f"No se encontro snapshot curado con snapshot_id `{snapshot_id}`.")
 
 
 def validate_curated_snapshot(snapshot_dir: str | Path) -> list[str]:
@@ -70,9 +125,22 @@ def validate_curated_snapshot(snapshot_dir: str | Path) -> list[str]:
 
     metadata = snapshot["metadata"]
     sources_manifest = snapshot["sources_manifest"]
+    taxonomy = snapshot["taxonomy"]
+    functional_annotations = snapshot["functional_annotations"]
     errors.extend(_validate_metadata(metadata))
     errors.extend(_validate_sources_manifest(metadata, sources_manifest))
+    errors.extend(_validate_taxonomy(taxonomy))
+    errors.extend(_validate_functional_annotations(functional_annotations))
     return errors
+
+
+def validate_curated_snapshots(snapshot_dirs: list[str | Path]) -> dict[str, list[str]]:
+    """Validate multiple snapshots and return errors keyed by directory name."""
+    results: dict[str, list[str]] = {}
+    for snapshot_dir in snapshot_dirs:
+        root = Path(snapshot_dir)
+        results[root.name] = validate_curated_snapshot(root)
+    return results
 
 
 def assert_curated_snapshot_valid(snapshot_dir: str | Path) -> None:
@@ -99,6 +167,11 @@ def _validate_metadata(metadata: dict[str, Any]) -> list[str]:
     limitations = metadata.get("limitations", [])
     if "limitations" in metadata and not limitations:
         errors.append("`limitations` debe explicar las limitaciones del snapshot.")
+    taxon_id = metadata.get("taxon_id")
+    if (taxon_id is None or str(taxon_id).strip().lower() in {"", "unknown", "null"}) and not limitations:
+        errors.append("`metadata` puede omitir taxon_id solo si declara una limitacion explicita.")
+    if metadata.get("network_policy") in NO_NETWORK_POLICIES and str(metadata.get("acquisition_mode")) in {"online_optional", "fresh_api_run"}:
+        errors.append("`metadata` declara politica sin red pero usa un modo de adquisicion online.")
     return errors
 
 
@@ -150,14 +223,55 @@ def _validate_source(metadata: dict[str, Any], source: dict[str, Any], index: in
         errors.append(f"`{label}` usa fallback y debe incluir notas de procedencia.")
     if retrieval_status == "cache_reuse_run" and evidence_kind == "controlled_fixture":
         errors.append(f"`{label}` mezcla cache_reuse_run con controlled_fixture.")
-    if metadata.get("network_policy") == "no_fresh_network_calls" and retrieval_status in FRESH_RETRIEVAL_STATUSES:
+    if metadata.get("network_policy") in NO_NETWORK_POLICIES and retrieval_status in FRESH_RETRIEVAL_STATUSES:
         errors.append(f"`{label}` declara `{retrieval_status}`, pero el snapshot prohibe llamadas frescas de red.")
-    if acquisition_mode == "curated_snapshot_offline" and retrieval_status in FRESH_RETRIEVAL_STATUSES:
+    if acquisition_mode in {"curated_snapshot_offline", "controlled_curated_offline"} and retrieval_status in FRESH_RETRIEVAL_STATUSES:
         errors.append(f"`{label}` usa adquisicion offline pero declara recuperacion fresca de API.")
 
     confidence = source["confidence"]
     if not isinstance(confidence, int | float) or not 0.0 <= float(confidence) <= 1.0:
         errors.append(f"`{label}` debe tener confidence numerica entre 0 y 1.")
+    return errors
+
+
+def _validate_taxonomy(taxonomy: dict[str, Any]) -> list[str]:
+    errors = _missing_field_errors(taxonomy, REQUIRED_TAXONOMY_FIELDS, "taxonomy")
+    if errors:
+        return errors
+    confidence = taxonomy["confidence"]
+    if not isinstance(confidence, int | float) or not 0.0 <= float(confidence) <= 1.0:
+        errors.append("`taxonomy` debe tener confidence numerica entre 0 y 1.")
+    limitations = taxonomy.get("limitations", [])
+    taxon_id = taxonomy.get("taxon_id")
+    if (taxon_id is None or str(taxon_id).strip().lower() in {"", "unknown", "null"}) and not limitations:
+        errors.append("`taxonomy` puede omitir taxon_id solo si declara una limitacion explicita.")
+    return errors
+
+
+def _validate_functional_annotations(functional_annotations: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    annotations = functional_annotations.get("annotations")
+    if not isinstance(annotations, list) or not annotations:
+        return ["`functional_annotations.json` debe incluir una lista no vacia `annotations`."]
+    for index, annotation in enumerate(annotations, start=1):
+        label = str(annotation.get("gene_or_node_id") or f"anotacion #{index}") if isinstance(annotation, dict) else f"anotacion #{index}"
+        if not isinstance(annotation, dict):
+            errors.append(f"`{label}` debe ser un objeto JSON.")
+            continue
+        missing_errors = _missing_field_errors(annotation, REQUIRED_FUNCTIONAL_ANNOTATION_FIELDS, label)
+        errors.extend(missing_errors)
+        if missing_errors:
+            continue
+        if annotation["is_controlled"] is not True:
+            errors.append(f"`{label}` debe declarar is_controlled=true si usa evidencia controlada.")
+        if str(annotation["evidence_kind"]) == "controlled_fixture":
+            if not str(annotation.get("source_reference") or "").strip():
+                errors.append(f"`{label}` es controlada y debe incluir source_reference.")
+            if not str(annotation.get("notes") or "").strip():
+                errors.append(f"`{label}` es controlada y debe incluir notes.")
+        confidence = annotation["confidence"]
+        if not isinstance(confidence, int | float) or not 0.0 <= float(confidence) <= 1.0:
+            errors.append(f"`{label}` debe tener confidence numerica entre 0 y 1.")
     return errors
 
 

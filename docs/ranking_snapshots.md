@@ -140,7 +140,7 @@ No se crean todavia snapshots reales falsos. Candidatos razonables cuando exista
 
 - `Pseudomonas aeruginosa` PAO1 con fuentes externas cacheadas/controladas y revisadas.
 - `Mycobacterium tuberculosis` H37Rv.
-- `Corynebacterium pseudotuberculosis` ATCC 19410 o aislados mexicanos, solo con datos curados y autorizados.
+- `Corynebacterium pseudotuberculosis` como ejemplo generico, solo con datos curados, autorizados y cargados explicitamente por el usuario.
 
 ### Manifest minimo de snapshot curado
 

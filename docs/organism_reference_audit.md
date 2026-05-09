@@ -24,7 +24,7 @@ Estos elementos se conservan como ejemplos de uso y no como restricciones del mo
 
 - Tests de resolucion taxonomica y proveedores externos usan PAO1, H37Rv, Helicobacter y Corynebacterium para cubrir cache, API, alias y fallbacks.
 - `config/taxon_resolution_cache.json`, `config/taxon_aliases.json` y `config/demo_organisms.json` contienen ejemplos/cache reproducible. No son defaults obligatorios.
-- `data_user/cpseudotuberculosis_biovar_ovis/` es un paquete de plantillas/curacion especifico, conservado como caso de validacion biologica.
+- `data_templates/` es el contrato generico de plantillas para cualquier organismo; los datos especificos deben cargarse en un workspace del usuario.
 
 ## Decision
 
@@ -37,7 +37,13 @@ Para la fase de consolidacion de fuentes online y snapshots, las referencias se 
 | Organismo | Cepa | Uso esperado | Advertencia |
 | --- | --- | --- | --- |
 | `Pseudomonas aeruginosa` | PAO1 | Organismo demo controlado y referencia de validacion STRING/UniProt ya cerrada. | No confundir el snapshot demo con evidencia real nueva. |
-| `Corynebacterium pseudotuberculosis` | Pendiente de cepa curada explicita | Organismo real prioritario del proyecto. | No congelar snapshot hasta definir cepa, taxon id y fuentes curadas autorizadas. |
+| `Corynebacterium pseudotuberculosis` | biovar ovis | Organismo real prioritario del proyecto con scaffold controlado inicial. | El snapshot actual es offline/controlado; STRING y UniProt siguen sin consultarse para este organismo. |
 | `Mycobacterium tuberculosis` | H37Rv | Organismo real para validacion cruzada por cobertura publica estable. | Registrar si cada fuente resuelve a cepa H37Rv o a nivel especie. |
 
 Estas referencias no imponen defaults globales al motor. Solo orientan la preparacion de snapshots reproducibles y auditables.
+
+## Principio multiorganismo
+
+El proyecto no es especifico de PAO1, `Corynebacterium pseudotuberculosis` ni H37Rv. Esos nombres aparecen porque permiten cubrir modos distintos de validacion: demo controlado, organismo real prioritario y validacion cruzada. Cualquier documento, snapshot o prueba nueva debe evitar presentar esos organismos como limites del pipeline.
+
+Cuando un organismo nuevo no tenga `taxon_id`, cepa, fuentes externas completas o cache disponible, el contrato debe permitir una entrada parcial con limitaciones explicitas y procedencia clara. Esa incompletitud no debe confundirse con evidencia biologica negativa.

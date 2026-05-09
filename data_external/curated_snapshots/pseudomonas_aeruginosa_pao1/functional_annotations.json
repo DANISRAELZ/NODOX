@@ -6,23 +6,50 @@
     {
       "protein_id": "PA0004",
       "gene": "murA",
+      "gene_or_node_id": "murA",
+      "display_name": "MurA",
       "annotation": "cell wall biosynthesis representative",
+      "functional_category": "cell_wall_biosynthesis",
+      "therapeutic_relevance": "demo bactericidal comparator",
+      "evidence_status": "controlled_reference",
+      "evidence_kind": "controlled_fixture",
       "fixture_reason": "Top bactericidal candidate in demo ranking snapshot.",
-      "is_controlled": true
+      "is_controlled": true,
+      "source_reference": "tests/fixtures/ranking_snapshots/pao1_demo_reference.csv",
+      "confidence": 0.45,
+      "notes": "Controlled PAO1 fixture for snapshot validation; not fresh external evidence."
     },
     {
       "protein_id": "PA0008",
       "gene": "lasB",
+      "gene_or_node_id": "lasB",
+      "display_name": "LasB",
       "annotation": "virulence representative",
+      "functional_category": "virulence",
+      "therapeutic_relevance": "demo antivirulence/mixed strategy comparator",
+      "evidence_status": "controlled_reference",
+      "evidence_kind": "controlled_fixture",
       "fixture_reason": "Mixed strategy candidate in demo ranking snapshot.",
-      "is_controlled": true
+      "is_controlled": true,
+      "source_reference": "tests/fixtures/ranking_snapshots/pao1_demo_reference.csv",
+      "confidence": 0.45,
+      "notes": "Controlled PAO1 fixture for snapshot validation; not fresh external evidence."
     },
     {
       "protein_id": "PA0007",
       "gene": "oprD",
+      "gene_or_node_id": "oprD",
+      "display_name": "OprD",
       "annotation": "outer membrane access representative",
+      "functional_category": "outer_membrane_access",
+      "therapeutic_relevance": "demo access and virulence-context comparator",
+      "evidence_status": "controlled_reference",
+      "evidence_kind": "controlled_fixture",
       "fixture_reason": "Antivirulence/accessibility candidate in demo ranking snapshot.",
-      "is_controlled": true
+      "is_controlled": true,
+      "source_reference": "tests/fixtures/ranking_snapshots/pao1_demo_reference.csv",
+      "confidence": 0.45,
+      "notes": "Controlled PAO1 fixture for snapshot validation; not fresh external evidence."
     }
   ],
   "notes": [

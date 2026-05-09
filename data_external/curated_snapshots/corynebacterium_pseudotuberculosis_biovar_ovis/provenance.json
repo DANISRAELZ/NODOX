@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "snapshot_id": "corynebacterium_pseudotuberculosis_biovar_ovis_controlled_v1",
+  "created_at_utc": "2026-05-07T00:00:00Z",
+  "generated_by": "Codex curated snapshot offline phase",
+  "no_network_used": true,
+  "source_policy": "Use local taxonomy cache, project documentation and controlled annotations only; STRING and UniProt are placeholders marked not_queried.",
+  "controlled_data_policy": "Functional annotations are representative controlled fixtures with limited confidence and explicit notes.",
+  "relation_to_scoring": "No scoring input, weight or ranking output is changed by this snapshot.",
+  "relation_to_pipeline": "The snapshot is a reproducibility artifact and offline validation fixture; it is not integrated into runtime layer resolution.",
+  "limitations": [
+    "Not a fresh download.",
+    "Not real-time online validated evidence.",
+    "Not a complete Corynebacterium pseudotuberculosis pangenome or virulome.",
+    "This is a generic controlled example and awaits any user-supplied organism-specific data."
+  ],
+  "future_refresh_protocol": [
+    "Define organism and optional strain identifiers before external refresh.",
+    "Run taxonomy, STRING and UniProt only under an explicit online_optional validation protocol.",
+    "Freeze source manifests and checksums after human review.",
+    "Keep fresh external evidence separate from controlled scaffolds."
+  ]
+}
