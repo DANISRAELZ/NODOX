@@ -1,0 +1,4 @@
+Gene,Non-unique Gene name,Annotation,No. isolates,No. sequences,iso_1,iso_2,iso_3
+pld,pld,phospholipase D,3,3,CPS_0001,CPS_1001,CPS_2001
+dtxR,dtxR,iron regulator,3,3,CPS_0002,CPS_1002,CPS_2002
+spaA,spaA,surface protein,2,2,CPS_0004,CPS_1004,

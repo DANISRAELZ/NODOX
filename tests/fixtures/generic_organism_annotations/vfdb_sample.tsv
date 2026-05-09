@@ -1,0 +1,3 @@
+protein_id	gene	product	virulence_category	score
+CPS_0001	pld	phospholipase D	toxin	0.95
+CPS_0002	dtxR	iron-dependent regulator	regulation	0.80

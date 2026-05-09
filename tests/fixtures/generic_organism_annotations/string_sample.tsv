@@ -1,0 +1,3 @@
+source_gene	target_gene	interaction_score
+pld	dtxR	0.82
+dtxR	gyrA	0.61

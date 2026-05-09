@@ -1,0 +1,2 @@
+orf_id	best_hit_aro	model_name
+CPS_0003	gyrA	fluoroquinolone resistance-associated gyrase

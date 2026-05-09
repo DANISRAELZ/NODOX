@@ -1,0 +1,2 @@
+protein_id	gene	score
+CPS_0004	spaA	0.7
