@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from src.nodos_funcionales.online_reporting import (
     snapshot_pre_enrichment_state,
 )
 from src.nodos_funcionales.online_sources import SUPPORTED_ONLINE_SOURCES, fetch_online_source
+from src.nodos_funcionales.online_organism_enrichment import run_organism_online_enrichment
 from src.nodos_funcionales.pipeline import run_pipeline
 from src.nodos_funcionales.string_api import STRING_SOURCE_MODES
 
@@ -27,6 +29,19 @@ def _load_existing_profile(workspace: Path) -> dict:
     return json.loads(profile_path.read_text(encoding="utf-8"))
 
 
+def _local_alias_taxon_id(organism: str) -> str | None:
+    aliases_path = PROJECT_ROOT / "config" / "taxon_aliases.json"
+    if not aliases_path.exists():
+        return None
+    payload = json.loads(aliases_path.read_text(encoding="utf-8"))
+    organism_cf = organism.strip().casefold()
+    for entry in payload.get("entries", []):
+        names = [entry.get("canonical_name", ""), *(entry.get("aliases", []) or [])]
+        if organism_cf in {str(name).strip().casefold() for name in names}:
+            return str(entry.get("taxon_id") or "").strip() or None
+    return None
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Recupera una fuente online opcional y la transforma al esquema interno.")
     parser.add_argument("--organism", required=True, help="Nombre del microorganismo.")
@@ -34,12 +49,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--workspace", required=True, help="Workspace a enriquecer.")
     parser.add_argument("--source", choices=sorted(SUPPORTED_ONLINE_SOURCES), default="string", help="Proveedor online a usar.")
     parser.add_argument(
+        "--sources",
+        nargs="+",
+        choices=sorted(SUPPORTED_ONLINE_SOURCES),
+        help="Proveedores online a usar en modo organism-first. Ejemplo: --sources uniprot string.",
+    )
+    parser.add_argument(
         "--mode",
         choices=sorted(STRING_SOURCE_MODES),
         default="cache_first",
         help="Modo de la fuente online: offline_only, cache_first u online_optional.",
     )
     parser.add_argument("--refresh-online-cache", action="store_true", help="Fuerza refresco ignorando cache existente.")
+    parser.add_argument("--force-refresh", action="store_true", help="Alias de --refresh-online-cache para el modo organism-first.")
     parser.add_argument("--no-write-online-cache", action="store_true", help="No escribe el resultado en cache local.")
     parser.add_argument("--invalidate-cache-key", help="Invalida selectivamente una entrada de cache conocida antes del fetch.")
     parser.add_argument("--invalidate-cache-protein-id", help="Invalida entradas de cache asociadas a una proteina concreta.")
@@ -63,7 +85,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     workspace = Path(args.workspace)
-    if not workspace.exists():
+    if args.sources:
+        workspace.mkdir(parents=True, exist_ok=True)
+        (workspace / "config").mkdir(parents=True, exist_ok=True)
+        config_target = workspace / "config" / "params.yaml"
+        if not config_target.exists():
+            shutil.copy2(PROJECT_ROOT / "config" / "params.yaml", config_target)
+        (workspace / "data_raw").mkdir(parents=True, exist_ok=True)
+        (workspace / "results").mkdir(parents=True, exist_ok=True)
+    elif not workspace.exists():
         raise FileNotFoundError(f"Workspace no encontrado: {workspace}")
 
     config_path = workspace / "config" / "params.yaml"
@@ -80,6 +110,41 @@ def main(argv: list[str] | None = None) -> int:
             config=config,
         )
         taxon_id = taxon_profile.get("taxon_id")
+    if not taxon_id:
+        taxon_id = _local_alias_taxon_id(args.organism)
+    if args.sources and not taxon_id and args.mode != "offline_only":
+        taxon_profile = resolve_taxon(
+            PROJECT_ROOT,
+            args.organism,
+            args.strain,
+            resolution_mode=args.mode,
+            config=config,
+            refresh_cache=bool(args.force_refresh or args.refresh_online_cache),
+        )
+        taxon_id = taxon_profile.get("taxon_id")
+
+    if args.sources:
+        result = run_organism_online_enrichment(
+            workspace=workspace,
+            organism_name=args.organism,
+            strain=args.strain,
+            taxon_id=taxon_id,
+            config=config,
+            sources=args.sources,
+            mode=args.mode,
+            force_refresh=bool(args.force_refresh or args.refresh_online_cache),
+        )
+        print("[OK] Organism-first online enrichment complete")
+        print(f"[OK] Organism: {args.organism}")
+        print(f"[OK] Taxon id: {taxon_id or 'unknown'}")
+        print(f"[OK] Report: {result['report_path']}")
+        print(f"[OK] Audit: {result['audit_path']}")
+        for summary in result["summaries"]:
+            print(f"[OK] {summary.layer}: {summary.rows} rows ({summary.status}) -> {summary.path}")
+            for note in summary.notes:
+                if note:
+                    print(f"[WARN] {summary.layer}: {note}")
+        return 0
     if not taxon_id:
         taxon_profile = resolve_taxon(
             PROJECT_ROOT,
