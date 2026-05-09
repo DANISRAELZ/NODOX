@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import unittest
-from pathlib import Path
 
 import pandas as pd
 
 from tests.helpers import PROJECT_ROOT
 
 
-BASE_DIR = PROJECT_ROOT / "data_user" / "cpseudotuberculosis_biovar_ovis"
-TEMPLATE_DIR = BASE_DIR / "templates"
+TEMPLATE_DIR = PROJECT_ROOT / "data_templates"
 
 EXPECTED_COLUMNS = {
     "essentiality.csv": ["protein_id", "gene", "essential", "evidence", "database"],
@@ -75,44 +73,72 @@ EXPECTED_COLUMNS = {
     ],
     "literature_support.csv": [
         "protein_id",
-        "gene_id",
         "gene",
-        "literature_support_score",
+        "organism",
+        "disease_context",
         "evidence_type",
-        "reference",
-        "doi_or_url",
-        "notes",
+        "therapeutic_relevance",
+        "virulence_relevance",
+        "essentiality_relevance",
+        "resistance_relevance",
+        "host_safety_relevance",
+        "evolutionary_escape_relevance",
+        "citation",
+        "doi",
+        "pubmed_id",
+        "year",
+        "evidence_strength",
+        "evidence_source_type",
+        "curator_notes",
+        "literature_support_score",
         "source_quality",
         "database",
     ],
-    "host_annotation.csv": ["protein_id", "gene", "domain_overlap_score", "host_criticality_penalty", "database"],
+    "host_annotation_template.csv": ["protein_id", "gene", "domain_overlap_score", "host_criticality_penalty", "database"],
 }
 
+FORBIDDEN_TERMS = [
+    "cpseudo" + "_mexico",
+    "Mexican " + "isolates",
+    "aislados " + "mexicanos",
+    "17 " + "isolates",
+    "pangenome " + "mexicano",
+    "cpseudotuberculosis" + "_biovar_ovis",
+]
 
-class CpseudotuberculosisTemplateTests(unittest.TestCase):
-    def test_workspace_structure_exists(self) -> None:
-        self.assertTrue(BASE_DIR.exists())
-        self.assertTrue((BASE_DIR / "README.md").exists())
+
+class GenericOrganismTemplateTests(unittest.TestCase):
+    def test_generic_template_directory_exists(self) -> None:
         self.assertTrue(TEMPLATE_DIR.exists())
-        self.assertTrue((BASE_DIR / "metadata").exists())
 
-    def test_templates_have_expected_columns(self) -> None:
+    def test_generic_templates_have_expected_columns(self) -> None:
         for filename, expected in EXPECTED_COLUMNS.items():
             with self.subTest(filename=filename):
                 path = TEMPLATE_DIR / filename
                 self.assertTrue(path.exists())
                 self.assertEqual(list(pd.read_csv(path).columns), expected)
 
-    def test_metadata_and_plan_exist(self) -> None:
-        self.assertTrue((BASE_DIR / "metadata" / "README.md").exists())
-        self.assertTrue((BASE_DIR / "metadata" / "isolates.csv").exists())
-        self.assertTrue((PROJECT_ROOT / "docs" / "cpseudotuberculosis_data_integration_plan.md").exists())
+    def test_generic_workflow_documentation_exists(self) -> None:
+        for relative_path in [
+            "docs/generic_annotation_import.md",
+            "docs/online_organism_enrichment.md",
+            "docs/project_boundaries.md",
+        ]:
+            with self.subTest(path=relative_path):
+                self.assertTrue((PROJECT_ROOT / relative_path).exists())
 
-    def test_plan_documents_dry_run_and_no_invented_data(self) -> None:
-        text = (PROJECT_ROOT / "docs" / "cpseudotuberculosis_data_integration_plan.md").read_text(encoding="utf-8")
+    def test_this_test_has_no_project_specific_terms(self) -> None:
+        text = (PROJECT_ROOT / "tests" / "test_generic_organism_templates.py").read_text(encoding="utf-8")
+        for term in FORBIDDEN_TERMS:
+            with self.subTest(term=term):
+                self.assertNotIn(term, text)
+
+    def test_corynebacterium_is_only_generic_online_example_in_docs(self) -> None:
+        text = (PROJECT_ROOT / "docs" / "online_organism_enrichment.md").read_text(encoding="utf-8")
         self.assertIn("Corynebacterium pseudotuberculosis", text)
-        self.assertIn("--dry-run", text)
-        self.assertIn("No contiene datos biologicos inventados", text)
+        self.assertIn("ejemplo generico", text)
+        for term in ["coleccion particular", "proyecto genomico independiente"]:
+            self.assertIn(term, text)
 
 
 if __name__ == "__main__":
