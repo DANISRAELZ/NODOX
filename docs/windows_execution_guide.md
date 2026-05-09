@@ -54,16 +54,18 @@ Equivale a:
 python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare
 ```
 
-## Dry-run para C. pseudotuberculosis
+## Consulta online generica para C. pseudotuberculosis
 
 ```powershell
-.\scripts\run_cpseudo_dryrun.ps1
+python fetch_online_data.py --organism "Corynebacterium pseudotuberculosis" --workspace data_sessions\corynebacterium_pseudotuberculosis_online_demo --sources uniprot string --mode online_optional --force-refresh
 ```
 
-Equivale a:
+Este ejemplo consulta informacion online general del organismo. No corresponde a una coleccion particular ni a un analisis local.
+
+Un dry-run generico puede ejecutarse con:
 
 ```powershell
-python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --strain "biovar ovis" --acquisition-mode semi_auto --workspace data_sessions\cpseudo_mexico --dry-run
+python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --acquisition-mode semi_auto --workspace data_sessions\corynebacterium_pseudotuberculosis_online_demo --dry-run
 ```
 
 ## Limpiar temporales

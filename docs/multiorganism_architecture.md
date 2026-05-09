@@ -4,6 +4,12 @@
 
 Nodos Funcionales esta organizado como una plataforma multiorganismo. Cada analisis pertenece a un workspace independiente y puede usar datos de usuario, fuentes externas opcionales, cache reproducible, proveedores controlados, datos demo o proxies auditadas.
 
+## Multiorganism design principle
+
+La arquitectura no esta limitada a PAO1, `Corynebacterium pseudotuberculosis` ni H37Rv. Esos organismos funcionan como demo, validacion prioritaria y validacion cruzada, respectivamente. El sistema debe mantenerse generalizable a cualquier organismo bacteriano que el usuario ingrese.
+
+Las capas de evidencia se resuelven por contratos, procedencia y configuracion por capa, no por nombres de organismos. Si una fuente externa no existe, no responde o no fue consultada, el sistema debe registrar ausencia o incompletitud de evidencia sin convertirla en evidencia biologica negativa. Los datos de usuario y los snapshots controlados deben poder cubrir temporalmente el contrato siempre que declaren confianza, limitaciones y procedencia.
+
 ## Flujo del sistema
 
 ```text
@@ -85,10 +91,10 @@ La integracion de proveedores reales debe pasar por el resolvedor de capas y por
 Los snapshots curados son referencias congeladas para comparar ejecuciones, no fuentes online vivas. La estructura recomendada separa:
 
 - PAO1 como demo controlado y validacion STRING/UniProt cerrada;
-- `Corynebacterium pseudotuberculosis` como organismo real prioritario, pendiente de cepa/taxon id curados;
+- `Corynebacterium pseudotuberculosis` biovar ovis como organismo real prioritario con scaffold controlado offline;
 - H37Rv como validacion cruzada real.
 
-Cada snapshot debe registrar organismo, cepa, taxon id, fecha de adquisicion, modo de adquisicion, fuente STRING, fuente UniProt, estado de cache, estado de evidencia, confidence por fuente, procedencia, limitaciones y checksums.
+Cada snapshot debe registrar organismo, cepa o alcance de cepa cuando exista, taxon id o limitacion explicita si no existe, fecha de adquisicion, modo de adquisicion, fuente STRING, fuente UniProt, estado de cache, estado de evidencia, confidence por fuente, procedencia, limitaciones y checksums cuando aplique.
 
 ## Auditoria y ranking
 

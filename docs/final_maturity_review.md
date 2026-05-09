@@ -16,16 +16,16 @@ No se modificaron formulas de scoring, pesos ni contrato publico de
 - `docs/biological_validation_framework.md`
 - `docs/biological_validation_summary_template.md`
 - `docs/final_maturity_review.md`
-- `data_user/cpseudotuberculosis_biovar_ovis/README.md`
-- `data_user/cpseudotuberculosis_biovar_ovis/metadata/README.md`
-- `data_user/cpseudotuberculosis_biovar_ovis/metadata/isolates.csv`
-- `data_user/cpseudotuberculosis_biovar_ovis/templates/*.csv`
+- `data_templates/*.csv`
+- `docs/generic_annotation_import.md`
+- `docs/online_organism_enrichment.md`
+- `docs/project_boundaries.md`
 - `data_templates/biological_validation_targets.csv`
 - `scripts/run_tests.ps1`
 - `scripts/run_demo.ps1`
 - `scripts/run_cpseudo_dryrun.ps1`
 - `scripts/clean_project.ps1`
-- `tests/test_cpseudotuberculosis_templates.py`
+- `tests/test_generic_organism_templates.py`
 - `tests/test_evidence_strength_audit.py`
 - `tests/test_windows_scripts_exist.py`
 - `tests/test_biological_validation_templates.py`
@@ -65,17 +65,17 @@ Se verifico y reforzo la auditoria de:
 Cada capa tiene etiquetas, fuente primaria/secundaria, soporte de cache, demo,
 proxy/controlado, riesgo cientifico y `evidence_priority_level`.
 
-### Integracion de datos reales para C. pseudotuberculosis
+### Ejemplo multi-organismo para C. pseudotuberculosis
 
-Se creo estructura para `Corynebacterium pseudotuberculosis biovar ovis`:
+Se creo estructura de ejemplo para `Corynebacterium pseudotuberculosis`:
 
-- `data_user/cpseudotuberculosis_biovar_ovis/`
+- `data_templates/`
 - `templates/`
 - `metadata/`
 
 Las plantillas estan vacias salvo encabezados para evitar datos biologicos
-inventados. El plan de integracion documenta pangenoma, viruloma, resistoma,
-conservacion, red, localizacion, homologia y literatura.
+inventados. El ejemplo no representa una coleccion particular de aislados ni
+un proyecto genomico independiente.
 
 ### Separacion entre evidencia fuerte y debil
 
@@ -139,7 +139,7 @@ Todas pasaron:
 - `tests/test_integration.py -q`
 - `tests/test_scoring.py -q`
 - `tests/test_layer_source_audit.py -q`
-- `tests/test_cpseudotuberculosis_templates.py -q`
+- `tests/test_generic_organism_templates.py -q`
 - `tests/test_evidence_strength_audit.py -q`
 - `tests/test_windows_scripts_exist.py -q`
 - `tests/test_biological_validation_templates.py -q`
@@ -180,7 +180,7 @@ integrados, 10 features y 10 scores.
 Comando:
 
 ```powershell
-C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --strain "biovar ovis" --acquisition-mode semi_auto --workspace data_sessions\cpseudo_mexico --dry-run
+C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --acquisition-mode semi_auto --workspace data_sessions\corynebacterium_pseudotuberculosis_online_demo --dry-run
 ```
 
 Resultado: OK. El dry-run preparo discovery, reporte y manifest, sin ejecutar
@@ -215,7 +215,7 @@ No se eliminaron `data_user`, `data_templates`, `docs`, `src`, `tests` ni
 
 ## 10. Pendientes cientificos
 
-- Curar datos reales para `C. pseudotuberculosis biovar ovis`.
+- Cargar datos reales del usuario cuando se quiera una corrida curada para `C. pseudotuberculosis`.
 - Sustituir stubs o backfills de homologia por ortologia reproducible.
 - Curar evidencia para impacto clinico, contexto de infeccion y sitio
   terapeutico.
@@ -225,8 +225,7 @@ No se eliminaron `data_user`, `data_templates`, `docs`, `src`, `tests` ni
 
 ## 11. Recomendaciones para la siguiente fase
 
-1. Llenar primero `data_user/cpseudotuberculosis_biovar_ovis/templates/` con
-   datos curados y trazables.
+1. Llenar primero un workspace de usuario con datos curados y trazables.
 2. Ejecutar una corrida real en un workspace nuevo, evitando archivos bloqueados
    de OneDrive.
 3. Revisar `evidence_strength_audit.csv` junto con `ranking_nodos.csv`.

@@ -41,10 +41,10 @@ Ejecutar el demo de `Pseudomonas aeruginosa` PAO1:
 python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare
 ```
 
-Preparar un workspace para `Corynebacterium pseudotuberculosis` en modo dry-run:
+Consultar informacion online general para `Corynebacterium pseudotuberculosis`:
 
 ```powershell
-python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --acquisition-mode semi_auto --workspace data_sessions\cpseudo_mexico --dry-run
+python fetch_online_data.py --organism "Corynebacterium pseudotuberculosis" --workspace data_sessions\corynebacterium_pseudotuberculosis_online_demo --sources uniprot string --mode online_optional --force-refresh
 ```
 
 Ejemplos multiorganismo, todos ilustrativos:
@@ -52,7 +52,7 @@ Ejemplos multiorganismo, todos ilustrativos:
 ```powershell
 python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare
 python run_pipeline.py --organism "Mycobacterium tuberculosis" --strain H37Rv --workspace data_sessions/mtb_h37rv --mode compare
-python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --strain "biovar ovis" --workspace data_sessions/cpseudotuberculosis_biovar_ovis --mode compare
+python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --workspace data_sessions/corynebacterium_pseudotuberculosis_online_demo --mode compare
 python import_dataset.py --organism "ORGANISM_NAME" --strain "STRAIN_NAME" --workspace data_sessions/my_organism_workspace --dataset essentiality --input-dir path/to/user_data
 ```
 
@@ -154,21 +154,19 @@ bibliografica. Los candidatos priorizados deben interpretarse segun calidad,
 cobertura y procedencia de evidencia. Los datos demo o proxy no deben usarse
 para conclusiones biologicas finales.
 
-## Corynebacterium pseudotuberculosis
+## Ejemplo generico con Corynebacterium pseudotuberculosis
 
-Para preparar una corrida inicial sin ejecutar el pipeline completo:
+Corynebacterium pseudotuberculosis puede usarse como organismo de ejemplo para validar el flujo multi-organismo y la consulta online. Este ejemplo no corresponde a una coleccion particular de aislados ni a un proyecto genomico externo.
+
+Para preparar una corrida inicial sin ejecutar scoring:
 
 ```powershell
-python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --strain "biovar ovis" --acquisition-mode semi_auto --workspace data_sessions\cpseudo_mexico --dry-run
+python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --acquisition-mode semi_auto --workspace data_sessions\corynebacterium_pseudotuberculosis_online_demo --dry-run
 ```
 
-Luego revisar `data_sessions\cpseudo_mexico\data_templates` o los archivos
-esperados en el reporte de discovery, completar datos reales en el workspace y
-ejecutar el pipeline cuando las capas obligatorias esten listas.
+Luego revisar los archivos esperados en el reporte de discovery, completar datos reales en el workspace si se desea una corrida completa y ejecutar el pipeline cuando las capas obligatorias esten listas.
 
-Para integrar aislados mexicanos de `Corynebacterium pseudotuberculosis biovar
-ovis`, usa las plantillas de `data_user/cpseudotuberculosis_biovar_ovis/` y el
-plan `docs/cpseudotuberculosis_data_integration_plan.md`.
+La consulta online organism-first se documenta en `docs/online_organism_enrichment.md`.
 
 ## Fuerza de evidencia
 

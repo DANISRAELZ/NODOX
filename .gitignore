@@ -18,6 +18,8 @@ data_external/*
 data_external/curated_snapshots/*
 !data_external/curated_snapshots/pseudomonas_aeruginosa_pao1/
 !data_external/curated_snapshots/pseudomonas_aeruginosa_pao1/**
+!data_external/curated_snapshots/corynebacterium_pseudotuberculosis_biovar_ovis/
+!data_external/curated_snapshots/corynebacterium_pseudotuberculosis_biovar_ovis/**
 data_raw/
 data_sessions/
 data_user/
