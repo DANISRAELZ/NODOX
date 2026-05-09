@@ -27,7 +27,7 @@ function Resolve-Python {
 $Python = Resolve-Python -Preferred $PYTHON_EXE
 Write-Host "[OK] Python: $Python"
 Write-Host "[OK] Running Corynebacterium pseudotuberculosis dry-run"
-& $Python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --strain "biovar ovis" --acquisition-mode semi_auto --workspace "data_sessions\cpseudo_mexico" --dry-run
+& $Python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --acquisition-mode semi_auto --workspace "data_sessions\corynebacterium_pseudotuberculosis_online_demo" --dry-run
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] Dry-run failed."
     exit $LASTEXITCODE

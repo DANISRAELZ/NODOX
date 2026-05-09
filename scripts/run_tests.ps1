@@ -33,7 +33,7 @@ $tests = @(
     "tests/test_scoring.py",
     "tests/test_layer_source_audit.py",
     "tests/test_evidence_strength_audit.py",
-    "tests/test_cpseudotuberculosis_templates.py"
+    "tests/test_generic_organism_templates.py"
 )
 
 foreach ($test in $tests) {
