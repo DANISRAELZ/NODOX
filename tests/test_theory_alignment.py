@@ -99,6 +99,7 @@ def test_reports_include_interpretation_limits_and_provenance() -> None:
     for column in [
         "functional_node_types",
         "therapeutic_priority_contribution_summary",
+        "therapeutic_priority_components",
         "confidence_modifier",
         "provenance_status",
         "retrieval_mode",
@@ -121,6 +122,8 @@ def test_reports_include_interpretation_limits_and_provenance() -> None:
         "ausencia de evidencia no equivale a evidencia negativa",
         "Bajo riesgo evolutivo no significa ausencia de resistencia",
         "hipotesis terapeuticas priorizadas",
+        "therapeutic_priority_components",
+        "interpretacion computacional",
     ]
     combined = f"{report_text}\n{explanation_text}"
     for pattern in warning_patterns:

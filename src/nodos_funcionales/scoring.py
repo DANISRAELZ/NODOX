@@ -1195,6 +1195,7 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
         lambda row: _contribution_summary(row, therapeutic_priority_contribution_columns),
         axis=1,
     )
+    features["therapeutic_priority_components"] = features["therapeutic_priority_contribution_summary"]
     thresholds = therapeutic_cfg["classification_thresholds"]
     therapeutic_role_rows = features.apply(lambda row: _classify_therapeutic_role(row, thresholds), axis=1)
     features["therapeutic_role"] = therapeutic_role_rows.map(lambda item: item[0])
@@ -1299,7 +1300,7 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
             f"therapeutic_role={row['therapeutic_role']}; "
             f"role_stability={row['therapeutic_role_stability']}; "
             f"therapeutic_priority={row['therapeutic_priority_score']:.3f}; "
-            f"therapeutic_priority_components={row['therapeutic_priority_contribution_summary']}; "
+            f"therapeutic_priority_components={row['therapeutic_priority_components']}; "
             f"evolutionary_escape_risk={row.get('evolutionary_escape_risk_score', 0.0):.3f}; "
             f"evolutionary_penalty={row.get('evolutionary_escape_penalty_applied', 0.0):.3f}; "
             f"margin={row['strategy_margin_score']:.3f}; "
@@ -1426,6 +1427,7 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
         "phase3_notes",
         "therapeutic_priority_score",
         "therapeutic_priority_contribution_summary",
+        "therapeutic_priority_components",
         *[
             f"therapeutic_priority_{column}_contribution"
             for column in THERAPEUTIC_PRIORITY_INPUT_COLUMNS

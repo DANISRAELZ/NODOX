@@ -101,6 +101,7 @@ EVOLUTIONARY_ESCAPE_RISK_REPORT_COLUMNS = [
 
 THERAPEUTIC_PRIORITY_CONTRIBUTION_COLUMNS = [
     "therapeutic_priority_contribution_summary",
+    "therapeutic_priority_components",
     "therapeutic_priority_meta_priority_score_contribution",
     "therapeutic_priority_host_safety_score_contribution",
     "therapeutic_priority_host_damage_score_contribution",
@@ -1104,6 +1105,9 @@ TOP10_SCIENTIFIC_AUDIT_COLUMNS = [
     "protein_id",
     "gene",
     "meta_priority_score_v3",
+    "therapeutic_priority_score",
+    "therapeutic_priority_contribution_summary",
+    "therapeutic_priority_components",
     "therapeutic_role_v3",
     "candidate_record_type",
     "ranking_inclusion_status",
@@ -1199,6 +1203,14 @@ def _build_top10_scientific_audit(
                 "phase3_evidence_confidence_label": row.get("phase3_evidence_confidence_label", "not_reported"),
                 "phase3_recommendation": row.get("phase3_recommendation", "not_reported"),
                 "therapeutic_priority_score": row.get("therapeutic_priority_score", 0.0),
+                "therapeutic_priority_contribution_summary": row.get(
+                    "therapeutic_priority_contribution_summary",
+                    "not_reported",
+                ),
+                "therapeutic_priority_components": row.get(
+                    "therapeutic_priority_components",
+                    row.get("therapeutic_priority_contribution_summary", "not_reported"),
+                ),
                 "preferred_strategy": strategy_label,
                 "meta_priority_score": row["meta_priority_score"],
                 "meta_priority_score_v3": row.get("meta_priority_score_v3", 0.0),
@@ -1280,6 +1292,8 @@ def _build_top10_scientific_markdown(
             "## Criterios de InterpretaciÃ³n y Limitaciones",
             "- Esta lectura usa solo outputs internos del proyecto y no incorpora literatura ni bases externas.",
             "- Un score alto no equivale a validaciÃ³n biolÃ³gica definitiva.",
+            "- `therapeutic_priority_components` descompone la prioridad terapeutica calculada por el modelo; no es validacion experimental.",
+            "- Sus componentes pueden depender de evidencia real, curada, cache, proxy, demo o faltante, segun la procedencia registrada.",
             "- Las capas opcionales pueden mezclar datos demo, datos de usuario, cache local y proveedores controlados; revisar siempre la tabla de procedencia.",
             "- Las variables de impacto clÃ­nico y daÃ±o al hospedero pueden venir de capas materializadas semicuradas o de proxies internos, segÃºn la procedencia registrada.",
             "",
@@ -1293,6 +1307,7 @@ def _build_top10_scientific_markdown(
             [
                 f"## {int(row['rank'])}. {row['gene']} ({row['protein_id']})",
                 f"- Rol terapÃ©utico: `{row['therapeutic_role']}` con prioridad `{row['therapeutic_priority_score']:.4f}`",
+                f"- Descomposicion de prioridad terapeutica: {row.get('therapeutic_priority_components', 'not_reported')}",
                 f"- Fase 3: rank real `{row.get('rank_phase3_real_candidates', 'not_reported')}`, meta_priority_score_v3 `{float(row.get('meta_priority_score_v3', 0.0)):.4f}`, rol `{row.get('therapeutic_role_v3', 'not_reported')}`",
                 f"- Evidencia Fase 3: calidad `{float(row.get('evidence_quality_score', 0.0)):.4f}`, techo `{float(row.get('confidence_ceiling', 0.0)):.4f}`, teoria `{float(row.get('functional_node_theory_score', 0.0)):.4f}`, escape `{float(row.get('evolutionary_escape_risk_score', 0.0)):.4f}`, similitud hospedero `{float(row.get('host_similarity_risk', 0.0)):.4f}`",
                 f"- Estrategia preferida: `{row['preferred_strategy']}`",
@@ -1368,6 +1383,7 @@ def _scientific_audit_report_view(scientific_audit: pd.DataFrame) -> pd.DataFram
         "robustness_label",
         "audit_class",
         "audit_confidence",
+        "therapeutic_priority_components",
     ]
     if scientific_audit.empty:
         return pd.DataFrame(columns=columns)
@@ -2093,6 +2109,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
             "evolutionary_escape_risk_interpretation",
             "therapeutic_priority_score",
             "therapeutic_priority_contribution_summary",
+            "therapeutic_priority_components",
             "therapeutic_priority_meta_priority_score_contribution",
             "therapeutic_priority_host_safety_score_contribution",
             "therapeutic_priority_host_damage_score_contribution",
@@ -2159,6 +2176,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
             "therapeutic_role",
             "therapeutic_priority_score",
             "therapeutic_priority_contribution_summary",
+            "therapeutic_priority_components",
             "evolutionary_escape_risk_score",
             "evolutionary_escape_risk_status",
             "preferred_strategy",
@@ -2227,6 +2245,8 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "- La informacion online general no sustituye datos especificos del usuario.",
         "- Bajo riesgo evolutivo no significa ausencia de resistencia.",
         "- El ranking representa hipotesis terapeuticas priorizadas, no recomendaciones clinicas.",
+        "- `therapeutic_priority_components` muestra como se descompone la prioridad terapeutica dentro del modelo; es una interpretacion computacional, no validacion experimental.",
+        "- Esta descomposicion hereda la procedencia de sus capas de entrada: evidencia real, curada, cache, proxy, demo o faltante pueden contribuir segun lo registrado.",
         "",
         "## Resumen",
         f"- Candidatos evaluados: {len(features)}",
@@ -2378,6 +2398,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
                                 "protein_id",
                                 "therapeutic_role",
                                 "preferred_strategy",
+                                "therapeutic_priority_components",
                                 "evolutionary_escape_risk_score",
                                 "strategy_margin_score",
                                 "data_realism_flag",

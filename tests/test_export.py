@@ -69,6 +69,7 @@ class ExportTests(unittest.TestCase):
         for column in [
             "therapeutic_priority_score",
             "therapeutic_priority_contribution_summary",
+            "therapeutic_priority_components",
             "therapeutic_priority_meta_priority_score_contribution",
             "therapeutic_priority_host_safety_score_contribution",
             "therapeutic_priority_host_damage_score_contribution",
@@ -104,6 +105,11 @@ class ExportTests(unittest.TestCase):
             ranking["therapeutic_priority_score"].round(6),
             check_names=False,
         )
+        pd.testing.assert_series_equal(
+            ranking["therapeutic_priority_components"],
+            ranking["therapeutic_priority_contribution_summary"],
+            check_names=False,
+        )
 
     def test_export_legacy_mode_writes_legacy_ranking_as_primary_output(self) -> None:
         project_dir = make_temp_project()
@@ -137,6 +143,7 @@ class ExportTests(unittest.TestCase):
         self.assertIn("therapeutic_role_stability", audit.columns)
         self.assertIn("therapeutic_priority_score", audit.columns)
         self.assertIn("therapeutic_priority_contribution_summary", audit.columns)
+        self.assertIn("therapeutic_priority_components", audit.columns)
         self.assertIn("candidate_audit_summary", audit.columns)
         self.assertIn("optional_data_quality_score", audit.columns)
         self.assertIn("host_risk_audit_summary", audit.columns)
@@ -148,6 +155,11 @@ class ExportTests(unittest.TestCase):
         self.assertIn("virulence_associated_severity_score", audit.columns)
         self.assertIn("confidence_source_class", audit.columns)
         self.assertIn("confidence_evidence_tier", audit.columns)
+        pd.testing.assert_series_equal(
+            audit["therapeutic_priority_components"],
+            audit["therapeutic_priority_contribution_summary"],
+            check_names=False,
+        )
         self.assertTrue(audit["host_risk_audit_summary"].str.contains("host_source=").all())
         self.assertTrue(audit["human_homology_audit_summary"].str.contains("tier=").all())
         self.assertTrue(audit["therapy_site_context_audit_summary"].str.contains("site=").all())
@@ -231,12 +243,16 @@ class ExportTests(unittest.TestCase):
         export_results(project_dir, config)
 
         scientific = pd.read_csv(project_dir / "results" / "top10_scientific_audit.csv")
+        top10_md = (project_dir / "results" / "top10_scientific_audit.md").read_text(encoding="utf-8")
+        report = (project_dir / "results" / "report_phase2.md").read_text(encoding="utf-8")
         self.assertEqual(len(scientific), 10)
         for column in [
             "rank",
             "protein_id",
             "preferred_strategy",
             "therapeutic_role",
+            "therapeutic_priority_contribution_summary",
+            "therapeutic_priority_components",
             "robustness_label",
             "biological_interpretation",
             "methodological_risk",
@@ -248,10 +264,20 @@ class ExportTests(unittest.TestCase):
         ]:
             self.assertIn(column, scientific.columns)
         self.assertTrue(scientific["audit_class"].fillna("").str.len().gt(0).all())
+        pd.testing.assert_series_equal(
+            scientific["therapeutic_priority_components"],
+            scientific["therapeutic_priority_contribution_summary"],
+            check_names=False,
+        )
         self.assertTrue(scientific["methodological_risk"].str.contains("Seguridad hospedero:").all())
         self.assertTrue(scientific["host_risk_interpretation"].str.contains("Seguridad hospedero:").all())
         self.assertIn("literature_interpretation", scientific.columns)
         self.assertTrue(scientific["literature_interpretation"].str.contains("no afecta el ranking").all())
+        self.assertIn("therapeutic_priority_components", top10_md)
+        self.assertIn("no es validacion experimental", top10_md)
+        self.assertIn("evidencia real, curada, cache, proxy, demo o faltante", top10_md)
+        self.assertIn("therapeutic_priority_components", report)
+        self.assertIn("interpretacion computacional", report)
 
     def test_export_scientific_audit_handles_missing_sensitivity_file(self) -> None:
         project_dir = make_temp_project()

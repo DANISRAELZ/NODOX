@@ -86,6 +86,13 @@ class ScoringTests(unittest.TestCase):
         self.assertIn("confidence_evidence_tier", _.columns)
         self.assertIn("therapeutic_role_rule", _.columns)
         self.assertIn("therapeutic_priority_contribution_summary", _.columns)
+        self.assertIn("therapeutic_priority_components", _.columns)
+        self.assertIn("therapeutic_priority_components", scored.columns)
+        pd.testing.assert_series_equal(
+            _["therapeutic_priority_components"],
+            _["therapeutic_priority_contribution_summary"],
+            check_names=False,
+        )
         therapeutic_priority_contribution_columns = [
             "therapeutic_priority_meta_priority_score_contribution",
             "therapeutic_priority_host_safety_score_contribution",
@@ -104,6 +111,7 @@ class ScoringTests(unittest.TestCase):
             check_names=False,
         )
         self.assertTrue(scored["therapeutic_priority_contribution_summary"].str.contains("meta_priority_score=").all())
+        self.assertTrue(scored["therapeutic_priority_components"].str.contains("meta_priority_score=").all())
         self.assertIn("therapeutic_context_missingness", _.columns)
         self.assertIn("contextual_essentiality_score", _.columns)
         self.assertIn("pleiotropy_score", _.columns)
