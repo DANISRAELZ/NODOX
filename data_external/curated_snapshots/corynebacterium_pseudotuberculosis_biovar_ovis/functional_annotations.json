@@ -11,7 +11,7 @@
       "evidence_status": "controlled_reference",
       "evidence_kind": "controlled_fixture",
       "is_controlled": true,
-      "source_reference": "docs/cpseudotuberculosis_data_integration_plan.md",
+      "source_reference": "docs/functional_nodes_theory_operationalization.md",
       "confidence": 0.55,
       "notes": "Representative virulence node for contract validation; not fresh external evidence."
     },
@@ -23,7 +23,7 @@
       "evidence_status": "controlled_reference",
       "evidence_kind": "controlled_fixture",
       "is_controlled": true,
-      "source_reference": "docs/cpseudotuberculosis_data_integration_plan.md",
+      "source_reference": "docs/functional_nodes_theory_operationalization.md",
       "confidence": 0.52,
       "notes": "Representative regulatory node; included to validate controlled provenance."
     },
@@ -35,7 +35,7 @@
       "evidence_status": "controlled_reference",
       "evidence_kind": "controlled_fixture",
       "is_controlled": true,
-      "source_reference": "docs/cpseudotuberculosis_data_integration_plan.md",
+      "source_reference": "docs/functional_nodes_theory_operationalization.md",
       "confidence": 0.5,
       "notes": "Representative oxidative stress node; not a scored evidence replacement."
     },
@@ -47,7 +47,7 @@
       "evidence_status": "controlled_reference",
       "evidence_kind": "controlled_fixture",
       "is_controlled": true,
-      "source_reference": "docs/cpseudotuberculosis_data_integration_plan.md",
+      "source_reference": "docs/functional_nodes_theory_operationalization.md",
       "confidence": 0.55,
       "notes": "System-level representative node for offline snapshot structure."
     },
@@ -59,7 +59,7 @@
       "evidence_status": "controlled_reference",
       "evidence_kind": "controlled_fixture",
       "is_controlled": true,
-      "source_reference": "docs/cpseudotuberculosis_data_integration_plan.md",
+      "source_reference": "docs/functional_nodes_theory_operationalization.md",
       "confidence": 0.5,
       "notes": "Controlled heme acquisition example; not online evidence."
     },
@@ -71,7 +71,7 @@
       "evidence_status": "controlled_reference",
       "evidence_kind": "controlled_fixture",
       "is_controlled": true,
-      "source_reference": "docs/cpseudotuberculosis_data_integration_plan.md",
+      "source_reference": "docs/functional_nodes_theory_operationalization.md",
       "confidence": 0.48,
       "notes": "Included as controlled scaffold if future project curation uses ciu genes."
     },
