@@ -1,5 +1,12 @@
 # Limites del proyecto
 
+## Enfoque conceptual
+
+El eje del repositorio es la Teoria de Nodos Funcionales. La arquitectura
+multi-organismo, los ejemplos, snapshots, conectores online, importadores,
+pruebas y reportes existen para operacionalizar y auditar esa teoria, no para
+convertir ningun organismo o fuente de datos en el centro conceptual.
+
 ## Separacion de proyectos
 
 El proyecto Nodos Funcionales es una plataforma multi-organismo para priorizacion de blancos terapeuticos. No depende de colecciones particulares de aislados ni de proyectos genomicos externos.

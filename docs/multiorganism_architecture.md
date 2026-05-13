@@ -4,6 +4,8 @@
 
 Nodos Funcionales esta organizado como una plataforma multiorganismo. Cada analisis pertenece a un workspace independiente y puede usar datos de usuario, fuentes externas opcionales, cache reproducible, proveedores controlados, datos demo o proxies auditadas.
 
+Esta arquitectura es una forma de operacionalizar y validar la Teoria de Nodos Funcionales en distintos organismos. El soporte multi-organismo no es un fin separado: permite probar que los postulados teoricos se expresan como capas de evidencia, procedencia, scoring y ranking explicable sin depender de un organismo concreto.
+
 ## Multiorganism design principle
 
 La arquitectura no esta limitada a PAO1, `Corynebacterium pseudotuberculosis` ni H37Rv. Esos organismos funcionan como demo, validacion prioritaria y validacion cruzada, respectivamente. El sistema debe mantenerse generalizable a cualquier organismo bacteriano que el usuario ingrese.
@@ -91,8 +93,8 @@ La integracion de proveedores reales debe pasar por el resolvedor de capas y por
 Los snapshots curados son referencias congeladas para comparar ejecuciones, no fuentes online vivas. La estructura recomendada separa:
 
 - PAO1 como demo controlado y validacion STRING/UniProt cerrada;
-- `Corynebacterium pseudotuberculosis` biovar ovis como organismo real prioritario con scaffold controlado offline;
-- H37Rv como validacion cruzada real.
+- `Corynebacterium pseudotuberculosis` biovar ovis como ejemplo generico con scaffold controlado offline;
+- H37Rv como validacion cruzada.
 
 Cada snapshot debe registrar organismo, cepa o alcance de cepa cuando exista, taxon id o limitacion explicita si no existe, fecha de adquisicion, modo de adquisicion, fuente STRING, fuente UniProt, estado de cache, estado de evidencia, confidence por fuente, procedencia, limitaciones y checksums cuando aplique.
 

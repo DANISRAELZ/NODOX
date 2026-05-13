@@ -37,13 +37,13 @@ Para la fase de consolidacion de fuentes online y snapshots, las referencias se 
 | Organismo | Cepa | Uso esperado | Advertencia |
 | --- | --- | --- | --- |
 | `Pseudomonas aeruginosa` | PAO1 | Organismo demo controlado y referencia de validacion STRING/UniProt ya cerrada. | No confundir el snapshot demo con evidencia real nueva. |
-| `Corynebacterium pseudotuberculosis` | biovar ovis | Organismo real prioritario del proyecto con scaffold controlado inicial. | El snapshot actual es offline/controlado; STRING y UniProt siguen sin consultarse para este organismo. |
+| `Corynebacterium pseudotuberculosis` | biovar ovis | Organismo ejemplo para validar el contrato multi-organismo con scaffold controlado inicial. | El snapshot actual es offline/controlado; STRING y UniProt siguen sin consultarse para este organismo. |
 | `Mycobacterium tuberculosis` | H37Rv | Organismo real para validacion cruzada por cobertura publica estable. | Registrar si cada fuente resuelve a cepa H37Rv o a nivel especie. |
 
 Estas referencias no imponen defaults globales al motor. Solo orientan la preparacion de snapshots reproducibles y auditables.
 
 ## Principio multiorganismo
 
-El proyecto no es especifico de PAO1, `Corynebacterium pseudotuberculosis` ni H37Rv. Esos nombres aparecen porque permiten cubrir modos distintos de validacion: demo controlado, organismo real prioritario y validacion cruzada. Cualquier documento, snapshot o prueba nueva debe evitar presentar esos organismos como limites del pipeline.
+El proyecto no es especifico de PAO1, `Corynebacterium pseudotuberculosis` ni H37Rv. Esos nombres aparecen porque permiten cubrir modos distintos de validacion: demo controlado, ejemplo multi-organismo y validacion cruzada. Cualquier documento, snapshot o prueba nueva debe evitar presentar esos organismos como limites del pipeline.
 
 Cuando un organismo nuevo no tenga `taxon_id`, cepa, fuentes externas completas o cache disponible, el contrato debe permitir una entrada parcial con limitaciones explicitas y procedencia clara. Esa incompletitud no debe confundirse con evidencia biologica negativa.

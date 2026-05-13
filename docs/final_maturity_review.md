@@ -10,7 +10,7 @@ No se modificaron formulas de scoring, pesos ni contrato publico de
 ## 1. Archivos creados
 
 - `docs/development_baseline.md`
-- `docs/cpseudotuberculosis_data_integration_plan.md`
+- `docs/functional_nodes_theory_operationalization.md`
 - `docs/evidence_strength_framework.md`
 - `docs/windows_execution_guide.md`
 - `docs/biological_validation_framework.md`
@@ -65,9 +65,12 @@ Se verifico y reforzo la auditoria de:
 Cada capa tiene etiquetas, fuente primaria/secundaria, soporte de cache, demo,
 proxy/controlado, riesgo cientifico y `evidence_priority_level`.
 
-### Ejemplo multi-organismo para C. pseudotuberculosis
+### Ejemplo multi-organismo subordinado a la teoria
 
-Se creo estructura de ejemplo para `Corynebacterium pseudotuberculosis`:
+Se verifico que las plantillas e insumos genericos puedan usarse con organismos
+distintos de PAO1. `Corynebacterium pseudotuberculosis` aparece solo como
+ejemplo tecnico para validar la arquitectura multi-organismo de la Teoria de
+Nodos Funcionales:
 
 - `data_templates/`
 - `templates/`
