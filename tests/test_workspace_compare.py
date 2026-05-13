@@ -17,7 +17,11 @@ class WorkspaceCompareTests(unittest.TestCase):
         self.assertIn("online_changed_candidate_count", comparison.columns)
         self.assertIn("online_history_count", comparison.columns)
         self.assertIn("online_sources_seen", comparison.columns)
-        self.assertTrue(comparison["workspace_name"].isin(["cpseudo_demo", "pao1_demo"]).any())
+        expected_demo_workspaces = [
+            "corynebacterium_pseudotuberculosis_online_demo",
+            "pao1_demo",
+        ]
+        self.assertTrue(comparison["workspace_name"].isin(expected_demo_workspaces).any())
 
 
 if __name__ == "__main__":

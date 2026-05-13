@@ -85,6 +85,20 @@ STRATEGY_SCORE_COLUMNS = [
     "functional_node_score",
 ]
 
+THERAPEUTIC_PRIORITY_INPUT_COLUMNS = [
+    "meta_priority_score",
+    "host_safety_score",
+    "host_damage_score",
+    "infection_site_access_score",
+    "infection_context_score",
+]
+
+INTERPRETATION_WARNING = (
+    "Ranking = hipotesis terapeutica priorizada, no validacion experimental ni recomendacion clinica; "
+    "score alto no implica farmaco disponible; esencialidad, virulencia, conectividad o bajo riesgo evolutivo "
+    "no bastan por si solos; ausencia de evidencia no equivale a evidencia negativa."
+)
+
 HOST_RISK_AUDIT_COLUMNS = [
     "domain_overlap_score",
     "host_criticality_penalty",
@@ -313,6 +327,132 @@ def _driver_strings(df: pd.DataFrame, weights: dict[str, float]) -> tuple[pd.Ser
         positive_parts.append("; ".join(f"{key}={value:.3f}" for key, value in positive) if positive else "none")
         negative_parts.append("; ".join(f"{key}={value:.3f}" for key, value in negative) if negative else "none")
     return pd.Series(positive_parts), pd.Series(negative_parts)
+
+
+def _contribution_summary(row: pd.Series, contribution_columns: list[str]) -> str:
+    parts = []
+    for column in contribution_columns:
+        value = pd.to_numeric(pd.Series([row.get(column)]), errors="coerce").fillna(0.0).iloc[0]
+        feature_name = column.removeprefix("therapeutic_priority_").removesuffix("_contribution")
+        parts.append((feature_name, float(value)))
+    parts = sorted(parts, key=lambda item: item[1], reverse=True)
+    return "; ".join(f"{feature_name}={value:.3f}" for feature_name, value in parts) if parts else "none"
+
+
+def _truthy_signal(value: object, threshold: float = 0.60) -> bool:
+    numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.notna(numeric):
+        return float(numeric) >= threshold
+    text = str(value or "").strip().lower()
+    return text in {"true", "yes", "detected", "positive", "present", "high"}
+
+
+def _derive_functional_node_types(row: pd.Series) -> str:
+    node_types: list[str] = []
+    essentiality = float(row.get("essentiality_support", 0.0) or 0.0)
+    virulence = float(row.get("virulence_support", 0.0) or 0.0)
+    functional = float(row.get("functional_node_score", 0.0) or 0.0)
+    access = float(row.get("infection_site_access_score", 0.0) or 0.0)
+    context = float(row.get("infection_context_score", 0.0) or 0.0)
+    robustness = float(row.get("evolutionary_robustness_score", 0.0) or 0.0)
+    selectivity = float(row.get("selectivity_score", row.get("host_safety_score", 0.0)) or 0.0)
+    clinical = float(row.get("clinical_context_score", 0.0) or 0.0)
+
+    localization = str(row.get("localization", "") or "").lower()
+    gene_text = " ".join(
+        str(row.get(column, "") or "").lower()
+        for column in ["gene", "uniprot_protein_name", "virulence_factor", "functional_module"]
+    )
+
+    essential_flag = pd.to_numeric(pd.Series([row.get("essential")]), errors="coerce").fillna(0).iloc[0]
+    if essentiality >= 0.70 or int(essential_flag) == 1:
+        node_types.append("essential_node")
+    if virulence >= 0.65 or _truthy_signal(row.get("virulence_factor"), threshold=0.50):
+        node_types.append("virulence_node")
+    if context >= 0.60 or any(token in gene_text for token in ["stress", "biofilm", "persistence", "hypoxia", "iron", "quorum"]):
+        node_types.append("adaptation_persistence_node")
+    if any(token in gene_text for token in ["regulator", "sigma", "response regulator", "sensor kinase", "transcriptional", "quorum"]):
+        node_types.append("regulatory_node")
+    if functional >= 0.60 or float(row.get("network_centrality", 0.0) or 0.0) >= 0.65 or float(row.get("pathway_bottleneck_score", 0.0) or 0.0) >= 0.65:
+        node_types.append("functional_connectivity_node")
+    if access >= 0.60 or localization in {"extracellular", "cell_wall", "outer_membrane"}:
+        node_types.append("therapeutic_accessibility_node")
+    if (
+        float(row.get("collateral_sensitivity_score", 0.0) or 0.0) >= 0.60
+        or _truthy_signal(row.get("resistance_association"), threshold=0.60)
+        or float(row.get("resistance_emergence_risk", 0.0) or 0.0) >= 0.60
+    ):
+        node_types.append("resistance_or_susceptibility_node")
+    if robustness >= 0.65 or float(row.get("reduced_evolutionary_space_score", 0.0) or 0.0) >= 0.65:
+        node_types.append("evolutionarily_constrained_node")
+    if context >= 0.60 or clinical >= 0.60:
+        node_types.append("contextual_node")
+
+    favorable_axes = sum(
+        [
+            functional >= 0.60,
+            max(essentiality, virulence) >= 0.65,
+            selectivity >= 0.65,
+            access >= 0.55,
+            robustness >= 0.60,
+            clinical >= 0.55,
+            float(row.get("evidence_confidence_score", 0.0) or 0.0) >= 0.55,
+        ]
+    )
+    if favorable_axes >= 4:
+        node_types.append("integrative_multilevel_node")
+
+    return "; ".join(dict.fromkeys(node_types)) if node_types else "unclassified_functional_node"
+
+
+def _dominant_provenance_status(row: pd.Series) -> str:
+    source_class = str(row.get("confidence_source_class", "unknown") or "unknown").strip().lower()
+    data_realism = str(row.get("data_realism_flag", "") or "").strip().lower()
+    missing_flags = str(row.get("missing_evidence_flags", "") or "").strip().lower()
+    if source_class == "user":
+        return "user_supplied"
+    if source_class in {"curated", "literature"}:
+        return "curated_snapshot"
+    if source_class in {"experimental", "computed"}:
+        return "real_external_online"
+    if source_class == "controlled":
+        return "controlled_provider"
+    if source_class == "proxy":
+        return "inferred_proxy"
+    if "demo" in data_realism:
+        return "demo"
+    if "missing" in missing_flags:
+        return "missing_input"
+    return "insufficient_evidence"
+
+
+def _aggregate_cache_status(row: pd.Series) -> str:
+    cached = [bool(row.get(f"{layer}_is_cached", False)) for layer in TARGET_LAYER_KEYS]
+    if any(cached):
+        return "cache_hit"
+    if any(bool(row.get(f"{layer}_is_external", False)) for layer in TARGET_LAYER_KEYS):
+        return "not_cached_or_not_reported"
+    return "not_cached"
+
+
+def _aggregate_retrieval_mode(row: pd.Series) -> str:
+    statuses = {
+        str(row.get(f"{layer}_retrieval_status", "") or "").strip().lower()
+        for layer in TARGET_LAYER_KEYS
+    }
+    source_names = {
+        str(row.get(f"{layer}_source_name", "") or "").strip().lower()
+        for layer in TARGET_LAYER_KEYS
+    }
+    if any("user" in status or "user" in name for status in statuses for name in source_names):
+        return "user_or_local_file"
+    if any("cache" in status or "cache" in name for status in statuses for name in source_names):
+        return "cache_first_or_cache_hit"
+    if any("external" in status or "api" in status or "real" in name for status in statuses for name in source_names):
+        return "online_optional_or_external"
+    if any("proxy" in status or "controlled" in status or "controlled" in name for status in statuses for name in source_names):
+        return "controlled_or_proxy"
+    return "not_reported"
 
 
 def _build_missing_flags(df: pd.DataFrame) -> pd.Series:
@@ -992,16 +1132,74 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
     meta_input = features[list(config["weights"]["meta_priority"].keys())].copy()
     features["meta_priority_score"] = meta_score
     features = compute_evolutionary_escape_risk_features(features, config)
+    features["candidate_id"] = features["protein_id"]
+    features["product"] = features.get(
+        "uniprot_protein_name",
+        pd.Series(["not_reported"] * len(features), index=features.index),
+    ).fillna("not_reported")
+    if "organism" not in features.columns:
+        features["organism"] = "not_reported"
+    if "strain" not in features.columns:
+        features["strain"] = "not_reported"
+    features["selectivity_score"] = _clamp(features["host_safety_score"])
+    features["clinical_context_score"] = _clamp(
+        0.40 * features["infection_context_score"]
+        + 0.30 * features["host_damage_score"]
+        + 0.30 * features["infection_site_access_score"]
+    )
+    features["confidence_modifier"] = _clamp(
+        0.60 * features["evidence_confidence_score"]
+        + 0.25 * features["evidence_coverage_score"]
+        + 0.15 * features["optional_data_quality_score"]
+    )
+    features["evolutionary_escape_risk"] = features["evolutionary_escape_risk_score"]
+    features["evolutionary_constraint"] = features["evolutionary_constraint_score"]
+    features["mutation_tolerance"] = features["mutation_tolerance_score"]
+    features["pathway_redundancy"] = _clamp(
+        pd.to_numeric(
+            features.get("functional_redundancy_escape_score", features.get("redundancy_penalty", 0.5)),
+            errors="coerce",
+        ).fillna(0.5)
+    )
+    for column in ["paralog_count", "mobile_context", "hgt_context", "recombination_context", "resistance_association"]:
+        if column not in features.columns:
+            features[column] = "unknown"
+        else:
+            features[column] = features[column].fillna("unknown")
+    features["evidence_level"] = features["confidence_evidence_tier"]
+    features["evidence_source"] = features["optional_data_source_summary"]
+    features["provenance_status"] = features.apply(_dominant_provenance_status, axis=1)
+    features["retrieval_mode"] = features.apply(_aggregate_retrieval_mode, axis=1)
+    features["cache_status"] = features.apply(_aggregate_cache_status, axis=1)
+    for column in ["source_version", "updated_at"]:
+        if column not in features.columns:
+            features[column] = "not_reported"
+        else:
+            features[column] = features[column].fillna("not_reported")
+    features["interpretation_warning"] = INTERPRETATION_WARNING
 
     preferred_strategy_columns = assign_preferred_strategy(features)
     for column in preferred_strategy_columns.columns:
         features[column] = preferred_strategy_columns[column]
-    therapeutic_priority, _ = _weighted_score(features, therapeutic_cfg["priority_weights"])
+    therapeutic_priority, therapeutic_priority_contributions = _weighted_score(features, therapeutic_cfg["priority_weights"])
     features["therapeutic_priority_score"] = therapeutic_priority
+    therapeutic_priority_contribution_columns = []
+    therapeutic_priority_weight_norm = sum(abs(value) for value in therapeutic_cfg["priority_weights"].values()) or 1.0
+    for feature_name in THERAPEUTIC_PRIORITY_INPUT_COLUMNS:
+        if feature_name not in therapeutic_cfg["priority_weights"]:
+            continue
+        column = f"therapeutic_priority_{feature_name}_contribution"
+        features[column] = _clamp(therapeutic_priority_contributions[feature_name] / therapeutic_priority_weight_norm)
+        therapeutic_priority_contribution_columns.append(column)
+    features["therapeutic_priority_contribution_summary"] = features.apply(
+        lambda row: _contribution_summary(row, therapeutic_priority_contribution_columns),
+        axis=1,
+    )
     thresholds = therapeutic_cfg["classification_thresholds"]
     therapeutic_role_rows = features.apply(lambda row: _classify_therapeutic_role(row, thresholds), axis=1)
     features["therapeutic_role"] = therapeutic_role_rows.map(lambda item: item[0])
     features["therapeutic_role_rule"] = therapeutic_role_rows.map(lambda item: item[1])
+    features["functional_node_types"] = features.apply(_derive_functional_node_types, axis=1)
     features["therapeutic_role_with_controlled_provider"] = features["therapeutic_role"]
     scenario_without_controlled = features.copy()
     clinical_controlled = _controlled_layer_mask(features, "clinical_impact")
@@ -1101,6 +1299,7 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
             f"therapeutic_role={row['therapeutic_role']}; "
             f"role_stability={row['therapeutic_role_stability']}; "
             f"therapeutic_priority={row['therapeutic_priority_score']:.3f}; "
+            f"therapeutic_priority_components={row['therapeutic_priority_contribution_summary']}; "
             f"evolutionary_escape_risk={row.get('evolutionary_escape_risk_score', 0.0):.3f}; "
             f"evolutionary_penalty={row.get('evolutionary_escape_penalty_applied', 0.0):.3f}; "
             f"margin={row['strategy_margin_score']:.3f}; "
@@ -1117,16 +1316,42 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
     features.to_csv(processed_dir / "phase2_features.csv", index=False)
 
     scored_columns = [
+        "candidate_id",
         "protein_id",
         "gene",
+        "product",
+        "organism",
+        "strain",
         "gene_symbol_normalized",
         "legacy_score_final",
         "antibiotic_target_score",
         "antivirulence_target_score",
         "functional_node_score",
+        "selectivity_score",
+        "evolutionary_robustness_score",
+        "clinical_context_score",
+        "confidence_modifier",
         "meta_priority_score",
         "evolutionary_adjusted_meta_priority_score",
         "evolutionary_escape_penalty_applied",
+        "functional_node_types",
+        "evolutionary_escape_risk",
+        "evolutionary_constraint",
+        "mutation_tolerance",
+        "pathway_redundancy",
+        "paralog_count",
+        "mobile_context",
+        "hgt_context",
+        "recombination_context",
+        "resistance_association",
+        "evidence_level",
+        "evidence_source",
+        "provenance_status",
+        "retrieval_mode",
+        "cache_status",
+        "source_version",
+        "updated_at",
+        "interpretation_warning",
         "evidence_confidence_score",
         "evidence_coverage_score",
         "confidence_source_class",
@@ -1200,6 +1425,11 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
         "audit_flags",
         "phase3_notes",
         "therapeutic_priority_score",
+        "therapeutic_priority_contribution_summary",
+        *[
+            f"therapeutic_priority_{column}_contribution"
+            for column in THERAPEUTIC_PRIORITY_INPUT_COLUMNS
+        ],
         "therapeutic_role_rule",
         "therapeutic_context_missingness",
         "optional_data_quality_score",
@@ -1212,6 +1442,7 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
     scored_columns.extend(HOST_RISK_AUDIT_COLUMNS)
     scored_columns.extend(HUMAN_HOMOLOGY_AUDIT_COLUMNS)
     scored_columns.extend(THERAPY_SITE_CONTEXT_AUDIT_COLUMNS)
+    scored_columns = list(dict.fromkeys(scored_columns))
     scored = features[[column for column in scored_columns if column in features.columns]].copy()
     scored.to_csv(processed_dir / "scored_nodes.csv", index=False)
 

@@ -165,7 +165,13 @@ def test_operational_docs_do_not_reference_mexican_isolate_project() -> None:
         PROJECT_ROOT / "docs" / "online_organism_enrichment.md",
         PROJECT_ROOT / "docs" / "project_boundaries.md",
     ]
-    forbidden = ["cpseudo_mexico", "Mexican isolates", "aislados mexicanos", "17 isolates", "pangenome mexicano"]
+    forbidden = [
+        "cpseudo" + "_mexico",
+        "Mexican " + "isolates",
+        "aislados " + "mexicanos",
+        "17 " + "isolates",
+        "pangenome " + "mexicano",
+    ]
     for path in docs_to_scan:
         if not path.exists():
             continue

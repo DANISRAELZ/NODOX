@@ -85,6 +85,25 @@ class ScoringTests(unittest.TestCase):
         self.assertIn("confidence_source_class", _.columns)
         self.assertIn("confidence_evidence_tier", _.columns)
         self.assertIn("therapeutic_role_rule", _.columns)
+        self.assertIn("therapeutic_priority_contribution_summary", _.columns)
+        therapeutic_priority_contribution_columns = [
+            "therapeutic_priority_meta_priority_score_contribution",
+            "therapeutic_priority_host_safety_score_contribution",
+            "therapeutic_priority_host_damage_score_contribution",
+            "therapeutic_priority_infection_site_access_score_contribution",
+            "therapeutic_priority_infection_context_score_contribution",
+        ]
+        for contribution_column in therapeutic_priority_contribution_columns:
+            self.assertIn(contribution_column, _.columns)
+            self.assertIn(contribution_column, scored.columns)
+            self.assertTrue(_[contribution_column].between(0, 1).all(), contribution_column)
+        contribution_sum = _[therapeutic_priority_contribution_columns].sum(axis=1).round(6)
+        pd.testing.assert_series_equal(
+            contribution_sum,
+            _["therapeutic_priority_score"].round(6),
+            check_names=False,
+        )
+        self.assertTrue(scored["therapeutic_priority_contribution_summary"].str.contains("meta_priority_score=").all())
         self.assertIn("therapeutic_context_missingness", _.columns)
         self.assertIn("contextual_essentiality_score", _.columns)
         self.assertIn("pleiotropy_score", _.columns)

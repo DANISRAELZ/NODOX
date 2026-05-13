@@ -63,6 +63,18 @@ EVOLUTIONARY_ESCAPE_RISK_COLUMNS = [
     "evolutionary_escape_risk_input_source_type",
     "evolutionary_escape_risk_input_confidence",
     "evolutionary_escape_risk_notes",
+    "mutation_tolerance",
+    "pathway_redundancy",
+    "mobile_context",
+    "hgt_context",
+    "recombination_context",
+    "resistance_association",
+    "evidence_level",
+    "provenance_status",
+    "retrieval_mode",
+    "cache_status",
+    "source_version",
+    "updated_at",
 ]
 
 PHASE3_REDUNDANCY_COLUMNS = [
