@@ -99,9 +99,20 @@ EVOLUTIONARY_ESCAPE_RISK_REPORT_COLUMNS = [
     "evolutionary_escape_risk_audit_summary",
 ]
 
+THERAPEUTIC_PRIORITY_CONTRIBUTION_COLUMNS = [
+    "therapeutic_priority_contribution_summary",
+    "therapeutic_priority_meta_priority_score_contribution",
+    "therapeutic_priority_host_safety_score_contribution",
+    "therapeutic_priority_host_damage_score_contribution",
+    "therapeutic_priority_infection_site_access_score_contribution",
+    "therapeutic_priority_infection_context_score_contribution",
+]
+
 
 def _display_df(df: pd.DataFrame) -> pd.DataFrame:
     display = df.copy()
+    if display.columns.duplicated().any():
+        display = display.loc[:, ~display.columns.duplicated()].copy()
     float_columns = display.select_dtypes(include=["float", "float64"]).columns
     if len(float_columns):
         display[float_columns] = display[float_columns].round(4)
@@ -1738,12 +1749,20 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
     therapeutic_role_stability_summary = _build_therapeutic_role_stability_summary(therapeutic_role_stability_audit)
 
     phase2_columns = [
+        "candidate_id",
         "protein_id",
         "gene",
+        "product",
+        "organism",
+        "strain",
         "legacy_score_final",
         "antibiotic_target_score",
         "antivirulence_target_score",
         "functional_node_score",
+        "selectivity_score",
+        "evolutionary_robustness_score",
+        "clinical_context_score",
+        "confidence_modifier",
         "meta_priority_score",
         "meta_priority_score_v2",
         "meta_priority_score_v3",
@@ -1780,11 +1799,22 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "evolutionary_adjusted_meta_priority_score",
         "evolutionary_escape_penalty_applied",
         "evolutionary_escape_risk_score",
+        "evolutionary_escape_risk",
+        "evolutionary_constraint",
+        "mutation_tolerance",
+        "pathway_redundancy",
+        "paralog_count",
+        "mobile_context",
+        "hgt_context",
+        "recombination_context",
+        "resistance_association",
         "evolutionary_robustness_score",
         "reduced_evolutionary_space_score",
         "evolutionary_escape_risk_confidence",
         "evolutionary_escape_risk_status",
         "therapeutic_priority_score",
+        *THERAPEUTIC_PRIORITY_CONTRIBUTION_COLUMNS,
+        "functional_node_types",
         "therapeutic_role",
         "therapeutic_role_with_controlled_provider",
         "therapeutic_role_without_controlled_provider",
@@ -1804,7 +1834,16 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "top_negative_drivers",
         "missing_evidence_flags",
         "confidence_summary",
+        "evidence_level",
+        "evidence_source",
+        "provenance_status",
+        "retrieval_mode",
+        "cache_status",
+        "source_version",
+        "updated_at",
+        "interpretation_warning",
     ]
+    phase2_columns = list(dict.fromkeys(phase2_columns))
     phase2_output = phase2_ranking[[column for column in phase2_columns if column in phase2_ranking.columns]]
 
     legacy_ranking = features.sort_values("legacy_score_final", ascending=False).reset_index(drop=True)
@@ -2014,17 +2053,34 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
     )
 
     candidate_audit_columns = [
+            "candidate_id",
             "protein_id",
             "gene",
+            "product",
+            "organism",
+            "strain",
             "meta_priority_score",
             "legacy_score_final",
             "antibiotic_target_score",
             "antivirulence_target_score",
             "functional_node_score",
+            "selectivity_score",
+            "clinical_context_score",
+            "confidence_modifier",
+            "functional_node_types",
             "host_damage_score",
             "infection_site_access_score",
             "infection_context_score",
             "evolutionary_escape_risk_score",
+            "evolutionary_escape_risk",
+            "evolutionary_constraint",
+            "mutation_tolerance",
+            "pathway_redundancy",
+            "paralog_count",
+            "mobile_context",
+            "hgt_context",
+            "recombination_context",
+            "resistance_association",
             "evolutionary_robustness_score",
             "reduced_evolutionary_space_score",
             "evolutionary_escape_penalty_applied",
@@ -2033,6 +2089,12 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
             "evolutionary_escape_risk_status",
             "evolutionary_escape_risk_interpretation",
             "therapeutic_priority_score",
+            "therapeutic_priority_contribution_summary",
+            "therapeutic_priority_meta_priority_score_contribution",
+            "therapeutic_priority_host_safety_score_contribution",
+            "therapeutic_priority_host_damage_score_contribution",
+            "therapeutic_priority_infection_site_access_score_contribution",
+            "therapeutic_priority_infection_context_score_contribution",
             "therapeutic_role",
             "therapeutic_role_with_controlled_provider",
             "therapeutic_role_without_controlled_provider",
@@ -2060,11 +2122,18 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
             "optional_data_source_summary",
             "confidence_source_class",
             "confidence_evidence_tier",
+            "evidence_level",
+            "evidence_source",
+            "provenance_status",
+            "retrieval_mode",
+            "cache_status",
+            "interpretation_warning",
             "data_realism_flag",
             "top_positive_drivers",
             "top_negative_drivers",
             "candidate_audit_summary",
     ]
+    candidate_audit_columns = list(dict.fromkeys(candidate_audit_columns))
     candidate_audit = phase2_ranking[
         [
             column
@@ -2086,6 +2155,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
             "gene",
             "therapeutic_role",
             "therapeutic_priority_score",
+            "therapeutic_priority_contribution_summary",
             "evolutionary_escape_risk_score",
             "evolutionary_escape_risk_status",
             "preferred_strategy",
@@ -2143,6 +2213,18 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         f"# Nodos Funcionales - Reporte {mode}",
         "",
         *_metadata_lines(workspace_metadata),
+        "## Limites de interpretacion",
+        "",
+        "- Un score alto no equivale a validacion experimental.",
+        "- Un score alto no implica que exista un farmaco disponible.",
+        "- Un gen esencial no es automaticamente un buen blanco terapeutico.",
+        "- Un factor de virulencia no es automaticamente prioritario.",
+        "- Un hub no es automaticamente drogable.",
+        "- La ausencia de evidencia no equivale a evidencia negativa.",
+        "- La informacion online general no sustituye datos especificos del usuario.",
+        "- Bajo riesgo evolutivo no significa ausencia de resistencia.",
+        "- El ranking representa hipotesis terapeuticas priorizadas, no recomendaciones clinicas.",
+        "",
         "## Resumen",
         f"- Candidatos evaluados: {len(features)}",
         f"- Modo de pipeline: `{mode}`",
@@ -2174,11 +2256,14 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "",
     ]
     if ranking_snapshot_comparison_path is not None:
-        report_lines.insert(10, "- Comparacion contra snapshot de referencia: `results/ranking_snapshot_comparison.csv`")
+        report_lines.insert(
+            report_lines.index("## Top candidatos") - 1,
+            "- Comparacion contra snapshot de referencia: `results/ranking_snapshot_comparison.csv`",
+        )
 
-    report_lines.insert(10, "- Resumen por regla terapÃ©utica: `results/therapeutic_rule_summary.csv`")
+    report_lines.insert(report_lines.index("## Top candidatos") - 1, "- Resumen por regla terapÃ©utica: `results/therapeutic_rule_summary.csv`")
 
-    report_lines.insert(10, "- Resolucion por capa: `results/layer_resolution_summary.csv`")
+    report_lines.insert(report_lines.index("## Top candidatos") - 1, "- Resolucion por capa: `results/layer_resolution_summary.csv`")
 
     if mode == "legacy":
         report_lines.append(_markdown_table(legacy_output.head(top_n).reset_index()))

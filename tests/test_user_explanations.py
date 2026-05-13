@@ -15,7 +15,15 @@ def test_simple_explanations_mark_demo_and_missing_as_limitations() -> None:
             "gene": ["geneA"],
             "therapeutic_role": ["bactericidal_candidate"],
             "therapeutic_priority_score": [0.71],
+            "therapeutic_priority_contribution_summary": [
+                "meta_priority_score=0.300; host_safety_score=0.180; host_damage_score=0.100"
+            ],
             "top_positive_drivers": ["antibiotic_target_score=0.700"],
+            "functional_node_score": [0.68],
+            "selectivity_score": [0.72],
+            "clinical_context_score": [0.51],
+            "evolutionary_robustness_score": [0.61],
+            "confidence_modifier": [0.42],
             "essentiality_evidence_state": ["positive"],
             "virulence_evidence_state": ["unknown"],
             "homology_evidence_state": ["negative"],
@@ -24,6 +32,10 @@ def test_simple_explanations_mark_demo_and_missing_as_limitations() -> None:
             "therapeutic_context_missingness": ["proxy_host_damage_score"],
             "optional_data_source_summary": ["clinical_impact=demo(0.45)"],
             "confidence_source_class": ["proxy"],
+            "evidence_level": ["controlled"],
+            "provenance_status": ["inferred_proxy"],
+            "retrieval_mode": ["controlled_or_proxy"],
+            "cache_status": ["not_cached"],
             "data_realism_flag": ["demo_only"],
             "evidence_confidence_score": [0.42],
             "evidence_coverage_score": [0.75],
@@ -38,3 +50,6 @@ def test_simple_explanations_mark_demo_and_missing_as_limitations() -> None:
     assert "missing_virulence_score" in row["missing_evidence"]
     assert "no equivalen a evidencia externa real" in row["sources_used"]
     assert "confianza=0.420" in row["confidence_level"]
+    assert "meta_priority_score=0.300" in row["therapeutic_priority_components"]
+    assert "functional_node_score=0.680" in row["theory_context"]
+    assert "provenance_status=inferred_proxy" in row["provenance_context"]

@@ -14,6 +14,15 @@ rankings interpretables y comparables entre organismos.
 Los organismos mencionados en ejemplos, cache o pruebas son demos/casos de
 validacion; no son organismos obligatorios ni el alcance exclusivo del sistema.
 
+## Enfoque conceptual
+
+El eje central de este proyecto es la Teoria de Nodos Funcionales. El pipeline,
+los organismos ejemplo, la consulta online, los snapshots curados, los
+importadores, las pruebas y los reportes son capas de implementacion destinadas
+a operacionalizar, probar y auditar la teoria. Ningun organismo, base de datos,
+conector o conjunto de datos define por si mismo el alcance conceptual del
+proyecto.
+
 Pipeline reproducible para priorización de blancos terapéuticos bacterianos.
 
 El repositorio conserva la **Fase 1** como baseline interpretable y añade una
@@ -588,7 +597,7 @@ Además del discovery, ahora existe un importador pragmático para convertir CSV
 exportados por el usuario al esquema interno del workspace:
 
 ```bash
-python import_dataset.py --workspace data_sessions/cpseudo_demo --dataset virulence --input exported_virulence.csv
+python import_dataset.py --workspace data_sessions/organism_demo --dataset virulence --input exported_virulence.csv
 ```
 
 El importador:
@@ -623,7 +632,7 @@ Ahora también resume, cuando existe un enriquecimiento online previo:
 - `data_processed/integrated_nodes.csv`: tabla maestra integrada
 - `data_processed/phase2_features.csv`: features derivadas y flags de placeholder
 - `data_processed/scored_nodes.csv`: scores legacy y de Fase 2 por proteína
-- `results/ranking_nodos.csv`: ranking principal Fase 2
+- `results/ranking_nodos.csv`: ranking principal Fase 2 con rol terapeutico, procedencia y descomposicion de `therapeutic_priority_score`
 - `results/ranking_nodos_legacy.csv`: baseline Fase 1
 - `results/phase_comparison.csv`: comparación de ranking Fase 1 vs Fase 2
 - `results/sensitivity_analysis.csv`: escenarios de sensibilidad
@@ -677,6 +686,7 @@ Dentro de cada workspace discovery-driven también se generan:
 - `antivirulence_target_score`
 - `functional_node_score`
 - `meta_priority_score`
+- `therapeutic_priority_score`
 - `evolutionary_escape_risk_score`
 - `evolutionary_adjusted_meta_priority_score`
 
@@ -690,6 +700,12 @@ Las salidas incluyen columnas como:
 - `confidence_summary`
 - `evidence_confidence_score`
 - `evidence_coverage_score`
+- `functional_node_types`
+- `therapeutic_priority_contribution_summary`
+- `therapeutic_priority_*_contribution`
+- `provenance_status`
+- `retrieval_mode`
+- `cache_status`
 
 Además, la Fase 2 ya usa datos observados o proxies explícitas cuando están disponibles:
 

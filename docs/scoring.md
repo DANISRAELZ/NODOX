@@ -1,5 +1,10 @@
 # Scoring
 
+El scoring es la traduccion cuantitativa de la Teoria de Nodos Funcionales:
+convierte capas de evidencia, procedencia y confianza en prioridades
+terapeuticas explicables. Ningun organismo demo, snapshot o conector define por
+si mismo el ranking.
+
 ## Baseline legacy
 
 Se conserva el score histórico para comparación:
@@ -51,6 +56,23 @@ Favorece:
 
 Integra los tres scores anteriores usando pesos configurables en `config/params.yaml`.
 
+### `therapeutic_priority_score`
+
+Integra `meta_priority_score`, seguridad frente al hospedero, dano potencial al
+hospedero, acceso al sitio de infeccion y contexto durante infeccion. La salida
+principal conserva el score total y tambien exporta la descomposicion por
+variable:
+
+- `therapeutic_priority_meta_priority_score_contribution`
+- `therapeutic_priority_host_safety_score_contribution`
+- `therapeutic_priority_host_damage_score_contribution`
+- `therapeutic_priority_infection_site_access_score_contribution`
+- `therapeutic_priority_infection_context_score_contribution`
+- `therapeutic_priority_contribution_summary`
+
+La suma de las contribuciones debe coincidir con `therapeutic_priority_score`,
+salvo redondeos de CSV. Estas columnas son explicativas: no cambian la formula.
+
 ### `evolutionary_escape_risk_score`
 
 La subcapa `evolutionary_escape_risk` estima riesgo de escape evolutivo sin
@@ -84,6 +106,10 @@ Cada candidato incluye:
 - `confidence_summary`
 - `missing_evidence_flags`
 - `host_risk_audit_summary`
+- `therapeutic_priority_contribution_summary`
+- `provenance_status`
+- `retrieval_mode`
+- `cache_status`
 
 `top_negative_drivers` ahora representa las mayores carencias relativas frente al score ideal,
 no solo pesos negativos explícitos.

@@ -13,11 +13,17 @@ def build_simple_candidate_explanations(ranking: pd.DataFrame, top_n: int = 10) 
                 "protein_id": row.get("protein_id", ""),
                 "gene": row.get("gene", ""),
                 "therapeutic_role": row.get("therapeutic_role", "not_reported"),
+                "functional_node_types": row.get("functional_node_types", "not_reported"),
+                "therapeutic_priority_components": explain_therapeutic_priority_components(row),
                 "why_prioritized": explain_prioritization(row),
                 "supporting_evidence": explain_supporting_evidence(row),
                 "missing_evidence": explain_missing_evidence(row),
                 "sources_used": explain_sources_used(row),
                 "confidence_level": explain_confidence(row),
+                "theory_context": explain_theory_context(row),
+                "provenance_context": explain_provenance_context(row),
+                "evolutionary_risk": explain_evolutionary_risk(row),
+                "interpretation_warning": explain_interpretation_warning(row),
             }
         )
     return pd.DataFrame(rows)
@@ -29,6 +35,8 @@ def build_simple_candidate_explanations_markdown(explanations: pd.DataFrame) -> 
         "",
         "Este reporte usa lenguaje no tecnico. Resume por que el pipeline priorizo cada nodo, que evidencia existe y que falta. No afirma validacion experimental.",
         "",
+        "Advertencia: un score alto no equivale a validacion experimental, no implica que exista un farmaco disponible y no es una recomendacion clinica. La ausencia de evidencia no equivale a evidencia negativa; bajo riesgo evolutivo no significa ausencia de resistencia.",
+        "",
     ]
     if explanations.empty:
         lines.append("_No hay candidatos para explicar._")
@@ -39,11 +47,17 @@ def build_simple_candidate_explanations_markdown(explanations: pd.DataFrame) -> 
                 f"## {int(row.get('rank', 0))}. {row.get('gene', '')} ({row.get('protein_id', '')})",
                 "",
                 f"- Rol sugerido: `{row.get('therapeutic_role', 'not_reported')}`",
+                f"- Tipo(s) de nodo funcional: `{row.get('functional_node_types', 'not_reported')}`",
+                f"- Componentes de prioridad terapeutica: {row.get('therapeutic_priority_components', 'not_reported')}",
                 f"- Por que fue priorizado: {row.get('why_prioritized', 'not_reported')}",
                 f"- Evidencia que lo sostiene: {row.get('supporting_evidence', 'not_reported')}",
                 f"- Evidencia que falta: {row.get('missing_evidence', 'not_reported')}",
                 f"- Fuentes usadas: {row.get('sources_used', 'not_reported')}",
                 f"- Confianza: {row.get('confidence_level', 'not_reported')}",
+                f"- Contexto teorico: {row.get('theory_context', 'not_reported')}",
+                f"- Procedencia resumida: {row.get('provenance_context', 'not_reported')}",
+                f"- Riesgo evolutivo: {row.get('evolutionary_risk', 'not_reported')}",
+                f"- Limite de interpretacion: {row.get('interpretation_warning', 'not_reported')}",
                 "",
             ]
         )
@@ -54,9 +68,28 @@ def explain_prioritization(row: pd.Series) -> str:
     role = str(row.get("therapeutic_role", "not_reported"))
     priority = _score(row.get("therapeutic_priority_score"))
     drivers = _clean(row.get("top_positive_drivers", "not_reported"))
+    node_types = _clean(row.get("functional_node_types", "not_reported"))
     if role == "low_priority_candidate":
-        return f"El nodo quedo con prioridad baja en las reglas actuales (score {priority}); revisar riesgos, acceso y evidencia faltante."
-    return f"El nodo combina senales compatibles con `{role}` (score {priority}); principales aportes internos: {drivers}."
+        return f"El nodo quedo con prioridad baja en las reglas actuales (score {priority}); tipos={node_types}; revisar riesgos, acceso y evidencia faltante."
+    return f"El nodo combina senales compatibles con `{role}` (score {priority}); tipos={node_types}; principales aportes internos: {drivers}."
+
+
+def explain_therapeutic_priority_components(row: pd.Series) -> str:
+    summary = _clean(row.get("therapeutic_priority_contribution_summary", "not_reported"))
+    if summary != "not_reported":
+        return summary
+    parts = []
+    for label, column in [
+        ("meta_priority_score", "therapeutic_priority_meta_priority_score_contribution"),
+        ("host_safety_score", "therapeutic_priority_host_safety_score_contribution"),
+        ("host_damage_score", "therapeutic_priority_host_damage_score_contribution"),
+        ("infection_site_access_score", "therapeutic_priority_infection_site_access_score_contribution"),
+        ("infection_context_score", "therapeutic_priority_infection_context_score_contribution"),
+    ]:
+        value = _score(row.get(column))
+        if value != "not_reported":
+            parts.append(f"{label}={value}")
+    return "; ".join(parts) if parts else "not_reported"
 
 
 def explain_supporting_evidence(row: pd.Series) -> str:
@@ -86,19 +119,63 @@ def explain_sources_used(row: pd.Series) -> str:
     source_summary = _clean(row.get("optional_data_source_summary", "none"))
     source_class = _clean(row.get("confidence_source_class", "unknown"))
     realism = _clean(row.get("data_realism_flag", "unknown"))
+    provenance = _clean(row.get("provenance_status", "not_reported"))
+    retrieval = _clean(row.get("retrieval_mode", "not_reported"))
+    cache = _clean(row.get("cache_status", "not_reported"))
     warning = " Los datos demo/proxy/cache no equivalen a evidencia externa real." if any(
-        token in f"{source_summary} {source_class} {realism}".lower()
+        token in f"{source_summary} {source_class} {realism} {provenance}".lower()
         for token in ["demo", "proxy", "controlled", "cache"]
     ) else ""
-    return f"clase={source_class}; realismo={realism}; resumen={source_summary}.{warning}"
+    return f"clase={source_class}; procedencia={provenance}; retrieval={retrieval}; cache={cache}; realismo={realism}; resumen={source_summary}.{warning}"
 
 
 def explain_confidence(row: pd.Series) -> str:
     confidence = _score(row.get("evidence_confidence_score"))
     coverage = _score(row.get("evidence_coverage_score"))
     ceiling = _score(row.get("confidence_ceiling", row.get("optional_data_quality_score", 0.0)))
+    modifier = _score(row.get("confidence_modifier"))
     source_class = _clean(row.get("confidence_source_class", "unknown"))
-    return f"confianza={confidence}; cobertura={coverage}; techo={ceiling}; fuente_dominante={source_class}"
+    return f"confianza={confidence}; cobertura={coverage}; modificador={modifier}; techo={ceiling}; fuente_dominante={source_class}"
+
+
+def explain_theory_context(row: pd.Series) -> str:
+    return (
+        f"functional_node_score={_score(row.get('functional_node_score'))}; "
+        f"selectividad={_score(row.get('selectivity_score'))}; "
+        f"contexto_clinico={_score(row.get('clinical_context_score'))}; "
+        f"robustez_evolutiva={_score(row.get('evolutionary_robustness_score'))}; "
+        f"confidence_modifier={_score(row.get('confidence_modifier'))}"
+    )
+
+
+def explain_provenance_context(row: pd.Series) -> str:
+    return (
+        f"evidence_level={_clean(row.get('evidence_level', 'not_reported'))}; "
+        f"provenance_status={_clean(row.get('provenance_status', 'not_reported'))}; "
+        f"retrieval_mode={_clean(row.get('retrieval_mode', 'not_reported'))}; "
+        f"cache_status={_clean(row.get('cache_status', 'not_reported'))}; "
+        f"source_version={_clean(row.get('source_version', 'not_reported'))}; "
+        f"updated_at={_clean(row.get('updated_at', 'not_reported'))}"
+    )
+
+
+def explain_evolutionary_risk(row: pd.Series) -> str:
+    risk = _score(row.get("evolutionary_escape_risk_score", row.get("evolutionary_escape_risk")))
+    robustness = _score(row.get("evolutionary_robustness_score"))
+    constraint = _score(row.get("evolutionary_constraint_score", row.get("evolutionary_constraint")))
+    status = _clean(row.get("evolutionary_escape_risk_status", "not_reported"))
+    interpretation = _clean(row.get("evolutionary_escape_risk_interpretation", "not_reported"))
+    return f"escape={risk}; robustez={robustness}; restriccion={constraint}; estado={status}; interpretacion={interpretation}"
+
+
+def explain_interpretation_warning(row: pd.Series) -> str:
+    warning = _clean(row.get("interpretation_warning", "not_reported"))
+    if warning != "not_reported":
+        return warning
+    return (
+        "Ranking = hipotesis terapeutica priorizada, no validacion experimental ni recomendacion clinica; "
+        "la ausencia de evidencia no equivale a evidencia negativa."
+    )
 
 
 def _score(value: object) -> str:

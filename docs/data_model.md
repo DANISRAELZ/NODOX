@@ -1,5 +1,9 @@
 # Modelo de datos
 
+El modelo de datos codifica las capas computacionales de la Teoria de Nodos
+Funcionales. Cada columna debe ayudar a explicar un nodo, su evidencia, su
+confianza o su contexto terapeutico, sin asumir un organismo central.
+
 ## Capa de identificación
 
 - `protein_id_original`
@@ -87,6 +91,12 @@ Estas columnas pueden acompañarse de banderas `*_is_proxy`.
 
 - `therapeutic_role`
 - `therapeutic_priority_score`
+- `therapeutic_priority_meta_priority_score_contribution`
+- `therapeutic_priority_host_safety_score_contribution`
+- `therapeutic_priority_host_damage_score_contribution`
+- `therapeutic_priority_infection_site_access_score_contribution`
+- `therapeutic_priority_infection_context_score_contribution`
+- `therapeutic_priority_contribution_summary`
 - `therapeutic_role_rule`
 - `therapeutic_context_missingness`
 

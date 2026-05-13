@@ -68,6 +68,12 @@ class ExportTests(unittest.TestCase):
         ranking = pd.read_csv(project_dir / "results" / "ranking_nodos.csv")
         for column in [
             "therapeutic_priority_score",
+            "therapeutic_priority_contribution_summary",
+            "therapeutic_priority_meta_priority_score_contribution",
+            "therapeutic_priority_host_safety_score_contribution",
+            "therapeutic_priority_host_damage_score_contribution",
+            "therapeutic_priority_infection_site_access_score_contribution",
+            "therapeutic_priority_infection_context_score_contribution",
             "therapeutic_role",
             "therapeutic_role_with_controlled_provider",
             "therapeutic_role_without_controlled_provider",
@@ -81,8 +87,23 @@ class ExportTests(unittest.TestCase):
             "therapeutic_context_missingness",
             "confidence_source_class",
             "confidence_evidence_tier",
+            "provenance_status",
+            "retrieval_mode",
+            "cache_status",
         ]:
             self.assertIn(column, ranking.columns)
+        contribution_columns = [
+            "therapeutic_priority_meta_priority_score_contribution",
+            "therapeutic_priority_host_safety_score_contribution",
+            "therapeutic_priority_host_damage_score_contribution",
+            "therapeutic_priority_infection_site_access_score_contribution",
+            "therapeutic_priority_infection_context_score_contribution",
+        ]
+        pd.testing.assert_series_equal(
+            ranking[contribution_columns].sum(axis=1).round(6),
+            ranking["therapeutic_priority_score"].round(6),
+            check_names=False,
+        )
 
     def test_export_legacy_mode_writes_legacy_ranking_as_primary_output(self) -> None:
         project_dir = make_temp_project()
@@ -115,6 +136,7 @@ class ExportTests(unittest.TestCase):
         self.assertIn("therapeutic_role_without_controlled_provider", audit.columns)
         self.assertIn("therapeutic_role_stability", audit.columns)
         self.assertIn("therapeutic_priority_score", audit.columns)
+        self.assertIn("therapeutic_priority_contribution_summary", audit.columns)
         self.assertIn("candidate_audit_summary", audit.columns)
         self.assertIn("optional_data_quality_score", audit.columns)
         self.assertIn("host_risk_audit_summary", audit.columns)
@@ -190,6 +212,12 @@ class ExportTests(unittest.TestCase):
         self.assertIn("therapeutic_role_without_controlled_provider", role_stability.columns)
         self.assertIn("therapeutic_role_stability", role_stability.columns)
         self.assertTrue(role_stability["therapeutic_role_stability"].isin(["stable", "changed"]).all())
+
+        explanations = pd.read_csv(project_dir / "results" / "candidate_explanations_simple.csv")
+        self.assertIn("therapeutic_priority_components", explanations.columns)
+        self.assertIn("theory_context", explanations.columns)
+        self.assertIn("provenance_context", explanations.columns)
+        self.assertTrue(explanations["therapeutic_priority_components"].str.contains("meta_priority_score=").all())
 
     def test_export_writes_scientific_audit_with_required_columns(self) -> None:
         project_dir = make_temp_project()
