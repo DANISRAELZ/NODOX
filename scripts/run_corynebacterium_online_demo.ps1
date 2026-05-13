@@ -2,6 +2,10 @@ param(
     [string]$PYTHON_EXE = $env:PYTHON_EXE
 )
 
+# Demo script for organism-first online enrichment.
+# This validates the multi-organism implementation of the Functional Nodes Theory.
+# Corynebacterium pseudotuberculosis is used only as an example organism.
+
 $ErrorActionPreference = "Stop"
 
 function Resolve-Python {
