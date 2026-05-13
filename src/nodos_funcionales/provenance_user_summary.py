@@ -27,7 +27,10 @@ def build_provenance_user_summary(features: pd.DataFrame, layer_resolution_summa
         source_type = _main_source_type(row)
         group = _source_group(source_type)
         feature_group = _feature_source_group(features, layer)
-        if group == "missing" and feature_group != "missing":
+        ambiguous_raw = _is_ambiguous_local_raw(row, source_type)
+        if ambiguous_raw:
+            group = feature_group if feature_group != "user_curated" else "missing"
+        if not ambiguous_raw and group == "missing" and feature_group != "missing":
             group = feature_group
         missing = _missing_text(row, group)
         demo_proxy = "si" if group in {"demo_data", "default_value", "proxy_inference", "controlled_provider"} else "no"
@@ -35,6 +38,7 @@ def build_provenance_user_summary(features: pd.DataFrame, layer_resolution_summa
             {
                 "Capa": layer,
                 "Tipo principal de evidencia": group,
+                "Origen registrado": _source_detail(row, source_type),
                 "Calidad de evidencia": _quality_text(group),
                 "Datos faltantes": missing,
                 "Uso de demo/default/proxy": demo_proxy,
@@ -78,6 +82,9 @@ def _build_markdown(table: pd.DataFrame) -> str:
 
 
 def _main_source_type(row: pd.Series) -> str:
+    generated_by = str(row.get("generated_by", "") or "").strip()
+    if generated_by == "packaged_demo":
+        return "packaged_demo"
     for column in ["source_type", "evidence_source_type", "status", "retrieval_status"]:
         if column in row.index and str(row.get(column, "")).strip():
             return str(row.get(column))
@@ -86,7 +93,7 @@ def _main_source_type(row: pd.Series) -> str:
 
 def _source_group(source_type: str) -> str:
     text = str(source_type).lower()
-    if "demo" in text or "example" in text:
+    if "packaged_demo" in text or "demo_raw" in text or "demo" in text or "example" in text:
         return "demo_data"
     if "default" in text:
         return "default_value"
@@ -94,6 +101,8 @@ def _source_group(source_type: str) -> str:
         return "proxy_inference"
     if "controlled" in text or "stub" in text:
         return "controlled_provider"
+    if "curated_snapshot" in text:
+        return "literature_curated"
     if "user" in text or "raw" in text:
         return "user_curated"
     if "literature" in text or "pubmed" in text or "doi" in text:
@@ -103,6 +112,28 @@ def _source_group(source_type: str) -> str:
     if "cache" in text or "computed" in text:
         return "computed_from_real_data"
     return "missing"
+
+
+def _source_detail(row: pd.Series, source_type: str) -> str:
+    details = []
+    for column in ["source_type", "source_name", "generated_by", "retrieval_status"]:
+        if column in row.index:
+            value = str(row.get(column, "") or "").strip()
+            if value and value.lower() not in {"nan", "none", "not_reported"}:
+                details.append(f"{column}={value}")
+    if not details:
+        details.append(f"source_type={source_type}")
+    return "; ".join(details)
+
+
+def _is_ambiguous_local_raw(row: pd.Series, source_type: str) -> bool:
+    text = str(source_type or "").strip().lower()
+    if text != "raw":
+        return False
+    if bool(row.get("is_user_supplied", False)):
+        return False
+    generated_by = str(row.get("generated_by", "") or "").strip().lower()
+    return generated_by not in {"user_provided", "user_curated"}
 
 
 def _fallback_layer_summary(features: pd.DataFrame) -> pd.DataFrame:

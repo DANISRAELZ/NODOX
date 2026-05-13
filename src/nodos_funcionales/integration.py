@@ -422,6 +422,7 @@ def integrate_tables(base_dir: Path) -> pd.DataFrame:
         ("is_proxy", False),
         ("confidence", 0.0),
         ("retrieval_status", "missing"),
+        ("generated_by", "not_reported"),
     ]
     layer_provenance = {
         f"{layer_key}_{suffix}": manifest.get(layer_key, {}).get(suffix, default)
@@ -561,6 +562,7 @@ def integrate_tables(base_dir: Path) -> pd.DataFrame:
                 f"{layer_key}_is_proxy",
                 f"{layer_key}_confidence",
                 f"{layer_key}_retrieval_status",
+                f"{layer_key}_generated_by",
             ]
         )
     integrated = merged[[column for column in keep_columns if column in merged.columns]].copy()

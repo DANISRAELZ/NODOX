@@ -161,7 +161,9 @@ def _load_workspace_metadata(base_dir: Path) -> dict:
         metadata["user_layers"] = [
             item["table_key"]
             for item in datasets
-            if item.get("generated_by") == "user_provided" and item.get("usable")
+            if item.get("generated_by") == "user_provided"
+            and item.get("usable")
+            and item.get("source_type") not in {"demo", "proxy", "controlled", "missing"}
         ]
         metadata["external_layers"] = [
             item["table_key"]
@@ -257,6 +259,7 @@ def _build_layer_resolution_summary(features: pd.DataFrame) -> pd.DataFrame:
                 "is_proxy": bool(first_row.get(f"{layer_key}_is_proxy", False)),
                 "confidence": float(confidence_numeric),
                 "retrieval_status": first_row.get(f"{layer_key}_retrieval_status", "missing"),
+                "generated_by": first_row.get(f"{layer_key}_generated_by", "not_reported"),
             }
         )
     return pd.DataFrame(rows)

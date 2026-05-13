@@ -16,6 +16,7 @@ from src.nodos_funcionales.online.fallback import online_failure_message
 from src.nodos_funcionales.organism_profile import validate_organism_profile
 from src.nodos_funcionales.phase3_evidence import build_layer_evidence_audit
 from src.nodos_funcionales.provenance_user_summary import build_provenance_user_summary
+from src.nodos_funcionales.reporting import _build_layer_resolution_summary
 from tests.helpers import PROJECT_ROOT
 
 pytestmark = pytest.mark.unit
@@ -36,6 +37,98 @@ class UserHardeningTests(unittest.TestCase):
 
         self.assertIn("missing", table["Tipo principal de evidencia"].tolist())
         self.assertIn("no significa que el blanco sea malo", markdown)
+
+    def test_packaged_demo_is_not_reported_as_user_curated(self) -> None:
+        features = pd.DataFrame(
+            {
+                "protein_id": ["A"],
+                "essentiality_source_type": ["packaged_demo"],
+                "essentiality_generated_by": ["packaged_demo"],
+            }
+        )
+        layer_resolution = pd.DataFrame(
+            {
+                "layer": ["essentiality"],
+                "source_type": ["packaged_demo"],
+                "source_name": ["packaged_demo:essentiality.csv"],
+                "generated_by": ["packaged_demo"],
+                "retrieval_status": ["resolved_from_raw"],
+            }
+        )
+
+        table, markdown = build_provenance_user_summary(features, layer_resolution)
+
+        self.assertEqual(table.loc[0, "Tipo principal de evidencia"], "demo_data")
+        self.assertNotIn("user_curated", table["Tipo principal de evidencia"].tolist())
+        self.assertIn("packaged_demo", table.loc[0, "Origen registrado"])
+        self.assertIn("demo_data", markdown)
+
+    def test_user_supplied_layer_is_reported_as_user_curated(self) -> None:
+        features = pd.DataFrame(
+            {
+                "protein_id": ["A"],
+                "essentiality_source_type": ["user"],
+                "essentiality_is_user_supplied": [True],
+            }
+        )
+        layer_resolution = pd.DataFrame(
+            {
+                "layer": ["essentiality"],
+                "source_type": ["user"],
+                "source_name": ["essentiality.csv"],
+                "generated_by": ["user_provided"],
+                "is_user_supplied": [True],
+                "retrieval_status": ["resolved_from_user"],
+            }
+        )
+
+        table, _ = build_provenance_user_summary(features, layer_resolution)
+
+        self.assertEqual(table.loc[0, "Tipo principal de evidencia"], "user_curated")
+        self.assertIn("user_provided", table.loc[0, "Origen registrado"])
+
+    def test_ambiguous_raw_layer_is_not_reported_as_user_curated(self) -> None:
+        features = pd.DataFrame({"protein_id": ["A"], "redundancy_source_type": ["raw"]})
+        layer_resolution = pd.DataFrame(
+            {
+                "layer": ["redundancy"],
+                "source_type": ["raw"],
+                "source_name": ["redundancy.csv"],
+                "generated_by": ["raw"],
+                "is_user_supplied": [False],
+                "retrieval_status": ["resolved_from_raw"],
+            }
+        )
+
+        table, _ = build_provenance_user_summary(features, layer_resolution)
+
+        self.assertEqual(table.loc[0, "Tipo principal de evidencia"], "missing")
+        self.assertNotIn("user_curated", table["Tipo principal de evidencia"].tolist())
+
+    def test_layer_summary_and_user_report_preserve_packaged_demo_context(self) -> None:
+        ranking_like_features = pd.DataFrame(
+            {
+                "protein_id": ["A"],
+                "gene": ["a"],
+                "essentiality_source_type": ["packaged_demo"],
+                "essentiality_source_name": ["packaged_demo:essentiality.csv"],
+                "essentiality_is_user_supplied": [False],
+                "essentiality_is_external": [False],
+                "essentiality_is_cached": [True],
+                "essentiality_is_proxy": [False],
+                "essentiality_confidence": [0.45],
+                "essentiality_retrieval_status": ["resolved_from_raw"],
+                "essentiality_generated_by": ["packaged_demo"],
+            }
+        )
+
+        layer_resolution = _build_layer_resolution_summary(ranking_like_features)
+        table, _ = build_provenance_user_summary(ranking_like_features, layer_resolution)
+
+        self.assertEqual(layer_resolution.loc[0, "source_type"], "packaged_demo")
+        self.assertEqual(layer_resolution.loc[0, "generated_by"], "packaged_demo")
+        self.assertEqual(table.loc[0, "Tipo principal de evidencia"], "demo_data")
+        self.assertNotIn("user_curated", table["Tipo principal de evidencia"].tolist())
 
     def test_phase3_audit_has_explicit_missing_and_negative_reasons(self) -> None:
         df = pd.DataFrame({"protein_id": ["A"], "gene": ["a"], "human_homolog": [pd.NA]})
@@ -85,6 +178,27 @@ class UserHardeningTests(unittest.TestCase):
 
         self.assertFalse(human["evidence_is_negative"].astype(bool).any())
         self.assertTrue(set(human["evidence_source_type"]).issubset({"demo_data", "proxy_inference"}))
+
+    def test_packaged_demo_values_are_not_negative_evidence(self) -> None:
+        df = pd.DataFrame(
+            {
+                "protein_id": ["DEMO"],
+                "gene": ["demo"],
+                "human_homolog": [1],
+                "human_homologs_source_type": ["packaged_demo"],
+                "human_homologs_source_name": ["packaged_demo:human_homologs.csv"],
+                "human_homologs_generated_by": ["packaged_demo"],
+            }
+        )
+
+        audit = build_layer_evidence_audit(df)
+        human = audit.loc[
+            (audit["layer_name"] == "human_homologs")
+            & (audit["variable_name"] == "human_homolog")
+        ].iloc[0]
+
+        self.assertEqual(human["evidence_source_type"], "demo_data")
+        self.assertFalse(bool(human["evidence_is_negative"]))
 
     def test_organism_profile_classifies_demo_workspace(self) -> None:
         workspace = self.make_workspace()

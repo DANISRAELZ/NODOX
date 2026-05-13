@@ -98,6 +98,7 @@ class MultiorganismOrientationTests(unittest.TestCase):
                 "--allow-demo-data",
                 "--mode",
                 "compare",
+                "--offline-only",
             ]
         )
         self.assertEqual(exit_code, 0)

@@ -233,6 +233,8 @@ def classify_layer_source(row: pd.Series, layer_name: str, variable_name: str) -
         "default": "default_value",
         "default_value": "default_value",
         "demo": "demo_data",
+        "demo_raw": "demo_data",
+        "packaged_demo": "demo_data",
         "demo_data": "demo_data",
     }
     if source_type in explicit_source_types:

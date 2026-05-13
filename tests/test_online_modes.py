@@ -355,6 +355,12 @@ def _workspace_with_candidates(tmp_path, protein_count: int):
         rows.append("PA0002,rpoB")
     for filename in ["essentiality.csv", "virulence.csv", "human_homologs.csv", "localization.csv"]:
         (raw_dir / filename).write_text("\n".join(rows) + "\n", encoding="utf-8")
+    external_dir = workspace / "data_external"
+    external_dir.mkdir(parents=True, exist_ok=True)
+    for filename in ["host_annotation.csv", "literature_support.csv"]:
+        source = PROJECT_ROOT / "data_demo" / filename
+        if source.exists():
+            (external_dir / filename).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
     return workspace
 
 

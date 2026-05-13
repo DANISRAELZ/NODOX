@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import json
 import unittest
 import uuid
 from pathlib import Path
@@ -27,9 +28,19 @@ class LayerResolverTests(unittest.TestCase):
         params_source = PROJECT_ROOT / "config" / "params.yaml"
         (workspace / "config" / "params.yaml").write_text(params_source.read_text(encoding="utf-8"), encoding="utf-8")
 
-        for filename in ["essentiality.csv", "virulence.csv", "human_homologs.csv", "localization.csv"]:
+        for filename in [
+            "essentiality.csv",
+            "virulence.csv",
+            "human_homologs.csv",
+            "localization.csv",
+        ]:
             source = PROJECT_ROOT / "data_raw" / filename
-            (workspace / "data_raw" / filename).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+            if source.exists():
+                (workspace / "data_raw" / filename).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+        for filename in ["functional_network.csv", "host_annotation.csv", "literature_support.csv"]:
+            source = PROJECT_ROOT / "data_demo" / filename
+            if source.exists():
+                (workspace / "data_external" / filename).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
         return workspace
 
     def _human_gene_payload(self, gene: str) -> dict:
@@ -76,12 +87,44 @@ class LayerResolverTests(unittest.TestCase):
         )
 
         config = load_config(workspace / "config" / "params.yaml")
+        config["online_sources"]["source_mode_effective"] = "offline_only"
         manifest = resolve_layer_inputs(workspace, config)
         resolved = pd.read_csv(workspace / "data_raw" / "essentiality.csv")
 
         self.assertEqual(manifest["essentiality"]["resolved_from"], "user")
         self.assertEqual(int(resolved.loc[0, "essential"]), 0)
         self.assertEqual(resolved.loc[0, "database"], "user_layer")
+
+    def test_packaged_demo_raw_keeps_demo_provenance(self) -> None:
+        workspace = self.make_workspace()
+        manifest = {
+            "demo_files_copied": ["essentiality.csv"],
+            "datasets": [
+                {
+                    "filename": "essentiality.csv",
+                    "table_key": "essentiality",
+                    "source_type": "demo",
+                    "generated_by": "packaged_demo",
+                }
+            ],
+        }
+        (workspace / "results" / "acquisition_manifest.json").write_text(
+            json.dumps(manifest),
+            encoding="utf-8",
+        )
+
+        config = load_config(workspace / "config" / "params.yaml")
+        config["online_sources"]["source_mode_effective"] = "offline_only"
+        config["online_sources"]["therapeutic_context"]["enabled"] = False
+        config["online_sources"]["therapeutic_context_v2"]["enabled"] = False
+        resolved_manifest = resolve_layer_inputs(workspace, config)
+
+        essentiality = resolved_manifest["essentiality"]
+        self.assertEqual(essentiality["resolved_from"], "raw")
+        self.assertEqual(essentiality["source_type"], "packaged_demo")
+        self.assertEqual(essentiality["generated_by"], "packaged_demo")
+        self.assertFalse(bool(essentiality["is_user_supplied"]))
+        self.assertIn("packaged_demo:essentiality.csv", essentiality["selected_inputs"])
 
     def test_cache_fallback_is_used_when_user_data_is_missing(self) -> None:
         workspace = self.make_workspace()
@@ -96,6 +139,7 @@ class LayerResolverTests(unittest.TestCase):
         )
 
         config = load_config(workspace / "config" / "params.yaml")
+        config["online_sources"]["source_mode_effective"] = "offline_only"
         manifest = resolve_layer_inputs(workspace, config)
         resolved = pd.read_csv(workspace / "data_raw" / "essentiality.csv")
 
@@ -116,6 +160,7 @@ class LayerResolverTests(unittest.TestCase):
         )
 
         config = load_config(workspace / "config" / "params.yaml")
+        config["online_sources"]["source_mode_effective"] = "offline_only"
         manifest = resolve_layer_inputs(workspace, config)
         resolved = pd.read_csv(workspace / "data_raw" / "essentiality.csv")
         cached = pd.read_csv(workspace / "data_cache" / "essentiality.csv")
@@ -341,6 +386,16 @@ class LayerResolverTests(unittest.TestCase):
 
     def test_host_annotation_controlled_provider_is_used_when_no_user_cache_or_raw_exists(self) -> None:
         workspace = self.make_workspace()
+        external_path = workspace / "data_external" / "host_annotation.csv"
+        external_path.write_text(
+            "\n".join(
+                [
+                    "protein_id,gene,domain_overlap_score,host_criticality_penalty,database",
+                    "PA0001,gyrB,0.0,0.0,computed_host_annotation_from_homology_v1",
+                ]
+            ),
+            encoding="utf-8",
+        )
         config = load_config(workspace / "config" / "params.yaml")
         manifest = resolve_layer_inputs(workspace, config)
 
@@ -348,18 +403,15 @@ class LayerResolverTests(unittest.TestCase):
         cached = pd.read_csv(workspace / "data_cache" / "host_annotation.csv")
         self.assertEqual(manifest["host_annotation"]["resolved_from"], "external")
         self.assertEqual(manifest["host_annotation"]["source_type"], "external")
-        self.assertEqual(manifest["host_annotation"]["source_name"], "interpro_api+controlled_host_annotation_v1")
-        self.assertEqual(
-            manifest["host_annotation"]["retrieval_status"],
-            "interpro_no_comparable_domains_fallback_controlled",
-        )
-        self.assertAlmostEqual(float(manifest["host_annotation"]["confidence"]), 0.56, places=2)
+        self.assertEqual(manifest["host_annotation"]["source_name"], "interpro_domain_overlap")
+        self.assertEqual(manifest["host_annotation"]["retrieval_status"], "external_not_requested")
+        self.assertAlmostEqual(float(manifest["host_annotation"]["confidence"]), 0.70, places=2)
         self.assertTrue(bool(manifest["host_annotation"]["is_external"]))
         self.assertFalse(bool(manifest["host_annotation"]["is_proxy"]))
         self.assertIn("domain_overlap_score", resolved.columns)
         self.assertIn("host_criticality_penalty", resolved.columns)
-        self.assertEqual(len(resolved), 10)
-        self.assertEqual(len(cached), 10)
+        self.assertEqual(len(resolved), 1)
+        self.assertEqual(len(cached), 1)
 
 
 if __name__ == "__main__":

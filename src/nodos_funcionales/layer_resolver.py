@@ -29,6 +29,7 @@ class LayerResolution:
     retrieval_status: str
     output_path: str | None
     selected_inputs: list[str]
+    generated_by: str = "not_reported"
 
 
 def _candidate_dirs(base_dir: Path, config: dict[str, Any]) -> dict[str, Path]:
@@ -83,18 +84,41 @@ def _source_name(path: Path | None, fallback: str) -> str:
 
 
 def _demo_raw_files(base_dir: Path) -> set[str]:
+    return set(_demo_raw_metadata(base_dir).keys())
+
+
+def _demo_raw_metadata(base_dir: Path) -> dict[str, dict[str, str]]:
     manifest_path = base_dir / "results" / "acquisition_manifest.json"
     if not manifest_path.exists():
-        return set()
+        return {}
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        return set()
-    filenames = set(manifest.get("demo_files_copied", []) or [])
+        return {}
+    filenames = {
+        str(filename): {"generated_by": "packaged_demo", "source_type": "demo"}
+        for filename in (manifest.get("demo_files_copied", []) or [])
+    }
     for dataset in manifest.get("datasets", []) or []:
-        if dataset.get("source_type") == "demo" and dataset.get("filename"):
-            filenames.add(str(dataset["filename"]))
+        filename = dataset.get("filename")
+        if not filename:
+            continue
+        generated_by = str(dataset.get("generated_by", "") or "")
+        source_type = str(dataset.get("source_type", "") or "")
+        if source_type == "demo" or generated_by == "packaged_demo":
+            filenames[str(filename)] = {
+                "generated_by": generated_by or "not_reported",
+                "source_type": source_type or "demo",
+            }
     return filenames
+
+
+def _raw_source_type(source_kind: str, raw_demo_meta: dict[str, str]) -> str:
+    if source_kind != "raw" or not raw_demo_meta:
+        return source_kind
+    if raw_demo_meta.get("generated_by") == "packaged_demo":
+        return "packaged_demo"
+    return "demo_raw"
 
 
 def _resolve_single_layer(
@@ -113,7 +137,8 @@ def _resolve_single_layer(
     cache_path = dirs["cache"] / definition.filename
     external_path = dirs["external"] / definition.filename
     external_provider = str(layer_cfg.get("external_provider", definition.external_provider or "workspace_stub"))
-    raw_is_demo = definition.filename in _demo_raw_files(base_dir)
+    raw_demo_meta = _demo_raw_metadata(base_dir).get(definition.filename, {})
+    raw_is_demo = bool(raw_demo_meta)
     external_result: dict[str, Any] = {
         "source_name": external_provider,
         "status": "external_not_requested",
@@ -135,7 +160,7 @@ def _resolve_single_layer(
             strategy == "user_preferred"
             and available_paths["user"] is None
             and available_paths["cache"] is None
-            and (available_paths["raw"] is None or raw_is_demo)
+            and available_paths["raw"] is None
         )
     )
     if online_source_mode in {"offline_only", "cache_first"} and available_paths["cache"] is not None:
@@ -175,12 +200,16 @@ def _resolve_single_layer(
             retrieval_status="resolved_from_external_with_demo_gap_fill",
             output_path=str(raw_path),
             selected_inputs=selected_inputs,
+            generated_by="mixed_external_and_demo",
         )
 
     if strategy == "merge_with_priority":
         merge_inputs = [(source_kind, path) for source_kind in _priority_order(strategy) if (path := available_paths[source_kind]) is not None]
         if merge_inputs:
-            selected_inputs = [f"{source_kind}:{path.name}" for source_kind, path in merge_inputs]
+            selected_inputs = [
+                f"{_raw_source_type(source_kind, raw_demo_meta)}:{path.name}"
+                for source_kind, path in merge_inputs
+            ]
             merged = _merge_with_priority(merge_inputs, definition.table_key, config)
             raw_path.parent.mkdir(parents=True, exist_ok=True)
             merged.to_csv(raw_path, index=False)
@@ -194,7 +223,7 @@ def _resolve_single_layer(
                 strategy=strategy,
                 resolved_from="merge",
                 source_type="merged",
-                source_name="+".join(kind for kind, _ in merge_inputs),
+                source_name="+".join(_raw_source_type(kind, raw_demo_meta) for kind, _ in merge_inputs),
                 is_user_supplied=any(kind == "user" for kind, _ in merge_inputs),
                 is_external=any(kind == "external" for kind, _ in merge_inputs),
                 is_cached=any(kind in {"cache", "raw"} for kind, _ in merge_inputs),
@@ -203,13 +232,14 @@ def _resolve_single_layer(
                 retrieval_status="resolved_from_merge",
                 output_path=str(raw_path),
                 selected_inputs=selected_inputs,
+                generated_by="merged_inputs",
             )
 
     for source_kind in _priority_order(strategy):
         source_path = available_paths[source_kind]
         if source_path is None:
             continue
-        selected_inputs = [f"{source_kind}:{source_path.name}"]
+        selected_inputs = [f"{_raw_source_type(source_kind, raw_demo_meta)}:{source_path.name}"]
         if source_kind == "user":
             mapped = _read_layer_source(source_path, definition.table_key, config, "user")
             raw_path.parent.mkdir(parents=True, exist_ok=True)
@@ -225,11 +255,11 @@ def _resolve_single_layer(
             filename=definition.filename,
             strategy=strategy,
             resolved_from=source_kind,
-            source_type=source_kind,
+            source_type=_raw_source_type(source_kind, raw_demo_meta),
             source_name=(
                 str(external_result.get("source_name", source_kind))
                 if source_kind == "external"
-                else _source_name(source_path, source_kind)
+                else ("packaged_demo:" + source_path.name if source_kind == "raw" and raw_demo_meta.get("generated_by") == "packaged_demo" else _source_name(source_path, source_kind))
             ),
             is_user_supplied=source_kind == "user",
             is_external=source_kind == "external",
@@ -247,6 +277,11 @@ def _resolve_single_layer(
             ),
             output_path=str(raw_path),
             selected_inputs=selected_inputs,
+            generated_by=(
+                "user_provided"
+                if source_kind == "user"
+                else raw_demo_meta.get("generated_by", source_kind)
+            ),
         )
 
     if definition.allow_proxy_default:
@@ -265,6 +300,7 @@ def _resolve_single_layer(
             retrieval_status="proxy_default",
             output_path=None,
             selected_inputs=[],
+            generated_by="proxy_default",
         )
 
     if definition.required:
@@ -285,6 +321,7 @@ def _resolve_single_layer(
         retrieval_status="missing_optional_layer",
         output_path=None,
         selected_inputs=[],
+        generated_by="not_generated",
     )
 
 
