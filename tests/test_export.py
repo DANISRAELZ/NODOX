@@ -8,8 +8,9 @@ import pytest
 from src.nodos_funcionales.config import load_config
 from src.nodos_funcionales.integration import integrate_tables
 from src.nodos_funcionales.normalization import normalize_all
-from src.nodos_funcionales.reporting import export_results
+from src.nodos_funcionales.reporting import _build_top10_scientific_markdown, export_results
 from src.nodos_funcionales.scoring import build_features_and_scores, compute_sensitivity
+from src.nodos_funcionales.user_explanations import THEORY_V3_NOT_ASSESSED_NOTE
 from src.nodos_funcionales.validation import load_and_validate_all
 from tests.helpers import make_temp_project
 
@@ -278,6 +279,49 @@ class ExportTests(unittest.TestCase):
         self.assertIn("evidencia real, curada, cache, proxy, demo o faltante", top10_md)
         self.assertIn("therapeutic_priority_components", report)
         self.assertIn("interpretacion computacional", report)
+        self.assertIn("Nota theory-first/v3", top10_md)
+        self.assertIn(THEORY_V3_NOT_ASSESSED_NOTE, top10_md)
+        self.assertIn("Nota theory-first/v3", report)
+        self.assertIn(THEORY_V3_NOT_ASSESSED_NOTE, report)
+
+    def test_scientific_markdown_omits_theory_v3_note_when_assessed(self) -> None:
+        scientific = pd.DataFrame(
+            {
+                "rank": [1],
+                "gene": ["geneA"],
+                "protein_id": ["A"],
+                "therapeutic_role": ["bactericidal_candidate"],
+                "therapeutic_priority_score": [0.7],
+                "therapeutic_priority_components": ["meta_priority_score=0.300"],
+                "rank_phase3_real_candidates": [1],
+                "meta_priority_score_v3": [0.8],
+                "therapeutic_role_v3": ["antivirulence_candidate"],
+                "evidence_quality_score": [0.9],
+                "confidence_ceiling": [0.9],
+                "functional_node_theory_score": [0.7],
+                "evolutionary_escape_risk_score": [0.2],
+                "host_similarity_risk": [0.1],
+                "preferred_strategy": ["antibiotic"],
+                "audit_class": ["robust"],
+                "audit_confidence": ["high"],
+                "biological_interpretation": ["interpretacion"],
+                "main_positive_drivers": ["meta_priority_score=0.300"],
+                "methodological_risk": ["riesgo"],
+                "literature_support_status": ["not_loaded"],
+                "literature_support_score": [0.0],
+                "literature_source_quality": [0.0],
+                "phase3_evidence_explanation": ["not_reported"],
+                "demo_dependency_assessment": ["sin dependencia dominante"],
+                "sensitivity_assessment": ["estable"],
+                "recommended_next_evidence": ["curar evidencia"],
+                "theory_v3_assessment_note": ["not_reported"],
+            }
+        )
+
+        markdown = _build_top10_scientific_markdown(scientific, pd.DataFrame())
+
+        self.assertNotIn("Nota theory-first/v3", markdown)
+        self.assertNotIn(THEORY_V3_NOT_ASSESSED_NOTE, markdown)
 
     def test_export_scientific_audit_handles_missing_sensitivity_file(self) -> None:
         project_dir = make_temp_project()

@@ -3,7 +3,11 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from src.nodos_funcionales.user_explanations import build_simple_candidate_explanations
+from src.nodos_funcionales.user_explanations import (
+    THEORY_V3_NOT_ASSESSED_NOTE,
+    build_simple_candidate_explanations,
+    build_simple_candidate_explanations_markdown,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -53,3 +57,56 @@ def test_simple_explanations_mark_demo_and_missing_as_limitations() -> None:
     assert "meta_priority_score=0.300" in row["therapeutic_priority_components"]
     assert "functional_node_score=0.680" in row["theory_context"]
     assert "provenance_status=inferred_proxy" in row["provenance_context"]
+
+
+def test_simple_explanations_note_when_theory_score_not_assessed() -> None:
+    ranking = pd.DataFrame(
+        {
+            "protein_id": ["A"],
+            "gene": ["geneA"],
+            "therapeutic_role": ["bactericidal_candidate"],
+            "functional_node_theory_score": ["not_assessed"],
+            "therapeutic_role_v3": ["antivirulence_candidate"],
+        }
+    )
+
+    explanations = build_simple_candidate_explanations(ranking)
+    markdown = build_simple_candidate_explanations_markdown(explanations)
+
+    assert explanations.loc[0, "theory_v3_assessment_note"] == THEORY_V3_NOT_ASSESSED_NOTE
+    assert "Nota theory-first/v3" in markdown
+    assert "no equivale a evidencia negativa" in markdown
+
+
+def test_simple_explanations_note_when_role_v3_not_assessed() -> None:
+    ranking = pd.DataFrame(
+        {
+            "protein_id": ["A"],
+            "gene": ["geneA"],
+            "therapeutic_role": ["bactericidal_candidate"],
+            "functional_node_theory_score": [0.72],
+            "therapeutic_role_v3": ["not_assessed"],
+        }
+    )
+
+    explanations = build_simple_candidate_explanations(ranking)
+
+    assert explanations.loc[0, "theory_v3_assessment_note"] == THEORY_V3_NOT_ASSESSED_NOTE
+
+
+def test_simple_explanations_no_note_when_theory_v3_is_assessed() -> None:
+    ranking = pd.DataFrame(
+        {
+            "protein_id": ["A"],
+            "gene": ["geneA"],
+            "therapeutic_role": ["bactericidal_candidate"],
+            "functional_node_theory_score": [0.72],
+            "therapeutic_role_v3": ["antivirulence_candidate"],
+        }
+    )
+
+    explanations = build_simple_candidate_explanations(ranking)
+    markdown = build_simple_candidate_explanations_markdown(explanations)
+
+    assert explanations.loc[0, "theory_v3_assessment_note"] == "not_reported"
+    assert "Nota theory-first/v3" not in markdown

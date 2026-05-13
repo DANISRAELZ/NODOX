@@ -3,6 +3,15 @@ from __future__ import annotations
 import pandas as pd
 
 
+THEORY_V3_NOT_ASSESSED_NOTE = (
+    "La capa theory-first/v3 existe, pero en esta corrida no hubo evidencia suficiente para evaluarla. "
+    "Esto no indica error del sistema, no equivale a evidencia negativa, no valida experimentalmente el candidato "
+    "y tampoco lo descarta biologicamente."
+)
+
+_UNASSESSED_VALUES = {"", "nan", "none", "not_reported", "not_assessed", "unknown"}
+
+
 def build_simple_candidate_explanations(ranking: pd.DataFrame, top_n: int = 10) -> pd.DataFrame:
     """Build non-technical explanations without adding scientific claims."""
     rows: list[dict[str, object]] = []
@@ -23,6 +32,7 @@ def build_simple_candidate_explanations(ranking: pd.DataFrame, top_n: int = 10) 
                 "theory_context": explain_theory_context(row),
                 "provenance_context": explain_provenance_context(row),
                 "evolutionary_risk": explain_evolutionary_risk(row),
+                "theory_v3_assessment_note": explain_theory_v3_assessment_note(row),
                 "interpretation_warning": explain_interpretation_warning(row),
             }
         )
@@ -57,6 +67,11 @@ def build_simple_candidate_explanations_markdown(explanations: pd.DataFrame) -> 
                 f"- Contexto teorico: {row.get('theory_context', 'not_reported')}",
                 f"- Procedencia resumida: {row.get('provenance_context', 'not_reported')}",
                 f"- Riesgo evolutivo: {row.get('evolutionary_risk', 'not_reported')}",
+                *(
+                    [f"- Nota theory-first/v3: {row.get('theory_v3_assessment_note')}"]
+                    if _clean(row.get("theory_v3_assessment_note", "not_reported")) != "not_reported"
+                    else []
+                ),
                 f"- Limite de interpretacion: {row.get('interpretation_warning', 'not_reported')}",
                 "",
             ]
@@ -168,6 +183,12 @@ def explain_evolutionary_risk(row: pd.Series) -> str:
     return f"escape={risk}; robustez={robustness}; restriccion={constraint}; estado={status}; interpretacion={interpretation}"
 
 
+def explain_theory_v3_assessment_note(row: pd.Series) -> str:
+    if _is_unassessed(row.get("functional_node_theory_score")) or _is_unassessed(row.get("therapeutic_role_v3")):
+        return THEORY_V3_NOT_ASSESSED_NOTE
+    return "not_reported"
+
+
 def explain_interpretation_warning(row: pd.Series) -> str:
     warning = _clean(row.get("interpretation_warning", "not_reported"))
     if warning != "not_reported":
@@ -190,3 +211,14 @@ def _clean(value: object) -> str:
     if not text or text.lower() == "nan":
         return "not_reported"
     return text
+
+
+def _is_unassessed(value: object) -> bool:
+    if value is None:
+        return True
+    try:
+        if bool(pd.isna(value)):
+            return True
+    except (TypeError, ValueError):
+        pass
+    return str(value).strip().lower() in _UNASSESSED_VALUES

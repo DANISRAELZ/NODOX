@@ -8,7 +8,11 @@ import pandas as pd
 from .organism_profile import write_organism_profile_validation
 from .provenance_user_summary import write_provenance_user_summary
 from .ranking_snapshots import write_ranking_snapshot_outputs
-from .user_explanations import build_simple_candidate_explanations, build_simple_candidate_explanations_markdown
+from .user_explanations import (
+    build_simple_candidate_explanations,
+    build_simple_candidate_explanations_markdown,
+    explain_theory_v3_assessment_note,
+)
 
 from .layer_registry import TARGET_LAYER_KEYS
 
@@ -118,6 +122,16 @@ def _display_df(df: pd.DataFrame) -> pd.DataFrame:
     if len(float_columns):
         display[float_columns] = display[float_columns].round(4)
     return display
+
+
+def _fmt_optional_score(value: object) -> str:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return str(value or "not_reported")
+    if pd.isna(numeric):
+        return "not_assessed"
+    return f"{numeric:.4f}"
 
 
 def _markdown_table(df: pd.DataFrame) -> str:
@@ -1109,6 +1123,7 @@ TOP10_SCIENTIFIC_AUDIT_COLUMNS = [
     "therapeutic_priority_contribution_summary",
     "therapeutic_priority_components",
     "therapeutic_role_v3",
+    "theory_v3_assessment_note",
     "candidate_record_type",
     "ranking_inclusion_status",
     "ranking_inclusion_reason",
@@ -1164,6 +1179,7 @@ def _build_top10_scientific_audit(
             f"Dentro del modelo actual su lectura dominante es `{strategy_label}`."
         )
         host_risk_interpretation = _host_risk_methodological_text(row)
+        theory_v3_assessment_note = explain_theory_v3_assessment_note(row)
         evolutionary_interpretation = row.get("evolutionary_escape_risk_interpretation", "not_reported")
         methodological_risk = (
             f"El principal riesgo interpretativo es que { _negative_biological_text(negative_driver_names) }. "
@@ -1200,6 +1216,7 @@ def _build_top10_scientific_audit(
                 "therapeutic_role": row.get("therapeutic_role", "low_priority_candidate"),
                 "therapeutic_role_v3": row.get("therapeutic_role_v3", "not_reported"),
                 "therapeutic_role_v3_reason": row.get("therapeutic_role_v3_reason", "not_reported"),
+                "theory_v3_assessment_note": theory_v3_assessment_note,
                 "phase3_evidence_confidence_label": row.get("phase3_evidence_confidence_label", "not_reported"),
                 "phase3_recommendation": row.get("phase3_recommendation", "not_reported"),
                 "therapeutic_priority_score": row.get("therapeutic_priority_score", 0.0),
@@ -1303,13 +1320,19 @@ def _build_top10_scientific_markdown(
         lines.extend(["## Procedencia Opcional", "", _markdown_table(provenance_summary), ""])
 
     for _, row in scientific_audit.iterrows():
+        theory_v3_note = str(row.get("theory_v3_assessment_note", "not_reported"))
         lines.extend(
             [
                 f"## {int(row['rank'])}. {row['gene']} ({row['protein_id']})",
                 f"- Rol terapÃ©utico: `{row['therapeutic_role']}` con prioridad `{row['therapeutic_priority_score']:.4f}`",
                 f"- Descomposicion de prioridad terapeutica: {row.get('therapeutic_priority_components', 'not_reported')}",
                 f"- Fase 3: rank real `{row.get('rank_phase3_real_candidates', 'not_reported')}`, meta_priority_score_v3 `{float(row.get('meta_priority_score_v3', 0.0)):.4f}`, rol `{row.get('therapeutic_role_v3', 'not_reported')}`",
-                f"- Evidencia Fase 3: calidad `{float(row.get('evidence_quality_score', 0.0)):.4f}`, techo `{float(row.get('confidence_ceiling', 0.0)):.4f}`, teoria `{float(row.get('functional_node_theory_score', 0.0)):.4f}`, escape `{float(row.get('evolutionary_escape_risk_score', 0.0)):.4f}`, similitud hospedero `{float(row.get('host_similarity_risk', 0.0)):.4f}`",
+                f"- Evidencia Fase 3: calidad `{_fmt_optional_score(row.get('evidence_quality_score', 0.0))}`, techo `{_fmt_optional_score(row.get('confidence_ceiling', 0.0))}`, teoria `{_fmt_optional_score(row.get('functional_node_theory_score', 0.0))}`, escape `{_fmt_optional_score(row.get('evolutionary_escape_risk_score', 0.0))}`, similitud hospedero `{_fmt_optional_score(row.get('host_similarity_risk', 0.0))}`",
+                *(
+                    [f"- Nota theory-first/v3: {theory_v3_note}"]
+                    if theory_v3_note != "not_reported"
+                    else []
+                ),
                 f"- Estrategia preferida: `{row['preferred_strategy']}`",
                 f"- Juicio final: `{row['audit_class']}` con confianza `{row['audit_confidence']}`",
                 f"- InterpretaciÃ³n biolÃ³gica: {row['biological_interpretation']}",
@@ -1384,6 +1407,7 @@ def _scientific_audit_report_view(scientific_audit: pd.DataFrame) -> pd.DataFram
         "audit_class",
         "audit_confidence",
         "therapeutic_priority_components",
+        "theory_v3_assessment_note",
     ]
     if scientific_audit.empty:
         return pd.DataFrame(columns=columns)
@@ -2230,6 +2254,21 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         encoding="utf-8",
     )
 
+    theory_v3_notes = [
+        note
+        for note in phase2_ranking.apply(explain_theory_v3_assessment_note, axis=1).dropna().astype(str).unique()
+        if note != "not_reported"
+    ]
+    theory_v3_report_lines = (
+        [
+            "- Nota theory-first/v3: "
+            + theory_v3_notes[0]
+            + " Revisar `functional_node_theory_score` y `therapeutic_role_v3` por candidato.",
+        ]
+        if theory_v3_notes
+        else []
+    )
+
     report_lines = [
         f"# Nodos Funcionales - Reporte {mode}",
         "",
@@ -2247,6 +2286,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "- El ranking representa hipotesis terapeuticas priorizadas, no recomendaciones clinicas.",
         "- `therapeutic_priority_components` muestra como se descompone la prioridad terapeutica dentro del modelo; es una interpretacion computacional, no validacion experimental.",
         "- Esta descomposicion hereda la procedencia de sus capas de entrada: evidencia real, curada, cache, proxy, demo o faltante pueden contribuir segun lo registrado.",
+        *theory_v3_report_lines,
         "",
         "## Resumen",
         f"- Candidatos evaluados: {len(features)}",
