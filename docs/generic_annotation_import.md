@@ -4,6 +4,8 @@
 
 Nodos Funcionales puede convertir anotaciones locales de cualquier organismo al esquema interno del pipeline. Esta ruta no pertenece a ninguna coleccion particular de aislados ni a ningun proyecto genomico externo.
 
+El importador es un mecanismo de entrada para operacionalizar la Teoria de Nodos Funcionales: convierte evidencia del usuario en capas comparables, auditables y compatibles con el scoring. No es el nucleo conceptual del proyecto.
+
 ## Insumos aceptados
 
 Coloca los archivos en un directorio local elegido por el usuario. Nombres reconocidos:

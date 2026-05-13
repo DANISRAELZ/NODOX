@@ -9,6 +9,8 @@ This version separates two concepts:
 
 Only `online_optional` is allowed to attempt fresh network access. Offline test runs must use cache, local files, controlled providers, stubs, or explicit missing status.
 
+The cache policy supports the Functional Nodes Theory by preserving where each evidence layer came from and how confidently it can be interpreted. Cache reuse, snapshots and online responses are evidence logistics, not the conceptual center of the project.
+
 ## Cache location
 
 Provider caches are stored per workspace under `config/` using filenames configured in `config/params.yaml`.

@@ -4,6 +4,8 @@
 
 La consulta online organism-first permite iniciar un workspace a partir del nombre de un organismo, sin exigir una lista local previa de genes. El flujo resuelve taxonomia, consulta fuentes online generales y escribe capas parciales con procedencia explicita.
 
+Dentro de la Teoria de Nodos Funcionales, este flujo es solo un mecanismo opcional para obtener evidencia. UniProt, STRING y otras fuentes alimentan capas computacionales, pero no definen el objetivo conceptual del proyecto.
+
 Este flujo es multi-organismo. Corynebacterium pseudotuberculosis puede usarse como ejemplo generico de organismo ingresado por el usuario; no representa una coleccion particular de aislados ni un proyecto genomico independiente.
 
 ## Comando de ejemplo

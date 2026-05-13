@@ -182,7 +182,7 @@ organism,strain,taxon_id,layer,source_name,source_type,acquisition_date,acquisit
 | Organismo | Cepa | Taxon id esperado | Rol del snapshot | Estado recomendado |
 | --- | --- | --- | --- | --- |
 | `Pseudomonas aeruginosa` | PAO1 | `208964` para cepa PAO1, `287` para especie cuando aplique | Demo controlado y validacion de cierre STRING/UniProt | Preparar primero como snapshot congelado desde cache/documentacion ya validada, sin nueva red. |
-| `Corynebacterium pseudotuberculosis` | Definir cepa curada antes de congelar | Depende de cepa o especie seleccionada | Organismo real prioritario del proyecto | Requiere manifest curado y decision explicita de cepa antes de crear referencia. |
+| `Corynebacterium pseudotuberculosis` | Definir cepa curada antes de congelar | Depende de cepa o especie seleccionada | Ejemplo generico para validar el contrato multi-organismo | Requiere manifest curado y decision explicita de cepa antes de crear referencia. |
 | `Mycobacterium tuberculosis` | H37Rv | `83332` para H37Rv, `1773` para especie cuando aplique | Validacion cruzada real | Usar como segundo control real porque tiene mejor cobertura publica esperada. |
 
 Para evitar mezclar datos, cada snapshot debe indicar si el `taxon_id` corresponde a especie o cepa. Si STRING o UniProt usan distinto nivel taxonomico, el manifest debe explicarlo en `limitations`.

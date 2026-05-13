@@ -8,12 +8,12 @@ interno del workspace sin editar manualmente las columnas una por una.
 ## Uso
 
 ```bash
-python import_dataset.py --workspace data_sessions/cpseudo_demo --dataset virulence --input exported_virulence.csv
+python import_dataset.py --workspace data_sessions/organism_demo --dataset virulence --input exported_virulence.csv
 python import_dataset.py --organism "ORGANISM_NAME" --strain "STRAIN_NAME" --workspace data_sessions/my_organism_workspace --dataset essentiality --input-dir path/to/user_data
 ```
 
 El primer comando es un ejemplo historico. El importador es multiorganismo y no
-depende de `cpseudo_demo`.
+depende de un organismo especifico.
 
 ## Qué hace
 

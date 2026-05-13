@@ -4,6 +4,8 @@
 
 Un snapshot curado es una referencia pequena, versionada y auditable que describe un conjunto estable de evidencias y procedencia para un organismo. No es una corrida del pipeline, no es un cache vivo y no reemplaza datos de usuario.
 
+En la Teoria de Nodos Funcionales, los snapshots son herramientas de reproducibilidad y validacion tecnica. Sirven para comprobar contratos de capas, procedencia y reportes; no son verdad biologica absoluta ni el centro conceptual del repositorio.
+
 ## Multiorganism design principle
 
 Nodos Funcionales esta disenado para priorizar blancos terapeuticos en cualquier organismo bacteriano ingresado por el usuario, siempre que sus capas de evidencia puedan resolverse de forma trazable. PAO1, `Corynebacterium pseudotuberculosis` y H37Rv son casos de referencia; no definen los limites del sistema.
@@ -39,7 +41,7 @@ data_external/curated_snapshots/corynebacterium_pseudotuberculosis_biovar_ovis/
 
 Estos directorios son fixtures auditables. Nuevos organismos deben poder agregarse sin cambiar el validador si cumplen el mismo contrato.
 
-## Por que PAO1 primero
+## PAO1 como baseline tecnico
 
 `Pseudomonas aeruginosa` PAO1 ya tiene validacion controlada documentada para STRING/UniProt y un ranking demo estable. Por eso es un buen organismo inicial para validar contratos de snapshot sin hacer llamadas online frescas.
 
@@ -218,7 +220,7 @@ C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\p
 
 ## Extension futura
 
-La siguiente expansion debe profundizar snapshots reales curados, en commits separados, para:
+La siguiente expansion puede profundizar snapshots reales curados, en commits separados, para validar mejor la teoria en ejemplos tecnicos como:
 
 - `Corynebacterium pseudotuberculosis`: pasar del scaffold controlado a evidencia externa validada cuando exista protocolo online.
 - `Mycobacterium tuberculosis` H37Rv: usar como validacion cruzada por cobertura publica estable.
