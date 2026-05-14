@@ -15,8 +15,8 @@ from src.nodos_funcionales.runtime import VALID_PIPELINE_MODES, resolve_pipeline
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Entrada multiorganismo para priorizacion explicable de blancos terapeuticos bacterianos.")
-    parser.add_argument("--organism", required=True, help="Nombre del organismo bacteriano.")
-    parser.add_argument("--strain", help="Cepa opcional.")
+    parser.add_argument("--organism", required=True, help="Organismo bacteriano definido por el usuario.")
+    parser.add_argument("--strain", help="Cepa definida por el usuario; opcional si no aplica o no se conoce.")
     parser.add_argument("--strategy", choices=sorted(STRATEGY_CHOICES), help="Estrategia preferida opcional.")
     parser.add_argument(
         "--acquisition-mode",
@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-demo-data",
         action="store_true",
         help=(
-            "Permite usar demos empaquetados solo si coinciden con el organismo/cepa; "
+            "Permiso explicito para usar datos demo empaquetados solo si coinciden con el organismo/cepa; "
             "no define un organismo por defecto."
         ),
     )

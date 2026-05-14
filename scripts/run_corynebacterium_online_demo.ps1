@@ -10,12 +10,13 @@ $ErrorActionPreference = "Stop"
 
 function Resolve-Python {
     param([string]$Preferred)
+    $DefaultCodexPython = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
     $candidates = @()
     if ($Preferred) { $candidates += $Preferred }
     $candidates += @(
         "python",
         "py",
-        "C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+        $DefaultCodexPython
     )
     foreach ($candidate in $candidates) {
         try {

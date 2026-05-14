@@ -60,9 +60,10 @@ class MultiorganismOrientationTests(unittest.TestCase):
 
     def test_cli_help_keeps_demo_data_optional_and_not_default(self) -> None:
         help_text = build_parser().format_help()
+        normalized_help = " ".join(help_text.split())
         self.assertIn("--organism", help_text)
         self.assertIn("--strain", help_text)
-        self.assertIn("no define un organismo por defecto", help_text)
+        self.assertIn("no define un organismo por defecto", normalized_help)
 
     def test_maturity_audit_records_templates_as_neutral(self) -> None:
         text = (PROJECT_ROOT / "docs" / "multiorganism_maturity_audit.md").read_text(encoding="utf-8")

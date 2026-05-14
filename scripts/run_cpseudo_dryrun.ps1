@@ -2,6 +2,7 @@
 # Dry-run controlado para Corynebacterium pseudotuberculosis.
 # No representa validación biológica completa; sirve para verificar ejecución
 # multi-organismo del pipeline en Windows.
+# El organismo/cepa pueden cambiarse con -Organism y -Strain.
 
 param(
     [string]$PYTHON_EXE = "",
@@ -40,12 +41,13 @@ Write-Host "[INFO] Python: $PYTHON_EXE"
 Write-Host "[INFO] Organism: $Organism"
 Write-Host "[INFO] Strain: $Strain"
 Write-Host "[INFO] Mode: $Mode"
+Write-Host "[INFO] Dry-run only: prepares discovery artifacts without running scoring or using demo data."
 
 & $PYTHON_EXE run_pipeline.py `
     --organism $Organism `
     --strain $Strain `
-    --allow-demo-data `
-    --mode $Mode
+    --mode $Mode `
+    --dry-run
 
 if ($LASTEXITCODE -ne 0) {
     throw "run_pipeline.py failed with exit code $LASTEXITCODE"

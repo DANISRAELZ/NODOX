@@ -10,7 +10,7 @@ en `PATH` o cuando OneDrive bloquea archivos temporales.
 3. Entra a la carpeta del proyecto:
 
 ```powershell
-cd C:\Users\danis\OneDrive\Escritorio\nodos
+cd <RUTA_DEL_REPOSITORIO>\nodos
 ```
 
 ## Seleccionar Python
@@ -20,18 +20,18 @@ Los scripts intentan, en este orden:
 1. La variable `PYTHON_EXE`.
 2. `python`.
 3. `py`.
-4. `C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe`.
+4. `$env:USERPROFILE\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe`.
 
 Para fijar explicitamente el interprete:
 
 ```powershell
-$env:PYTHON_EXE="C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+$env:PYTHON_EXE="$env:USERPROFILE\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
 ```
 
 Tambien puedes pasarlo como parametro:
 
 ```powershell
-.\scripts\run_tests.ps1 -PYTHON_EXE "C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+.\scripts\run_tests.ps1 -PYTHON_EXE "$env:USERPROFILE\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
 ```
 
 ## Ejecutar pruebas

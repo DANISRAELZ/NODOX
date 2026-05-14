@@ -6,12 +6,13 @@ $ErrorActionPreference = "Stop"
 
 function Resolve-Python {
     param([string]$Preferred)
+    $DefaultCodexPython = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
     $candidates = @()
     if ($Preferred) { $candidates += $Preferred }
     $candidates += @(
         "python",
         "py",
-        "C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+        $DefaultCodexPython
     )
     foreach ($candidate in $candidates) {
         try {
@@ -28,6 +29,7 @@ $Python = Resolve-Python -Preferred $PYTHON_EXE
 Write-Host "[OK] Python: $Python"
 Write-Host "[OK] Running PAO1 demo pipeline"
 Write-Host "[INFO] PAO1 is used only as a reproducible demo organism, not as a project default."
+Write-Host "[INFO] For real analyses, replace --organism and --strain and provide curated or imported organism-specific data."
 & $Python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] Demo pipeline failed."
