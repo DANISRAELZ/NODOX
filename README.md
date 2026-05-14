@@ -50,6 +50,10 @@ Ejecutar el demo de `Pseudomonas aeruginosa` PAO1:
 python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare
 ```
 
+Este comando usa PAO1 unicamente como organismo demo reproducible. Para analisis
+reales, reemplace `--organism` y `--strain` por el organismo y cepa de interes y
+proporcione datos curados, importados o resueltos por las capas configuradas.
+
 Consultar informacion online general para `Corynebacterium pseudotuberculosis`:
 
 ```powershell
@@ -59,6 +63,7 @@ python fetch_online_data.py --organism "Corynebacterium pseudotuberculosis" --wo
 Ejemplos multiorganismo, todos ilustrativos:
 
 ```powershell
+python run_pipeline.py --organism "Organism name" --strain "Strain name" --mode compare
 python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare
 python run_pipeline.py --organism "Mycobacterium tuberculosis" --strain H37Rv --workspace data_sessions/mtb_h37rv --mode compare
 python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --workspace data_sessions/corynebacterium_pseudotuberculosis_online_demo --mode compare
@@ -235,6 +240,10 @@ Para ejecutar la salida completa de Fase 3:
 python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode phase3
 ```
 
+PAO1 se conserva aqui como caso demostrativo/controlado para reproducir salidas.
+El flujo no esta acoplado a PAO1; para organismos reales use los nombres de su
+organismo y cepa y revise la procedencia de cada capa.
+
 Para comparar que Fase 1/Fase 2 siguen funcionando:
 
 ```powershell
@@ -378,6 +387,7 @@ la capa de red funcional mediante **STRING**.
 Ejemplos:
 
 ```bash
+python run_pipeline.py --organism "Organism name" --strain "Strain name" --workspace data_sessions/my_organism_workspace --mode compare
 python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --dry-run
 python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data
 python run_pipeline.py --organism "Mycobacterium tuberculosis" --acquisition-mode semi_auto --mode compare
@@ -386,6 +396,10 @@ python run_pipeline.py --organism "Pseudomonas aeruginosa" --taxon-resolution-mo
 ```
 
 ## Modos de adquisición
+
+Los nombres concretos son ejemplos reproducibles o casos de validacion. El
+usuario puede proporcionar cualquier organismo bacteriano compatible con las
+capas de evidencia disponibles.
 
 - `manual`:
   crea o reutiliza el workspace y espera que el usuario coloque los CSVs
@@ -524,6 +538,10 @@ Para una ejecucion completamente offline/cache segura, use:
 python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare --taxon-resolution-mode offline_only
 ```
 
+Este ejemplo usa PAO1 solo como demo offline controlado. Para un analisis nuevo,
+reemplace el organismo/cepa y prepare un workspace con datos propios o fuentes
+externas permitidas.
+
 `--taxon-resolution-mode` controla solo la resolucion taxonomica. `--online-source-mode`
 controla las fuentes externas de capas como `human_homologs`, `functional_network`,
 `localization` y `host_annotation`. Por seguridad, `--offline-only`,
@@ -541,6 +559,10 @@ Ejemplo:
 ```bash
 python fetch_online_data.py --organism "Pseudomonas aeruginosa" --workspace data_sessions/pao1_demo --source string --mode online_optional
 ```
+
+PAO1 se muestra aqui como ejemplo reproducible de enriquecimiento. El mismo
+patron aplica a otros organismos cuando la fuente externa y la configuracion de
+resolucion lo permiten.
 
 Modos soportados:
 
@@ -574,6 +596,9 @@ Ejemplo de auditoría fresh/cache:
 ```bash
 python audit_online_sources.py --organism "Pseudomonas aeruginosa" --strain PAO1 --workspace data_sessions/pao1_demo --sources string uniprot --compare-fresh-vs-cache
 ```
+
+La auditoria anterior es un caso de validacion controlada, no el organismo base
+del proyecto.
 
 Nota:
 

@@ -53,8 +53,8 @@ Outputs revisados:
 | `run_pipeline.py` | `demo` en CLI y advertencias | Control de uso de datos demo | A | Mantener. La advertencia `[WARN] Demo data used; confidence capped` es saludable para el usuario. |
 | `src/nodos_funcionales/discovery.py` | `demo`, `template`, `packaged_demo` | Preparacion de workspaces y plantillas | A | Mantener. La logica esta acotada por `allow_demo_data` y manifiesto. |
 | `src/nodos_funcionales/layer_resolver.py` | `external+demo_raw`, `demo_raw` | Resolucion por capa con relleno demo bajo estrategia | B | Mantener, pero revisar la nomenclatura para que el usuario vea claramente cuando un merge usa demo como gap fill. |
-| `data_templates/evolutionary_escape_risk_template.csv` | `Pseudomonas aeruginosa`, `PAO1`, `example_candidate` | Ejemplo dentro de plantilla generica | B | Cambiar en un commit menor a un organismo ficticio o a placeholders (`ORGANISM_TO_REPLACE`, `STRAIN_TO_REPLACE`) para evitar lectura como plantilla PAO1. |
-| `data_templates/organism_profile_template.csv` | `Pseudomonas aeruginosa`, `PAO1` | Ejemplo dentro de plantilla de perfil | B | Reemplazar por placeholders o por `Example bacterium` claramente ficticio. |
+| `data_templates/evolutionary_escape_risk_template.csv` | `user_defined_organism`, `user_defined_strain`, `example_candidate` | Ejemplo neutral dentro de plantilla generica | A | Mantener. La plantilla ya no sugiere PAO1 como organismo por defecto. |
+| `data_templates/organism_profile_template.csv` | `user_defined_organism`, `user_defined_strain` | Ejemplo neutral dentro de plantilla de perfil | A | Mantener. La plantilla ya no sugiere PAO1 como organismo por defecto. |
 | `scripts/run_demo.ps1` | PAO1 | Script de demo principal | A | Mantener como demo historico controlado. |
 | `scripts/run_cpseudo_dryrun.ps1` | Corynebacterium pseudotuberculosis | Script de dry-run especifico | B | Renombrar o complementar con un script generico parametrizable; conservar el caso como ejemplo si queda documentado. |
 | `scripts/run_corynebacterium_online_demo.ps1` | Corynebacterium pseudotuberculosis | Demo online organism-first | A/B | Aceptable porque declara que es ejemplo; a medio plazo conviene tener `run_online_demo.ps1` parametrico. |
@@ -128,7 +128,7 @@ Criticos:
 Medios:
 
 - La procedencia puede degradarse al pasar de manifest/discovery a resumen de usuario: `packaged_demo` puede aparecer como `raw` o `user_curated`.
-- Algunas plantillas contienen PAO1 como ejemplo concreto. Esto no rompe ejecucion, pero puede orientar mal a usuarios que preparan organismos nuevos.
+- Las plantillas revisadas ya usan placeholders neutrales como `user_defined_organism` y `user_defined_strain`; mantener esa convencion evita orientar a usuarios nuevos hacia PAO1.
 - `functional_node_theory_score` y `therapeutic_role_v3` existen, pero en la corrida PAO1 revisada aparecen como no evaluados. La teoria esta implementada, pero su exposicion operativa aun no esta madura para todos los outputs.
 - Las capas de contexto terapeutico (`clinical_impact`, `curated_disease_context`, `therapy_site_context`) dependen todavia de plantillas, proxies o curacion pendiente en la corrida PAO1.
 - La resolucion taxonomica del demo PAO1 usa cache/stub en esta ejecucion; esto es reproducible, pero no demuestra madurez online para organismos nuevos.
@@ -149,7 +149,7 @@ Prioridad inmediata:
 
 Prioridad media:
 
-- Reemplazar ejemplos PAO1 en `data_templates/evolutionary_escape_risk_template.csv` y `data_templates/organism_profile_template.csv` por placeholders o un ejemplo ficticio claro.
+- Mantener placeholders neutrales en `data_templates/evolutionary_escape_risk_template.csv` y `data_templates/organism_profile_template.csv`; no reintroducir organismos demo como valores por defecto.
 - Crear o ajustar tests que ejecuten un organismo generico minimo sin demo, con datos incompletos, y validen que el pipeline falla o continua con mensajes correctos segun corresponda.
 - Parametrizar los scripts de dry-run online para evitar que Corynebacterium parezca caso privilegiado.
 - Agregar pruebas de consistencia entre `acquisition_manifest.json`, `layer_resolution_summary.csv`, `provenance_user_summary.md` y `ranking_nodos.csv`.
@@ -176,7 +176,7 @@ Prioridad baja:
    - Agregar test de consistencia de procedencia entre manifest, integration y reportes.
 
 4. Limpieza de fixtures/demo
-   - Cambiar ejemplos PAO1 en plantillas por placeholders.
+   - Conservar ejemplos neutrales en plantillas y evitar que PAO1 reaparezca como valor por defecto.
    - Parametrizar scripts `run_cpseudo_dryrun.ps1` y `run_corynebacterium_online_demo.ps1` o agregar equivalentes genericos.
 
 5. Validaciones con organismos adicionales

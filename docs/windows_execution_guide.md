@@ -54,6 +54,10 @@ Equivale a:
 python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare
 ```
 
+PAO1 se usa aqui unicamente como organismo demo reproducible. Para analisis
+reales, reemplace `--organism` y `--strain` por el organismo y cepa de interes y
+use datos curados, importados o fuentes externas trazables.
+
 ## Consulta online generica para C. pseudotuberculosis
 
 ```powershell

@@ -10,6 +10,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from run_pipeline import build_parser
 from run_pipeline import main as run_pipeline_main
 from tests.helpers import PROJECT_ROOT
 
@@ -48,6 +49,26 @@ class MultiorganismOrientationTests(unittest.TestCase):
         self.assertIn("cualquier organismo bacteriano", readme)
         self.assertIn("Objetivo general", scope)
         self.assertIn("workspaces independientes", scope)
+
+    def test_readme_labels_pao1_as_demo_not_default(self) -> None:
+        readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("PAO1 unicamente como organismo demo reproducible", readme)
+        self.assertIn("El flujo no esta acoplado a PAO1", readme)
+        self.assertIn('python run_pipeline.py --organism "Organism name" --strain "Strain name"', readme)
+        self.assertNotIn("PAO1 es el organismo por defecto", readme)
+        self.assertNotIn("organismo base obligatorio", readme)
+
+    def test_cli_help_keeps_demo_data_optional_and_not_default(self) -> None:
+        help_text = build_parser().format_help()
+        self.assertIn("--organism", help_text)
+        self.assertIn("--strain", help_text)
+        self.assertIn("no define un organismo por defecto", help_text)
+
+    def test_maturity_audit_records_templates_as_neutral(self) -> None:
+        text = (PROJECT_ROOT / "docs" / "multiorganism_maturity_audit.md").read_text(encoding="utf-8")
+        self.assertIn("user_defined_organism", text)
+        self.assertIn("ya no sugiere PAO1 como organismo por defecto", text)
+        self.assertNotIn("Algunas plantillas contienen PAO1 como ejemplo concreto", text)
 
     def test_generic_new_organism_workspace_can_be_created_without_demo(self) -> None:
         workspace = self.make_workspace("generic_bacterium")

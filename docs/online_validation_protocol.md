@@ -32,6 +32,10 @@ El argumento compatible para controlar fuentes externas es:
 python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --online-source-mode online_optional
 ```
 
+PAO1 se usa en este protocolo como caso de validacion controlada para STRING/UniProt.
+El flujo no esta acoplado a PAO1; para otro organismo, reemplace `--organism` y
+`--strain` y conserve el modo de red apropiado para la corrida.
+
 ## Comandos recomendados
 
 Ejecucion completamente offline/cache segura:
@@ -51,6 +55,9 @@ Validacion online controlada:
 ```powershell
 python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare --taxon-resolution-mode cache_first --online-source-mode online_optional
 ```
+
+Los comandos PAO1 anteriores son ejemplos reproducibles de validacion, no un
+organismo base obligatorio.
 
 ## Interpretacion de procedencia
 

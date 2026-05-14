@@ -36,7 +36,14 @@ def build_parser() -> argparse.ArgumentParser:
         default="user_data_plus_external",
         help="Etiqueta opcional de analisis para documentar el enfoque del workspace; no cambia la logica actual.",
     )
-    parser.add_argument("--allow-demo-data", action="store_true", help="Permite usar el demo empaquetado si coincide con el organismo.")
+    parser.add_argument(
+        "--allow-demo-data",
+        action="store_true",
+        help=(
+            "Permite usar demos empaquetados solo si coinciden con el organismo/cepa; "
+            "no define un organismo por defecto."
+        ),
+    )
     parser.add_argument(
         "--taxon-resolution-mode",
         choices=sorted(TAXON_RESOLUTION_MODES),
