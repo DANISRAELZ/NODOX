@@ -95,6 +95,46 @@ EXPECTED_COLUMNS = {
         "database",
     ],
     "host_annotation_template.csv": ["protein_id", "gene", "domain_overlap_score", "host_criticality_penalty", "database"],
+    "evolutionary_escape_risk_template.csv": [
+        "candidate_id",
+        "gene",
+        "protein_id",
+        "organism",
+        "strain",
+        "mutation_tolerance_score",
+        "functional_redundancy_escape_score",
+        "compensatory_pathway_score",
+        "fitness_cost_of_escape",
+        "evolutionary_constraint_score",
+        "resistance_emergence_risk",
+        "multi_node_dependency_score",
+        "evidence_source",
+        "source_type",
+        "confidence",
+        "notes",
+    ],
+    "organism_profile_template.csv": [
+        "organism",
+        "strain",
+        "taxonomy_id",
+        "genome_accession",
+        "proteome_source",
+        "annotation_source",
+        "essentiality_available",
+        "virulence_available",
+        "conservation_available",
+        "functional_network_available",
+        "localization_available",
+        "human_homologs_available",
+        "evolutionary_escape_available",
+        "literature_support_available",
+        "clinical_context_available",
+        "disease_context_available",
+        "host_context",
+        "curator",
+        "date",
+        "notes",
+    ],
 }
 
 FORBIDDEN_TERMS = [
@@ -104,6 +144,12 @@ FORBIDDEN_TERMS = [
     "17 " + "isolates",
     "pangenome " + "mexicano",
     "cpseudotuberculosis" + "_biovar_ovis",
+]
+
+ORGANISM_SPECIFIC_DEFAULT_TERMS = [
+    "Pseudomonas aeruginosa",
+    "Pseudomonas aeruginosa PAO1",
+    "PAO1",
 ]
 
 
@@ -132,6 +178,13 @@ class GenericOrganismTemplateTests(unittest.TestCase):
         for term in FORBIDDEN_TERMS:
             with self.subTest(term=term):
                 self.assertNotIn(term, text)
+
+    def test_multi_organism_templates_do_not_default_to_pao1(self) -> None:
+        for filename in ["evolutionary_escape_risk_template.csv", "organism_profile_template.csv"]:
+            text = (TEMPLATE_DIR / filename).read_text(encoding="utf-8")
+            for term in ORGANISM_SPECIFIC_DEFAULT_TERMS:
+                with self.subTest(filename=filename, term=term):
+                    self.assertNotIn(term, text)
 
     def test_corynebacterium_is_only_generic_online_example_in_docs(self) -> None:
         text = (PROJECT_ROOT / "docs" / "online_organism_enrichment.md").read_text(encoding="utf-8")
