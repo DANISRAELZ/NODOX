@@ -69,8 +69,11 @@ Cada una queda marcada como `*_is_proxy` en la tabla de features.
 
 ## Estado metodológico actual
 
-- `antibiotic_target_score` es la capa más madura del ejemplo actual, porque combina señal observada
-  de esencialidad, seguridad para el hospedero, conservación y factibilidad.
+- La madurez de cada score depende de la evidencia disponible en el workspace
+  del organismo analizado, no de un organismo demo.
+- `antibiotic_target_score` suele ser la capa más madura cuando hay señal
+  observada de esencialidad, seguridad para el hospedero, conservación y
+  factibilidad.
 - `antivirulence_target_score` es interpretable y útil para comparar estrategias, pero sigue
   dependiendo de proxies para impacto clínico y reducción de daño.
 - `functional_node_score` ya acepta datos reales de red, aunque su significado biológico sigue

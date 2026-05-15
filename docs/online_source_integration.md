@@ -14,11 +14,17 @@ That layer feeds directly into:
 - `functional_dependency_score`
 
 It was also one of the clearest methodological weak points in the current
-ranking because it was still `demo_only` in the bundled example outputs.
+ranking because it was still `demo_only` in the bundled example outputs. Those
+bundled outputs are controlled demonstrations, not the conceptual center of the
+project and not a default organism requirement.
 
 For that reason, STRING was a better first online source than UniProt in this
 iteration: it strengthens an existing scoring layer without reopening the whole
 normalization pipeline.
+
+The integration is organism-agnostic: it uses the organism and identifiers
+provided by the workspace, and any named organism in validation notes should be
+read as a demo, fixture, snapshot, or controlled audit case.
 
 ## What the integration does
 
