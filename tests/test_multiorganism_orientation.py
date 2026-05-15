@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
 import shutil
 import unittest
 import uuid
@@ -82,11 +83,21 @@ class MultiorganismOrientationTests(unittest.TestCase):
                 "--workspace",
                 str(workspace),
                 "--dry-run",
+                "--offline-only",
             ]
         )
         self.assertEqual(exit_code, 0)
         self.assertTrue((workspace / "results" / "organism_profile.json").exists())
         self.assertTrue((workspace / "data_raw" / "essentiality.csv").exists())
+        profile = json.loads((workspace / "results" / "organism_profile.json").read_text(encoding="utf-8"))
+        manifest = json.loads((workspace / "results" / "acquisition_manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(profile["organism_canonical_name"], "Example bacterium")
+        self.assertEqual(profile["strain_canonical"], "strain A")
+        self.assertEqual(manifest["demo_files_copied"], [])
+        self.assertFalse(manifest["allow_demo_data"])
+        serialized_manifest = json.dumps(manifest, ensure_ascii=False)
+        self.assertNotIn("Pseudomonas aeruginosa", serialized_manifest)
+        self.assertNotIn("PAO1", serialized_manifest)
 
     def test_missing_candidate_message_is_clear_for_empty_workspace(self) -> None:
         workspace = self.make_workspace("empty_generic")
