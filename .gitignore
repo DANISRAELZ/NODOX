@@ -3,11 +3,14 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .pytest_tmp/
 pytest_tmp_run/
 pytest_tmp_single/
 .tmp_tests/
 .tmp_source_audit/
+.cache/
 
 # Local/generated data
 data_cache/
@@ -27,6 +30,12 @@ data_user/
 # Generated outputs
 results/
 data_processed/
+logs/
+*.log
+.coverage
+htmlcov/
+build/
+dist/
 
 # OS / editor
 .DS_Store
