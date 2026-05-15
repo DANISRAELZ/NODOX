@@ -1078,11 +1078,11 @@ def _recommended_next_evidence(strategy_label: str, row: pd.Series) -> str:
             return "priorizar una red funcional no demo y medidas observadas de redundancia o dependencia"
         return "priorizar al menos una capa opcional no demo para separar mejor seÃ±ales hÃ­bridas"
     if strategy_label == "antibiotic":
-        return "confirmar conservaciÃ³n multicepa y riesgo de off-target en hospedero"
+        return "evaluar conservaciÃ³n multicepa y riesgo de off-target en hospedero"
     if strategy_label == "antivirulence":
-        return "confirmar impacto real sobre daÃ±o al hospedero y accesibilidad terapÃ©utica"
+        return "medir impacto sobre daÃ±o al hospedero y accesibilidad en contexto de infeccion"
     if strategy_label == "functional_node":
-        return "confirmar centralidad y dependencia con una red funcional externa curada"
+        return "evaluar centralidad y dependencia con una red funcional externa curada"
     return "aÃ±adir evidencia que permita discriminar mejor entre estrategias"
 
 
@@ -1310,6 +1310,8 @@ def _build_top10_scientific_markdown(
             "- Esta lectura usa solo outputs internos del proyecto y no incorpora literatura ni bases externas.",
             "- Un score alto no equivale a validaciÃ³n biolÃ³gica definitiva.",
             "- `therapeutic_priority_components` descompone la prioridad terapeutica calculada por el modelo; no es validacion experimental.",
+            "- Este reporte no constituye recomendacion terapeutica ni sustituye evaluacion medica, microbiologica o farmacologica.",
+            "- Toda aplicacion requiere validacion experimental y clinica externa.",
             "- Sus componentes pueden depender de evidencia real, curada, cache, proxy, demo o faltante, segun la procedencia registrada.",
             "- Las capas opcionales pueden mezclar datos demo, datos de usuario, cache local y proveedores controlados; revisar siempre la tabla de procedencia.",
             "- Las variables de impacto clÃ­nico y daÃ±o al hospedero pueden venir de capas materializadas semicuradas o de proxies internos, segÃºn la procedencia registrada.",
@@ -1632,11 +1634,13 @@ def _build_executive_summary(
         "# Resumen Ejecutivo",
         "",
         "Este documento resume una priorizacion computacional exploratoria de blancos bacterianos. "
-        "El score no confirma eficacia terapeutica, no reemplaza curacion bibliografica y requiere validacion experimental.",
+        "El score no confirma eficacia terapeutica, no reemplaza curacion bibliografica y requiere validacion experimental y clinica externa.",
         "",
         "## Interpretacion general",
         "",
         "- Un ranking alto indica prioridad relativa dentro de las capas cargadas, no validacion biologica definitiva.",
+        "- No constituye recomendacion terapeutica ni sustituye evaluacion medica, microbiologica o farmacologica.",
+        "- Los scores deben interpretarse como evidencia de soporte, no como confirmacion definitiva.",
         "- Los datos demo, proxy, cache o calculados indirectamente deben usarse solo para probar el flujo o generar hipotesis.",
         "- Antes de tomar decisiones experimentales, revisar procedencia, evidencia faltante, seguridad frente al hospedero y contexto de infeccion.",
         "",
@@ -1663,14 +1667,14 @@ def _build_executive_summary(
                 f"- Soporte bibliografico: {literature_note}.",
                 f"- Evidencia faltante o incompleta: {missing}.",
                 f"- Advertencia de procedencia: {_source_warning(row)}.",
-                "- Recomendacion: validar experimentalmente esencialidad, accesibilidad, selectividad frente al hospedero y relevancia en el sitio de infeccion.",
+                "- Siguiente validacion sugerida: evaluar experimentalmente esencialidad, accesibilidad, selectividad frente al hospedero y relevancia en el sitio de infeccion.",
                 "",
             ]
         )
 
     lines.extend(
         [
-            "## Recomendacion de validacion experimental",
+            "## Siguiente validacion experimental sugerida",
             "",
             "Priorizar ensayos que separen tres preguntas: si el blanco es necesario para la bacteria, "
             "si una intervencion puede alcanzarlo en el contexto de infeccion y si el efecto observado no se explica por toxicidad o artefactos. "
@@ -2284,6 +2288,8 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "- La informacion online general no sustituye datos especificos del usuario.",
         "- Bajo riesgo evolutivo no significa ausencia de resistencia.",
         "- El ranking representa hipotesis terapeuticas priorizadas, no recomendaciones clinicas.",
+        "- El ranking no constituye recomendacion terapeutica ni sustituye evaluacion medica, microbiologica o farmacologica.",
+        "- Requiere validacion experimental y clinica externa antes de cualquier aplicacion.",
         "- `therapeutic_priority_components` muestra como se descompone la prioridad terapeutica dentro del modelo; es una interpretacion computacional, no validacion experimental.",
         "- Esta descomposicion hereda la procedencia de sus capas de entrada: evidencia real, curada, cache, proxy, demo o faltante pueden contribuir segun lo registrado.",
         *theory_v3_report_lines,

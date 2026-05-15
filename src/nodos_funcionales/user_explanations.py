@@ -6,7 +6,8 @@ import pandas as pd
 THEORY_V3_NOT_ASSESSED_NOTE = (
     "La capa theory-first/v3 existe, pero en esta corrida no hubo evidencia suficiente para evaluarla. "
     "Esto no indica error del sistema, no equivale a evidencia negativa, no valida experimentalmente el candidato "
-    "y tampoco lo descarta biologicamente."
+    "y tampoco lo descarta biologicamente. La teoria guia la priorizacion, pero sus salidas siguen siendo "
+    "hipotesis computacionales hasta validacion externa."
 )
 
 _UNASSESSED_VALUES = {"", "nan", "none", "not_reported", "not_assessed", "unknown"}
@@ -43,9 +44,9 @@ def build_simple_candidate_explanations_markdown(explanations: pd.DataFrame) -> 
     lines = [
         "# Explicacion Simple de Candidatos",
         "",
-        "Este reporte usa lenguaje no tecnico. Resume por que el pipeline priorizo cada nodo, que evidencia existe y que falta. No afirma validacion experimental.",
+        "Este reporte usa lenguaje no tecnico. Resume por que el pipeline priorizo cada nodo, que evidencia existe y que falta. No afirma validacion experimental ni clinica.",
         "",
-        "Advertencia: un score alto no equivale a validacion experimental, no implica que exista un farmaco disponible y no es una recomendacion clinica. La ausencia de evidencia no equivale a evidencia negativa; bajo riesgo evolutivo no significa ausencia de resistencia.",
+        "Advertencia: un score alto no equivale a validacion experimental ni validacion clinica, no implica que exista un farmaco disponible y no constituye recomendacion terapeutica. No sustituye evaluacion medica, microbiologica ni farmacologica. La ausencia de evidencia no equivale a evidencia negativa; bajo riesgo evolutivo no significa ausencia de resistencia.",
         "",
     ]
     if explanations.empty:
@@ -194,8 +195,8 @@ def explain_interpretation_warning(row: pd.Series) -> str:
     if warning != "not_reported":
         return warning
     return (
-        "Ranking = hipotesis terapeutica priorizada, no validacion experimental ni recomendacion clinica; "
-        "la ausencia de evidencia no equivale a evidencia negativa."
+        "Ranking = hipotesis terapeutica priorizada, no validacion experimental ni validacion clinica y no recomendacion terapeutica; "
+        "requiere validacion experimental y clinica antes de cualquier aplicacion; la ausencia de evidencia no equivale a evidencia negativa."
     )
 
 

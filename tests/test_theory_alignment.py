@@ -122,6 +122,11 @@ def test_reports_include_interpretation_limits_and_provenance() -> None:
         "ausencia de evidencia no equivale a evidencia negativa",
         "Bajo riesgo evolutivo no significa ausencia de resistencia",
         "hipotesis terapeuticas priorizadas",
+        "no constituye recomendacion terapeutica",
+        "evaluacion medica",
+        "microbiologica",
+        "farmacologica",
+        "validacion experimental y clinica",
         "therapeutic_priority_components",
         "interpretacion computacional",
     ]

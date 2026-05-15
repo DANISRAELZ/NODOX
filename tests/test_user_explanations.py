@@ -76,6 +76,8 @@ def test_simple_explanations_note_when_theory_score_not_assessed() -> None:
     assert explanations.loc[0, "theory_v3_assessment_note"] == THEORY_V3_NOT_ASSESSED_NOTE
     assert "Nota theory-first/v3" in markdown
     assert "no equivale a evidencia negativa" in markdown
+    assert "hipotesis computacionales" in markdown
+    assert "validacion externa" in markdown
 
 
 def test_simple_explanations_note_when_role_v3_not_assessed() -> None:
@@ -110,3 +112,27 @@ def test_simple_explanations_no_note_when_theory_v3_is_assessed() -> None:
 
     assert explanations.loc[0, "theory_v3_assessment_note"] == "not_reported"
     assert "Nota theory-first/v3" not in markdown
+
+
+def test_simple_explanations_include_non_clinical_use_limits() -> None:
+    ranking = pd.DataFrame(
+        {
+            "protein_id": ["A"],
+            "gene": ["geneA"],
+            "therapeutic_role": ["bactericidal_candidate"],
+        }
+    )
+
+    explanations = build_simple_candidate_explanations(ranking)
+    markdown = build_simple_candidate_explanations_markdown(explanations)
+    combined = f"{markdown}\n{explanations.loc[0, 'interpretation_warning']}".lower()
+
+    for phrase in [
+        "no constituye recomendacion terapeutica",
+        "validacion experimental",
+        "validacion clinica",
+        "evaluacion medica",
+        "microbiologica",
+        "farmacologica",
+    ]:
+        assert phrase in combined

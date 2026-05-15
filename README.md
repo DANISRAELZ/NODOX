@@ -89,7 +89,8 @@ herramienta de validacion terapeutica definitiva.
 
 El ranking generado por Nodos Funcionales debe interpretarse como priorizacion
 computacional exploratoria. No confirma eficacia terapeutica ni reemplaza
-validacion experimental.
+validacion experimental o clinica. Tampoco constituye recomendacion terapeutica
+ni sustituye evaluacion medica, microbiologica o farmacologica.
 
 ## Tipos de datos de entrada
 
@@ -151,6 +152,10 @@ Los scores son una priorizacion computacional exploratoria. Un valor alto no
 confirma eficacia terapeutica, seguridad, accesibilidad real ni validez clinica.
 El ranking ayuda a ordenar hipotesis y a decidir que evidencia falta revisar o
 generar experimentalmente.
+
+Los scores deben interpretarse como evidencia de soporte dentro del modelo, no
+como confirmacion definitiva. Cualquier aplicacion requiere validacion externa y
+revision clinica antes de tomar decisiones terapeuticas.
 
 Antes de concluir que un blanco es prometedor, revisar:
 

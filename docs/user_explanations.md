@@ -4,7 +4,9 @@
 
 Las explicaciones para usuarios no tecnicos deben traducir el ranking a una
 hipotesis biologica prudente. No deben afirmar validacion experimental ni
-prometer disponibilidad terapeutica.
+prometer disponibilidad terapeutica. Tampoco deben presentarse como
+recomendacion terapeutica ni sustituir evaluacion medica, microbiologica o
+farmacologica.
 
 Cada candidato debe explicar:
 
@@ -31,4 +33,5 @@ Las explicaciones simples tambien exponen:
 ## Advertencia fija
 
 El ranking representa hipotesis terapeuticas priorizadas. No es recomendacion
-clinica ni validacion experimental.
+clinica ni validacion experimental. Requiere validacion experimental y clinica
+externa antes de cualquier aplicacion.

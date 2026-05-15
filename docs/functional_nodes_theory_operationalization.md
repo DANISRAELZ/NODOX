@@ -137,7 +137,7 @@ Teoria de Nodos Funcionales
   -> auditoria cientifica
 ```
 
-El ranking final es una salida interpretativa del modelo, no una validacion biologica definitiva. Cada candidato debe poder explicarse por las capas que lo favorecen, las que lo limitan y las fuentes que sostienen esas senales.
+El ranking final es una salida interpretativa del modelo, no una validacion biologica definitiva. La teoria guia la priorizacion y ayuda a ordenar hipotesis computacionales, pero no confirma eficacia terapeutica ni produce recomendaciones clinicas. Cada candidato debe poder explicarse por las capas que lo favorecen, las que lo limitan y las fuentes que sostienen esas senales.
 
 ## Limitaciones
 
@@ -146,3 +146,4 @@ El ranking final es una salida interpretativa del modelo, no una validacion biol
 - Los snapshots demo no sustituyen evidencia real.
 - El scoring debe evitar sobreinterpretar proxies o ausencia de datos.
 - Cada ranking debe reportar procedencia, confianza, limitaciones y capas insuficientes.
+- Toda aplicacion requiere validacion experimental y clinica externa.

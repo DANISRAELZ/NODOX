@@ -12,6 +12,11 @@ Estas advertencias aplican a todos los rankings y reportes:
 - Bajo riesgo evolutivo no significa ausencia de resistencia.
 - El ranking representa hipotesis terapeuticas priorizadas, no recomendaciones
   clinicas.
+- No constituye recomendacion terapeutica ni sustituye evaluacion medica,
+  microbiologica o farmacologica.
+- Los scores son evidencia de soporte dentro del modelo, no confirmacion
+  definitiva.
+- Toda aplicacion requiere validacion experimental y clinica externa.
 
 ## Lectura recomendada
 
