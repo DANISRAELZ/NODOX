@@ -1,183 +1,177 @@
-# START HERE - Nodos Funcionales
+# START_HERE - Nodos Funcionales
 
-## Que es el proyecto
+## 1. Que es Nodos Funcionales
 
-Nodos Funcionales es un pipeline reproducible para priorizar nodos bacterianos con posible interes terapeutico. Integra capas como esencialidad, virulencia, localizacion, homologos humanos, conservacion, contexto clinico, riesgo de escape evolutivo y literatura curada.
+Nodos Funcionales es un pipeline bioinformatico reproducible para priorizar
+blancos terapeuticos bacterianos a partir de capas de evidencia trazables. El
+sistema integra datos de esencialidad, virulencia, localizacion, homologos
+humanos, contexto clinico, red funcional, conservacion, riesgo evolutivo,
+literatura curada y procedencia de fuentes.
 
-El ranking ayuda a ordenar candidatos para revision cientifica. No valida experimentalmente un blanco y no convierte datos demo en evidencia biologica real.
+El objetivo no es declarar un blanco como validado experimentalmente. El objetivo
+es ordenar candidatos de forma interpretable para revision cientifica, curacion
+manual y diseno de validaciones posteriores.
 
-## Fases
+## 2. Que problema resuelve
 
-- Fase 1: ranking basico con esencialidad, virulencia, homologia humana y accesibilidad.
-- Fase 2: agrega contexto terapeutico, prioridades interpretables y auditoria de procedencia.
-- Fase 3: agrega teoria de nodos funcionales, riesgo evolutivo, calidad de evidencia, literatura curada y un ranking real separado de registros demo/template.
+Muchos proyectos generan listas de genes, proteinas o funciones candidatas, pero
+esas listas suelen mezclar evidencia fuerte, evidencia incompleta, proxies,
+datos demo y faltantes. Nodos Funcionales ayuda a:
 
-## Instalar dependencias
+- integrar capas heterogeneas en un contrato comun;
+- separar evidencia real, demo, cache, proxy y faltante;
+- explicar por que un candidato sube o baja en el ranking;
+- comparar estrategias bactericidas, antivirulencia, sensibilizadoras y mixtas;
+- auditar si un resultado depende de datos del usuario, snapshots, fuentes
+  online o defaults.
 
-```powershell
-python -m pip install -r requirements.txt
-python -m pip install pytest
+## 3. Enfoque theory-first y multi-organismo
+
+El eje conceptual del proyecto es la Teoria de Nodos Funcionales. El software,
+los conectores, las plantillas, los tests y los demos son implementaciones para
+operacionalizar esa teoria.
+
+El proyecto es multi-organismo: cualquier usuario puede iniciar un workspace con
+el organismo bacteriano que desea analizar, siempre que aporte o resuelva capas
+de evidencia compatibles. Ningun organismo de ejemplo define el alcance del
+modelo.
+
+PAO1 no es el organismo obligatorio ni el eje conceptual del proyecto. PAO1 se
+conserva solo como demo reproducible, snapshot curado o validacion controlada.
+
+## 4. Tipos de datos y procedencia
+
+Use esta distincion antes de interpretar un ranking:
+
+- Datos de usuario: archivos aportados por el usuario en `data_user/` o en el
+  workspace. Son la fuente preferida cuando estan curados y documentados.
+- Datos demo: archivos pequenos para verificar que el pipeline corre. Sirven
+  para probar el flujo, no para inferir evidencia biologica real.
+- Snapshots curados: referencias congeladas para regresion, auditoria o
+  comparacion controlada. No sustituyen evidencia fresca del organismo real.
+- Cache: resultados guardados de resolucion taxonomica o fuentes externas.
+  Mejoran reproducibilidad, pero deben distinguirse de llamadas online frescas.
+- Fuentes online: proveedores externos opcionales, como STRING o UniProt, usados
+  cuando el modo de ejecucion lo permite. Deben conservar procedencia, estado de
+  recuperacion y confianza.
+
+Jerarquia interpretativa recomendada:
+
+```text
+user_supplied > curated_snapshot > real_external_online > controlled_provider > inferred_proxy > demo > missing_input
 ```
 
-Si `python` no esta en PATH, use el Python de su entorno local o el runtime configurado para el proyecto.
+## 5. Corrida demo controlada PAO1
 
-## Correr demo
-
-```powershell
-python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode phase3 --taxon-resolution-mode offline_only
-```
-
-El demo sirve para verificar que el pipeline funciona. Cualquier fila marcada como `demo_data`, `default_value` o `template_record` no debe interpretarse como evidencia biologica real.
-
-Para correr el modo minimo de compatibilidad Fase 1/Fase 2:
+Use PAO1 solo para confirmar que el flujo reproducible funciona:
 
 ```powershell
-python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare --taxon-resolution-mode offline_only
+C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare
 ```
 
-## Correr un organismo nuevo
+Esta corrida puede generar o actualizar archivos dentro de:
+
+```text
+data_sessions/pseudomonas_aeruginosa_pao1/
+```
+
+Interprete esta corrida como demo controlado. No use sus candidatos como
+evidencia biologica real ni como prueba de que PAO1 sea el default del sistema.
+
+## 6. Iniciar una corrida para otro organismo
+
+Para un dry-run generico sin datos demo:
 
 ```powershell
-python run_pipeline.py --organism "Nombre bacteriano" --strain "Cepa" --workspace data_sessions/mi_organismo --mode phase3 --taxon-resolution-mode cache_first
+C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe run_pipeline.py --organism "Organism name" --strain "Strain name" --workspace data_sessions/my_organism_workspace --dry-run --offline-only
 ```
 
-Para evitar problemas de sincronizacion en Windows, use un workspace local estable. Si OneDrive bloquea archivos, pruebe una carpeta fuera de OneDrive.
-
-## Perfil minimo por organismo
-
-Antes de interpretar un ranking real, documente como minimo:
-
-- `organism`: nombre cientifico.
-- `strain`: cepa o aislado.
-- `taxon_id`: identificador taxonomico, o modo de resolucion taxonomica documentado.
-- Lista de genes/proteinas/nodos: al menos `protein_id` y, si existe, `gene`.
-- Evidencia funcional minima: esencialidad, virulencia o anotacion funcional trazable.
-- Datos de conservacion si existen.
-- Fuente de anotacion: base de datos, archivo de usuario, version o fecha.
-
-El pipeline permite analisis exploratorio con datos parciales, pero marcara baja confianza cuando falten capas criticas.
-
-## Archivos minimos que debe llenar el usuario
-
-Para una corrida interpretable, complete al menos:
-
-- `data_user/essentiality.csv`
-- `data_user/virulence.csv`
-- `data_user/human_homologs.csv` o `data_user/human_homologs_orthology.csv`
-- `data_user/localization.csv`
-
-Para fortalecer Fase 3, agregue:
-
-- `data_user/literature_support.csv`
-- `data_user/evolutionary_escape.csv`
-- `data_user/redundancy.csv`
-- `data_user/contextual_essentiality.csv`
-- `data_user/clinical_impact.csv`
-- `data_user/therapy_site_context.csv`
-
-## Sustituir demo por datos reales
-
-1. Copie una plantilla desde `data_templates/` hacia `data_user/` o al workspace del organismo.
-2. Rellene valores reales y referencias en las columnas de evidencia.
-3. Mantenga columnas de procedencia como `database`, `source`, `reference`, `doi_or_url` o equivalentes cuando existan.
-4. Ejecute sin `--allow-demo-data` si desea comprobar que no depende de ejemplos.
-5. Revise `results/provenance_user_summary.md` y `results/organism_profile_validation.md` antes de interpretar candidatos.
-
-## Tipos de evidencia
-
-- `user_curated`: datos curados por el usuario.
-- `external_real`: datos de una base externa real.
-- `literature_curated`: literatura con DOI, PubMed ID, cita o referencia curada.
-- `computed_from_real_data`: calculo interno derivado de datos reales.
-- `controlled_provider`: proveedor controlado o stub reproducible.
-- `proxy_inference`: inferencia indirecta; orienta, pero no valida.
-- `default_value`: valor por defecto para mantener la ejecucion.
-- `demo_data`: dato de demostracion o plantilla.
-- `missing`: dato ausente; reduce confianza, pero no es evidencia negativa.
-
-## Como interpretar el ranking
-
-Revise primero:
-
-- `results/ranking_nodos.csv`: ranking principal de la corrida actual. En `compare` representa Fase 2; en `legacy` copia el ranking legacy como salida primaria.
-- `results/report_phase2.md`: reporte tecnico con tablas, sensibilidad, procedencia y auditorias.
-- `results/candidate_explanations_simple.md`: explicacion para usuarios no tecnicos.
-- `results/ranking_snapshot.csv`: resumen compacto y determinista para detectar cambios de ranking entre corridas.
-- `results/ranking_nodos_phase3_real_candidates.csv`: candidatos incluidos en el ranking terapeutico real o exploratorio.
-- `results/ranking_nodos_phase3.csv`: todos los registros, incluidos demo/template, con banderas de exclusion.
-- `results/template_or_demo_records.csv`: registros excluidos por demo/template.
-- `results/top10_scientific_audit.md`: explicacion cientifica de los candidatos priorizados o del motivo por el que no hay candidatos reales.
-- `results/provenance_user_summary.md`: procedencia de las capas en lenguaje no tecnico.
-- `results/organism_profile_validation.md`: preparacion del organismo para demo, exploracion o analisis mas robusto.
-
-`included_real_candidate` indica varias capas reales convergentes. `included_exploratory_with_demo_support` indica evidencia real parcial mezclada con demo/proxy/default; puede revisarse, pero requiere curacion adicional.
-
-## Como usar snapshots de ranking
-
-Para guardar una referencia de una corrida que considere estable:
+Para una corrida exploratoria con datos propios, primero coloque archivos en el
+workspace o en `data_user/`, y ejecute sin `--allow-demo-data`:
 
 ```powershell
-Copy-Item results\ranking_snapshot.csv results\ranking_snapshot_reference.csv
+C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe run_pipeline.py --organism "Organism name" --strain "Strain name" --workspace data_sessions/my_organism_workspace --mode compare --taxon-resolution-mode cache_first
 ```
 
-Cuando vuelva a ejecutar el pipeline, si existe `ranking_snapshot_reference.csv`, se generara `results/ranking_snapshot_comparison.csv`. Ese archivo marca candidatos agregados, removidos, cambios de rank, cambios de score o ausencia de cambios.
+Si faltan capas obligatorias, el pipeline debe detenerse con un mensaje claro y
+generar reportes de discovery/procedencia para guiar la curacion.
 
-## Por que mi ranking real esta vacio?
+## 7. Outputs principales a revisar
 
-Un ranking real vacio no siempre significa que no haya blancos utiles. Puede ocurrir porque:
+Despues de una corrida, revise primero:
 
-- Todos los registros son `template_record` o `demo_record`.
-- No hay ninguna capa con evidencia real por candidato.
-- Las capas minimas estan ausentes o solo tienen valores por defecto.
-- Las reglas de inclusion son demasiado estrictas para el estado actual de curacion.
-- Existe evidencia negativa real critica de seguridad.
+- `results/ranking_nodos.csv`: ranking principal de candidatos.
+- `results/report_phase2.md`: reporte tecnico con scores, sensibilidad y
+  procedencia.
+- `results/top10_scientific_audit.md`: lectura cientifica de los candidatos
+  priorizados.
+- `results/top10_scientific_audit.csv`: version tabular del top auditado.
+- `results/phase_comparison.csv`: comparacion entre modos/fases cuando aplica.
+- `results/sensitivity_analysis.csv`: sensibilidad del ranking a escenarios de
+  peso.
+- `results/provenance_user_summary.md`: resumen legible de procedencia.
+- `results/organism_profile_validation.md`: preparacion y limitaciones del
+  organismo/workspace.
+- `data_processed/phase2_features.csv`: features integradas antes del scoring.
+- `data_processed/scored_nodes.csv`: tabla con scores calculados.
 
-Para diagnosticarlo:
+## 8. Como interpretar el ranking terapeutico
 
-- Abra `results/ranking_nodos_phase3.csv` y revise `candidate_record_type`, `ranking_inclusion_status` y `ranking_inclusion_reason`.
-- Abra `results/layer_evidence_summary.csv` y revise `phase3_real_evidence_layer_count`.
-- Abra `results/organism_profile_validation.md` para ver que capas faltan.
-- Abra `results/template_or_demo_records.csv` para confirmar si el problema son plantillas.
+El ranking prioriza candidatos, no valida tratamientos. Lea cada candidato junto
+con:
 
-Si aparece `missing`, falta evidencia. Si aparece evidencia negativa real, hay una fuente trazable que justifica penalizacion o exclusion. `missing` no es lo mismo que evidencia negativa.
+- `therapeutic_role`: clasificacion interpretable del rol terapeutico.
+- `meta_priority_score` o score principal disponible: prioridad integrada.
+- variables de esencialidad, virulencia, accesibilidad, seguridad del hospedero
+  y contexto de infeccion;
+- variables evolutivas como `evolutionary_escape_risk`,
+  `evolutionary_constraint`, `mutation_tolerance`, `pathway_redundancy`,
+  `paralog_count`, `mobile_context`, `hgt_context`, `recombination_context` y
+  `resistance_association`;
+- columnas de procedencia y confianza;
+- banderas de demo, proxy, cache, faltante o evidencia negativa.
 
-## Como correr pruebas
+Un candidato alto con evidencia real convergente es una hipotesis mas fuerte que
+un candidato alto sostenido por demo, proxies o defaults. Un candidato con datos
+faltantes no debe interpretarse como seguro ni descartado: solo esta incompleto.
+
+## 9. Limites de interpretacion
+
+- Un score alto no equivale a validacion experimental.
+- Datos demo no son evidencia biologica.
+- Cache no equivale automaticamente a evidencia fresca.
+- Ausencia de evidencia no es evidencia negativa.
+- Proxies ayudan a priorizar, pero deben marcarse como proxies.
+- Snapshots curados son referencias congeladas, no una verdad biologica
+  universal.
+- El ranking depende de la calidad y completitud del workspace del organismo.
+
+Antes de usar resultados para decisiones biologicas, revise procedencia,
+confianza, limitaciones y necesidad de curacion manual.
+
+## 10. Comandos basicos de pruebas
+
+Suite offline recomendada:
 
 ```powershell
-python -m pytest -m unit -q
-python -m pytest -m "not slow and not online and not e2e" -q
-python -m pytest -m "unit or integration" -q
-python -m pytest -m integration -q
-python -m pytest -m online -q
-python -m pytest -m e2e -q
+C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest -p no:cacheprovider -m "not online" -q
 ```
 
-La suite recomendada para desarrollo local es:
+Tests de orientacion multi-organismo:
 
 ```powershell
-python -m pytest -m "not slow and not online and not e2e" -q
+C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest -p no:cacheprovider tests/test_multiorganism_orientation.py -q
 ```
 
-Las pruebas `online` requieren internet o APIs externas. Las pruebas `slow` y `e2e` pueden crear workspaces completos o ejecutar el pipeline.
-
-## Empaquetado limpio
-
-Antes de comprimir o subir a GitHub, revise archivos generados:
+Tests de plantillas genericas:
 
 ```powershell
-python scripts/clean_generated.py --dry-run
-python scripts/clean_generated.py --apply
+C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest -p no:cacheprovider tests/test_generic_organism_templates.py -q
 ```
 
-El script no debe borrar `data_templates/`, `config/`, `tests/fixtures/`, datos fuente ni documentacion. Los generados que conviene excluir incluyen `__pycache__`, `.pytest_cache`, `data_processed`, `results`, `data_sessions/*/results` y `logs`.
+## 11. Recordatorio conceptual
 
-## Problemas frecuentes en Windows/OneDrive
-
-- Si un CSV esta abierto en Excel, cierre Excel y vuelva a ejecutar.
-- Si OneDrive muestra archivos como "solo nube", haga clic derecho y seleccione "Mantener siempre en este dispositivo".
-- Si no puede escribir en `results/`, pruebe un workspace fuera de OneDrive.
-- Si una ruta no existe, espere a que termine la sincronizacion o revise si OneDrive cambio el nombre de la carpeta.
-
-## Que hacer despues
-
-Use el demo solo para verificar ejecucion. Para un organismo real, llene las capas en `data_user/`, revise `provenance_user_summary.md`, y no interprete candidatos exploratorios como candidatos validados hasta agregar evidencia curada suficiente.
+Nodos Funcionales no es un proyecto sobre PAO1. PAO1 es un caso tecnico util
+para demo, snapshot curado y regresion controlada. El centro del proyecto es la
+Teoria de Nodos Funcionales aplicada de forma reproducible, interpretable y
+multi-organismo.
