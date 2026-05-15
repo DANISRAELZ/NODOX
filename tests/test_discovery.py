@@ -56,6 +56,24 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(datasets["essentiality.csv"]["generated_by"], "packaged_demo")
         self.assertEqual(datasets["essentiality.csv"]["source_type"], "demo")
 
+    def test_allow_demo_data_does_not_default_to_pao1_for_generic_organism(self) -> None:
+        workspace = self.make_workspace("generic_no_demo_default")
+        result = prepare_discovery_workspace(
+            project_root=PROJECT_ROOT,
+            organism_name="Example bacterium",
+            strain="strain A",
+            acquisition_mode="manual",
+            workspace=workspace,
+            allow_demo_data=True,
+        )
+        self.assertFalse(result["manifest"]["can_run_pipeline"])
+        self.assertEqual(result["manifest"]["demo_files_copied"], [])
+        datasets = {entry["filename"]: entry for entry in result["manifest"]["datasets"]}
+        self.assertFalse(datasets["essentiality.csv"]["present"])
+        self.assertEqual(datasets["essentiality.csv"]["generated_by"], "not_generated")
+        self.assertEqual(datasets["essentiality.csv"]["source_type"], "missing")
+        self.assertIn("no hay demo empaquetado", " | ".join(result["manifest"]["warnings"]))
+
     def test_cache_first_resolution_uses_local_cache(self) -> None:
         profile_first = resolve_taxon(PROJECT_ROOT, "Mycobacterium tuberculosis", "H37Rv", resolution_mode="local")
         profile_cached = resolve_taxon(PROJECT_ROOT, "Mycobacterium tuberculosis", "H37Rv", resolution_mode="cache_first")
