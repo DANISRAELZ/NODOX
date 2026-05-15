@@ -9,6 +9,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.nodos_funcionales.acquisition import import_user_dataset
 from src.nodos_funcionales.generic_annotation_import import write_layer_csvs
+from src.nodos_funcionales.io_errors import explain_cli_error
 from src.nodos_funcionales.validation import DATASET_SPECS
 
 
@@ -30,6 +31,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    try:
+        return _main(argv)
+    except (FileNotFoundError, PermissionError, OSError, ValueError) as exc:
+        print(explain_cli_error(exc, "import_dataset.py"), file=sys.stderr)
+        return 1
+
+
+def _main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.input_format == "generic_annotations":

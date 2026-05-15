@@ -6,6 +6,8 @@ from typing import Any
 
 import pandas as pd
 
+from .io_errors import ensure_dir, read_csv, write_csv
+
 
 @dataclass
 class Schema:
@@ -533,7 +535,12 @@ def validate_table(df: pd.DataFrame, table_key: str, config: dict[str, Any]) -> 
 
     missing_required = [col for col in schema.required if col not in validated.columns]
     if missing_required:
-        raise ValueError(f"{table_key}: faltan columnas requeridas: {missing_required}")
+        present_columns = sorted(str(column) for column in validated.columns)
+        raise ValueError(
+            f"{table_key}: faltan columnas requeridas: {missing_required}. "
+            f"Columnas presentes: {present_columns}. "
+            "Compare el CSV con la plantilla correspondiente en data_templates/ y conserve los nombres de columnas."
+        )
     if validated.empty:
         raise ValueError(f"{table_key}: el archivo no contiene filas")
 
@@ -627,7 +634,7 @@ def load_and_validate_all(base_dir: Path, config: dict[str, Any]) -> pd.DataFram
 
     raw_dir = base_dir / "data_raw"
     processed_dir = base_dir / "data_processed"
-    processed_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(processed_dir)
 
     resolve_layer_inputs(base_dir, config)
 
@@ -637,14 +644,18 @@ def load_and_validate_all(base_dir: Path, config: dict[str, Any]) -> pd.DataFram
         filepath = raw_dir / spec.filename
         if not filepath.exists():
             if spec.required:
-                raise FileNotFoundError(f"No se encontro {filepath}")
+                raise FileNotFoundError(
+                    f"No se encontro {filepath}. Este dataset es obligatorio para ejecutar el pipeline. "
+                    "Agregue el CSV al workspace, ejecute discovery en modo semi_auto para crear plantillas, "
+                    "o use --allow-demo-data solo si desea correr un demo compatible."
+                )
             continue
 
-        df = pd.read_csv(filepath)
+        df = read_csv(filepath)
         if not spec.required and _is_optional_template_only(df):
             continue
         validated, issues = validate_table(df, spec.table_key, config)
-        validated.to_csv(processed_dir / f"validated_{spec.filename}", index=False)
+        write_csv(validated, processed_dir / f"validated_{spec.filename}", index=False)
         issue_rows.extend(issues)
 
     summary = pd.DataFrame(issue_rows)
@@ -652,5 +663,5 @@ def load_and_validate_all(base_dir: Path, config: dict[str, Any]) -> pd.DataFram
         summary = pd.DataFrame(
             [{"table": "all", "severity": "info", "issue_type": "no_issues", "count": 0, "details": ""}]
         )
-    summary.to_csv(processed_dir / "validation_summary.csv", index=False)
+    write_csv(summary, processed_dir / "validation_summary.csv", index=False)
     return summary

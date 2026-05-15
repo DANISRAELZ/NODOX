@@ -7,6 +7,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.nodos_funcionales.io_errors import explain_cli_error
 from src.nodos_funcionales.online_audit import run_experimental_online_audit
 
 
@@ -33,6 +34,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    try:
+        return _main(argv)
+    except (FileNotFoundError, PermissionError, OSError, ValueError) as exc:
+        print(explain_cli_error(exc, "audit_online_sources.py"), file=sys.stderr)
+        return 1
+
+
+def _main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     workspace = Path(args.workspace)
     if not workspace.exists():

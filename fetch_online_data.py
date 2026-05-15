@@ -11,6 +11,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.nodos_funcionales.config import load_config
 from src.nodos_funcionales.discovery import resolve_taxon
+from src.nodos_funcionales.io_errors import explain_cli_error
 from src.nodos_funcionales.online_history import append_online_history, write_online_source_comparison
 from src.nodos_funcionales.online_reporting import (
     build_before_after_ranking_audit,
@@ -81,6 +82,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    try:
+        return _main(argv)
+    except (FileNotFoundError, PermissionError, OSError, ValueError) as exc:
+        print(explain_cli_error(exc, "fetch_online_data.py"), file=sys.stderr)
+        return 1
+
+
+def _main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 

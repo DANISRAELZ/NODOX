@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from .config import load_config
+from .io_errors import read_csv, write_csv, ensure_dir
 from .validation import DATASET_SPECS, SCHEMAS
 
 
@@ -68,19 +69,22 @@ def import_user_dataset(
         raise ValueError(f"dataset_key no soportado: {dataset_key}")
     source = Path(input_path)
     if not source.exists():
-        raise FileNotFoundError(f"No se encontro {source}")
+        raise FileNotFoundError(
+            f"No se encontro {source}. Revisa --input/--input-dir, usa una ruta absoluta si hay espacios "
+            "y confirma que el archivo este descargado localmente si vive en OneDrive."
+        )
 
-    df = pd.read_csv(source)
+    df = read_csv(source)
     mapped, renamed = map_source_dataframe(df, dataset_key, config)
 
     target = workspace / "data_raw" / DATASET_FILENAMES[dataset_key]
-    target.parent.mkdir(parents=True, exist_ok=True)
-    mapped.to_csv(target, index=False)
+    ensure_dir(target.parent)
+    write_csv(mapped, target, index=False)
 
     copied_source = None
     if copy_source_export:
         source_dir = workspace / "data_raw" / "source_exports"
-        source_dir.mkdir(parents=True, exist_ok=True)
+        ensure_dir(source_dir)
         copied_source = source_dir / source.name
         shutil.copy2(source, copied_source)
 

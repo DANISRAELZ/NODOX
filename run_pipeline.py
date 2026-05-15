@@ -8,6 +8,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.nodos_funcionales.discovery import ACQUISITION_MODES, STRATEGY_CHOICES, TAXON_RESOLUTION_MODES, prepare_discovery_workspace
+from src.nodos_funcionales.io_errors import explain_cli_error
 from src.nodos_funcionales.online.provider_modes import accepted_provider_modes
 from src.nodos_funcionales.pipeline import run_pipeline
 from src.nodos_funcionales.runtime import VALID_PIPELINE_MODES, resolve_pipeline_mode
@@ -62,6 +63,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    try:
+        return _main(argv)
+    except (FileNotFoundError, PermissionError, OSError, ValueError) as exc:
+        print(explain_cli_error(exc, "run_pipeline.py"), file=sys.stderr)
+        return 1
+
+
+def _main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     resolution_mode = "offline_only" if args.offline_only else args.taxon_resolution_mode

@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 
 from scripts.clean_generated import collect_generated
-from src.nodos_funcionales.io_errors import explain_io_error, read_csv
+from src.nodos_funcionales.io_errors import explain_cli_error, explain_io_error, read_csv
 from src.nodos_funcionales.online.cache import cache_status
 from src.nodos_funcionales.online.fallback import online_failure_message
 from src.nodos_funcionales.organism_profile import validate_organism_profile
@@ -224,6 +224,27 @@ class UserHardeningTests(unittest.TestCase):
         self.assertIn("sincronizacion", missing)
         self.assertIn("Cierra Excel", os_error)
         self.assertIn("carpeta local", os_error)
+
+    def test_cli_error_message_guides_missing_columns_and_online_modes(self) -> None:
+        columns = explain_cli_error(
+            ValueError("essentiality: faltan columnas requeridas: ['protein_id']"),
+            "run_pipeline.py",
+        )
+        mode = explain_cli_error(ValueError("online source mode no soportado: unsafe"), "fetch_online_data.py")
+
+        self.assertIn("data_templates", columns)
+        self.assertIn("columnas requeridos", columns)
+        self.assertIn("offline_only", mode)
+        self.assertIn("online_optional", mode)
+
+    def test_cli_error_message_guides_permission_and_missing_paths(self) -> None:
+        permission = explain_cli_error(PermissionError("locked"), "run_pipeline.py")
+        missing = explain_cli_error(FileNotFoundError("workspace missing"), "fetch_online_data.py")
+
+        self.assertIn("Excel", permission)
+        self.assertIn("OneDrive", permission)
+        self.assertIn("ruta absoluta", missing)
+        self.assertIn("disponible sin conexion", missing)
 
     def test_read_csv_wraps_permission_error(self) -> None:
         with patch("pandas.read_csv", side_effect=PermissionError("locked")):
