@@ -2,6 +2,39 @@
 
 Fecha: 2026-04-26.
 
+## Checklist de cierre multi-organismo
+
+Revision de cierre: 2026-05-15.
+
+- [x] `README.md` revisado como entrada general del proyecto.
+- [x] `START_HERE.md` revisado como guia minima para usuarios nuevos.
+- [x] `docs/methodology.md` revisado para consistencia metodologica.
+- [x] `docs/data_model.md` revisado para contrato de datos y variables
+  evolutivas.
+- [x] `docs/scoring.md` revisado para confirmar que el scoring se presenta
+  como traduccion cuantitativa de la Teoria de Nodos Funcionales.
+- [x] `docs/functional_nodes_theory_operationalization.md` revisado como
+  documento conceptual central.
+- [x] `docs/interpretation_limits.md` revisado para limites terapeuticos e
+  interpretativos.
+- [x] `docs/user_explanations.md` revisado para explicaciones orientadas a
+  usuario.
+- [x] PAO1 aparece solo como demo, ejemplo reproducible, snapshot curado o
+  validacion controlada; no se presenta como organismo obligatorio ni default
+  universal.
+- [x] El enfoque multi-organismo queda explicito: el usuario puede iniciar
+  workspaces para organismos bacterianos distintos cuando aporte o resuelva
+  capas compatibles.
+- [x] La Teoria de Nodos Funcionales queda definida como eje conceptual por
+  encima de organismos demo, conectores, snapshots o fuentes online.
+- [x] La subcapa evolutiva queda documentada con
+  `evolutionary_escape_risk`, `evolutionary_constraint`,
+  `mutation_tolerance`, `pathway_redundancy`, `paralog_count`,
+  `mobile_context`, `hgt_context`, `recombination_context` y
+  `resistance_association`.
+- [x] No se modificaron formulas, pesos, snapshots curados, `data_sessions` ni
+  `config/taxon_resolution_cache.json` durante este cierre documental.
+
 Esta revision resume los bloques logicos de trabajo realizados para fortalecer
 Nodos Funcionales como herramienta de priorizacion computacional exploratoria.
 No se modificaron formulas de scoring, pesos ni contrato publico de
