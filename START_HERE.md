@@ -39,6 +39,25 @@ modelo.
 PAO1 no es el organismo obligatorio ni el eje conceptual del proyecto. PAO1 se
 conserva solo como demo reproducible, snapshot curado o validacion controlada.
 
+### Requisitos minimos y ambiente Python
+
+- Python 3.10 o superior.
+- Dependencias instaladas desde `requirements.txt`.
+- Una terminal PowerShell, CMD o equivalente con permisos de escritura sobre el
+  workspace del proyecto.
+- Internet solo si se usan fuentes online opcionales; la ruta inicial recomendada
+  puede ejecutarse en modo offline/cacheado.
+
+Instalacion basica:
+
+```powershell
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+Los comandos de este documento usan la ruta Python del entorno Codex local. En
+otro equipo puede reemplazarse por `python` si el ambiente ya esta activado.
+
 ## 4. Tipos de datos y procedencia
 
 Use esta distincion antes de interpretar un ranking:

@@ -35,6 +35,9 @@ usuario pueda iniciar el flujo desde el nombre del organismo y, opcionalmente, u
 
 ## Quick start
 
+Para una ruta minima de lectura y ejecucion, empiece por `START_HERE.md`. Los
+comandos siguientes resumen el flujo basico para un usuario tecnico.
+
 Instalacion en Windows PowerShell:
 
 ```powershell
@@ -76,8 +79,11 @@ del programa.
 Ejecutar pruebas:
 
 ```powershell
-python -m pytest -q
+python -m pytest -p no:cacheprovider -m "not online" -q
 ```
+
+Ese comando valida la suite offline recomendada. Las pruebas online se ejecutan
+por separado cuando se quieren verificar proveedores externos reales.
 
 ## Estado de madurez del proyecto
 
