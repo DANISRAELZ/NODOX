@@ -2030,7 +2030,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
             [
                 "# Evolutionary Escape Risk Audit",
                 "",
-                "Este reporte muestra variables disponibles, faltantes, procedencia, confianza y penalizacion evolutiva aplicada. Los proxies o demos no equivalen a evidencia fuerte.",
+                "Este reporte muestra variables disponibles, faltantes, procedencia, confianza y penalizacion evolutiva aplicada. Demo, proxy, controlado o cache no sustituyen evidencia real del usuario ni evidencia externa trazable; faltante o insuficiente no equivale a bajo riesgo.",
                 "",
                 _markdown_table(evolutionary_escape_risk_audit.head(top_n)),
             ]
@@ -2285,6 +2285,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "- Un factor de virulencia no es automaticamente prioritario.",
         "- Un hub no es automaticamente drogable.",
         "- La ausencia de evidencia no equivale a evidencia negativa.",
+        "- La ausencia o insuficiencia de evidencia no equivale a bajo riesgo.",
         "- La informacion online general no sustituye datos especificos del usuario.",
         "- Bajo riesgo evolutivo no significa ausencia de resistencia.",
         "- El ranking representa hipotesis terapeuticas priorizadas, no recomendaciones clinicas.",

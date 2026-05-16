@@ -246,6 +246,7 @@ class ExportTests(unittest.TestCase):
         scientific = pd.read_csv(project_dir / "results" / "top10_scientific_audit.csv")
         top10_md = (project_dir / "results" / "top10_scientific_audit.md").read_text(encoding="utf-8")
         report = (project_dir / "results" / "report_phase2.md").read_text(encoding="utf-8")
+        evolutionary_audit_md = (project_dir / "results" / "evolutionary_escape_risk_audit.md").read_text(encoding="utf-8")
         self.assertEqual(len(scientific), 10)
         for column in [
             "rank",
@@ -283,6 +284,9 @@ class ExportTests(unittest.TestCase):
         self.assertIn("interpretacion computacional", report)
         self.assertIn("no constituye recomendacion terapeutica", report)
         self.assertIn("evaluacion medica, microbiologica o farmacologica", report)
+        self.assertIn("ausencia o insuficiencia de evidencia no equivale a bajo riesgo", report.lower())
+        self.assertIn("no sustituyen evidencia real del usuario ni evidencia externa trazable", evolutionary_audit_md)
+        self.assertIn("faltante o insuficiente no equivale a bajo riesgo", evolutionary_audit_md)
         self.assertIn("Nota theory-first/v3", top10_md)
         self.assertIn(THEORY_V3_NOT_ASSESSED_NOTE, top10_md)
         self.assertIn("Nota theory-first/v3", report)
