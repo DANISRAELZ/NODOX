@@ -34,6 +34,7 @@ def test_simple_explanations_mark_demo_and_missing_as_limitations() -> None:
             "localization_evidence_state": ["positive"],
             "missing_evidence_flags": ["missing_virulence_score"],
             "therapeutic_context_missingness": ["proxy_host_damage_score"],
+            "phase3_negative_evidence_summary": ["none"],
             "optional_data_source_summary": ["clinical_impact=demo(0.45)"],
             "confidence_source_class": ["proxy"],
             "evidence_level": ["controlled"],
@@ -52,7 +53,13 @@ def test_simple_explanations_mark_demo_and_missing_as_limitations() -> None:
     row = explanations.iloc[0]
     assert "bactericidal_candidate" in row["why_prioritized"]
     assert "missing_virulence_score" in row["missing_evidence"]
+    assert "evidencia negativa real: none" in row["missing_evidence"]
+    assert "Ausencia o insuficiencia no equivale a evidencia negativa ni a bajo riesgo" in row["missing_evidence"]
     assert "no equivalen a evidencia externa real" in row["sources_used"]
+    assert "usuario/externa_trazable/snapshot_controlado" in row["sources_used"]
+    assert "cache conserva reproducibilidad" in row["sources_used"]
+    assert "proxy/demo/controlado solo orientan" in row["sources_used"]
+    assert "missing/insufficient indican ausencia o insuficiencia, no evidencia negativa ni bajo riesgo" in row["sources_used"]
     assert "confianza=0.420" in row["confidence_level"]
     assert "meta_priority_score=0.300" in row["therapeutic_priority_components"]
     assert "functional_node_score=0.680" in row["theory_context"]

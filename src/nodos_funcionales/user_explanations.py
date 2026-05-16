@@ -126,9 +126,10 @@ def explain_missing_evidence(row: pd.Series) -> str:
     missing = _clean(row.get("phase3_evidence_gap_summary", row.get("missing_evidence_flags", "not_reported")))
     therapeutic_missing = _clean(row.get("therapeutic_context_missingness", "not_reported"))
     negative = _clean(row.get("phase3_negative_evidence_summary", "none"))
+    limitation = "Ausencia o insuficiencia no equivale a evidencia negativa ni a bajo riesgo."
     if missing in {"none", "not_reported"} and therapeutic_missing in {"none", "not_reported"}:
-        return f"Sin faltantes dominantes reportados; evidencia negativa real: {negative}."
-    return f"Faltantes: {missing}; contexto terapeutico incompleto: {therapeutic_missing}; evidencia negativa real: {negative}."
+        return f"Sin faltantes dominantes reportados; evidencia negativa real: {negative}. {limitation}"
+    return f"Faltantes: {missing}; contexto terapeutico incompleto: {therapeutic_missing}; evidencia negativa real: {negative}. {limitation}"
 
 
 def explain_sources_used(row: pd.Series) -> str:
@@ -142,7 +143,12 @@ def explain_sources_used(row: pd.Series) -> str:
         token in f"{source_summary} {source_class} {realism} {provenance}".lower()
         for token in ["demo", "proxy", "controlled", "cache"]
     ) else ""
-    return f"clase={source_class}; procedencia={provenance}; retrieval={retrieval}; cache={cache}; realismo={realism}; resumen={source_summary}.{warning}"
+    provenance_note = (
+        " Interpretacion de procedencia: usuario/externa_trazable/snapshot_controlado pueden sostener evidencia "
+        "trazable; cache conserva reproducibilidad; proxy/demo/controlado solo orientan; missing/insufficient "
+        "indican ausencia o insuficiencia, no evidencia negativa ni bajo riesgo."
+    )
+    return f"clase={source_class}; procedencia={provenance}; retrieval={retrieval}; cache={cache}; realismo={realism}; resumen={source_summary}.{warning}{provenance_note}"
 
 
 def explain_confidence(row: pd.Series) -> str:
