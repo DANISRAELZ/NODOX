@@ -72,6 +72,29 @@ class MultiorganismOrientationTests(unittest.TestCase):
         self.assertIn("ya no sugiere PAO1 como organismo por defecto", text)
         self.assertNotIn("Algunas plantillas contienen PAO1 como ejemplo concreto", text)
 
+    def test_multiorganism_architecture_preserves_evolutionary_contract(self) -> None:
+        text = (PROJECT_ROOT / "docs" / "multiorganism_architecture.md").read_text(encoding="utf-8")
+        normalized = text.casefold()
+
+        self.assertIn("contrato evolutivo multi-organismo", normalized)
+        self.assertIn("Teoria de Nodos Funcionales", text)
+        self.assertIn("cualquier organismo bacteriano", text)
+        self.assertIn("no debe interpretarse como bajo riesgo de escape", text)
+        self.assertIn("no sustituyen evidencia real del usuario", text)
+
+        for term in [
+            "evolutionary_escape_risk",
+            "evolutionary_constraint",
+            "mutation_tolerance",
+            "pathway_redundancy",
+            "paralog_count",
+            "mobile_context",
+            "hgt_context",
+            "recombination_context",
+            "resistance_association",
+        ]:
+            self.assertIn(term, text)
+
     def test_generic_new_organism_workspace_can_be_created_without_demo(self) -> None:
         workspace = self.make_workspace("generic_bacterium")
         exit_code = run_pipeline_main(

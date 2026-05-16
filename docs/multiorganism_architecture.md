@@ -12,6 +12,24 @@ La arquitectura no esta limitada a PAO1, `Corynebacterium pseudotuberculosis` ni
 
 Las capas de evidencia se resuelven por contratos, procedencia y configuracion por capa, no por nombres de organismos. Si una fuente externa no existe, no responde o no fue consultada, el sistema debe registrar ausencia o incompletitud de evidencia sin convertirla en evidencia biologica negativa. Los datos de usuario y los snapshots controlados deben poder cubrir temporalmente el contrato siempre que declaren confianza, limitaciones y procedencia.
 
+## Contrato evolutivo multi-organismo
+
+Cada workspace multi-organismo debe preservar la subcapa evolutiva como parte
+vital de la Teoria de Nodos Funcionales. La arquitectura debe conservar
+`evolutionary_escape_risk` y `evolutionary_constraint` como senales centrales
+para interpretar robustez terapeutica y restriccion del escape.
+
+Las variables `mutation_tolerance`, `pathway_redundancy`, `paralog_count`,
+`mobile_context`, `hgt_context`, `recombination_context` y
+`resistance_association` deben mantenerse como dimensiones interpretables, aun
+cuando un organismo nuevo no tenga evidencia completa. La ausencia de evidencia
+evolutiva no debe interpretarse como bajo riesgo de escape; debe reportarse como
+evidencia faltante, insuficiente o dependiente del metodo.
+
+Los datos demo, snapshots o proveedores controlados pueden ayudar a probar el
+contrato, pero no sustituyen evidencia real del usuario ni evidencia externa
+trazable para un organismo concreto.
+
 ## Flujo del sistema
 
 ```text
