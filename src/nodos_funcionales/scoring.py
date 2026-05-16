@@ -2263,6 +2263,10 @@ def _build_phase3_user_report(phase3_ranking: pd.DataFrame, top_n: int = 10) -> 
         "- Ranking real separado: `results/ranking_nodos_phase3_real_candidates.csv`",
         "- Registros excluidos: `results/template_or_demo_records.csv`",
         "",
+        "## Estado interpretativo del ranking",
+        "",
+        *_phase3_export_status_lines(phase3_ranking),
+        "",
         "## Top candidatos reales",
         "",
     ]
@@ -2351,6 +2355,10 @@ def _build_theory_of_nodes_report(features: pd.DataFrame, comparison: pd.DataFra
         f"- Organismo analizado: {str(features.get('organism', pd.Series(['not_reported'])).iloc[0]) if 'organism' in features.columns else 'not_reported'}",
         f"- Cepa analizada: {str(features.get('strain', pd.Series(['not_reported'])).iloc[0]) if 'strain' in features.columns else 'not_reported'}",
         f"- Nodos evaluados: {len(features)}",
+        "",
+        "## Estado interpretativo del ranking",
+        "",
+        *_phase3_export_status_lines(features),
         "",
         "## Que agrega Fase 3",
         "",
@@ -2477,6 +2485,54 @@ def _phase3_warning_lines(features: pd.DataFrame) -> list[str]:
     if not warnings:
         warnings.append("- No se detectaron advertencias globales fuertes en audit_flags.")
     return warnings
+
+
+def _phase3_export_status_lines(records: pd.DataFrame) -> list[str]:
+    if records.empty:
+        return [
+            "- Estado: `no_phase3_records`.",
+            "- Interpretacion: no hay filas para auditar; esto no equivale a ausencia biologica, bajo riesgo ni ausencia real de candidatos terapeuticos.",
+        ]
+
+    included = records.get("included_in_therapeutic_ranking", pd.Series([True] * len(records), index=records.index)).fillna(True).astype(bool)
+    real_count = int(included.sum())
+    demo_count = int(records.get("is_template_or_demo_record", pd.Series([False] * len(records), index=records.index)).fillna(False).astype(bool).sum())
+    missing_count = 0
+    for column in ["phase3_missing_layer_count", "missing_layer_count"]:
+        if column in records.columns:
+            missing_count = int((pd.to_numeric(records[column], errors="coerce").fillna(0) > 0).sum())
+            break
+    insufficient_count = 0
+    if "therapeutic_role_v3" in records.columns:
+        insufficient_count = int(records["therapeutic_role_v3"].fillna("").astype(str).str.contains("insufficient", case=False, regex=False).sum())
+    negative_count = 0
+    if "phase3_negative_evidence_count" in records.columns:
+        negative_count = int((pd.to_numeric(records["phase3_negative_evidence_count"], errors="coerce").fillna(0) > 0).sum())
+
+    if real_count > 0:
+        status = "ranking_real_produced"
+        interpretation = "hay candidatos incluidos en el ranking real; deben interpretarse junto con confianza, procedencia, evidencia faltante y riesgo evolutivo."
+    elif negative_count > 0 and demo_count == 0 and missing_count == 0 and insufficient_count == 0:
+        status = "no_evaluable_candidates_with_traceable_negative_evidence"
+        interpretation = "no hay candidatos evaluables por evidencia negativa trazable en las filas presentes; esto no prueba ausencia biologica fuera del alcance de esas fuentes."
+    else:
+        status = "no_real_ranking_demo_template_or_insufficient_evidence"
+        interpretation = "no se produjo ranking terapeutico real porque las filas son demo/template, faltantes o insuficientes; esto no equivale a evidencia negativa ni a bajo riesgo."
+
+    return [
+        f"- Estado: `{status}`.",
+        f"- Interpretacion: {interpretation}",
+        (
+            "- Conteos auditados: "
+            f"candidatos_reales_incluidos=`{real_count}`, "
+            f"demo_template=`{demo_count}`, "
+            f"con_evidencia_faltante=`{missing_count}`, "
+            f"insuficientes=`{insufficient_count}`, "
+            f"con_evidencia_negativa_trazable=`{negative_count}`."
+        ),
+        "- Regla: ausencia o insuficiencia de evidencia no equivale a evidencia negativa, bajo riesgo, ausencia biologica ni irrelevancia terapeutica.",
+        "- Regla: demo, proxy, cache o referencia controlada no sustituyen evidencia real del usuario ni evidencia externa trazable.",
+    ]
 
 
 def _scientific_interpretation(row: pd.Series) -> str:

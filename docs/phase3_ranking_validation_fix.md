@@ -58,6 +58,28 @@ La capa `literature_support` no aumenta score ni confianza si solo contiene plan
 - `results/top10_scientific_audit.md`
 - `results/report_phase3.md`
 
+## Estado interpretativo del export
+
+Los reportes de Fase 3 deben separar el estado del export del valor biologico
+del organismo evaluado:
+
+- `ranking_real_produced`: hay candidatos incluidos en el ranking terapeutico
+  real. Se interpretan junto con confianza, procedencia, evidencia faltante y
+  riesgo evolutivo.
+- `no_real_ranking_demo_template_or_insufficient_evidence`: el ranking real no
+  se produjo porque las filas disponibles son demo/template, faltantes o
+  insuficientes. Este estado es un resultado esperado y correcto cuando solo hay
+  fixtures, plantillas o evidencia incompleta.
+- `no_evaluable_candidates_with_traceable_negative_evidence`: no hay candidatos
+  evaluables por evidencia negativa trazable en las filas presentes. Esto no
+  prueba ausencia biologica fuera del alcance de esas fuentes.
+- `no_phase3_records`: no hay filas para auditar.
+
+En todos los estados, ausencia o insuficiencia de evidencia no equivale a
+evidencia negativa, bajo riesgo, ausencia biologica ni irrelevancia terapeutica.
+Demo, proxy, cache o referencia controlada tampoco sustituyen evidencia real del
+usuario ni evidencia externa trazable.
+
 ## Pruebas recomendadas
 
 - `python -m pytest -m unit -q`

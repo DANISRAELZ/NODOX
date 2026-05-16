@@ -112,7 +112,8 @@ class Phase3RankingBugfixTests(unittest.TestCase):
         workspace = self._workspace()
         features = self._base_features().tail(1).copy()
 
-        phase3, _ = build_phase3_scores(workspace, self._config(workspace), features)
+        with pytest.warns(RuntimeWarning, match="only demo/template or missing candidates"):
+            phase3, _ = build_phase3_scores(workspace, self._config(workspace), features)
         example = phase3.iloc[0]
 
         self.assertEqual(example["candidate_record_type"], "template_record")
@@ -141,7 +142,8 @@ class Phase3RankingBugfixTests(unittest.TestCase):
             features[column] = ["demo"]
         features["source_database"] = ["example_curated_demo"]
 
-        phase3, _ = build_phase3_scores(workspace, self._config(workspace), features)
+        with pytest.warns(RuntimeWarning, match="only demo/template or missing candidates"):
+            phase3, _ = build_phase3_scores(workspace, self._config(workspace), features)
         row = phase3.iloc[0]
 
         self.assertEqual(row["candidate_record_type"], "demo_record")
@@ -162,6 +164,10 @@ class Phase3RankingBugfixTests(unittest.TestCase):
         self.assertEqual(row["ranking_inclusion_status"], "included_real_candidate")
         self.assertTrue(bool(row["included_in_therapeutic_ranking"]))
 
+        report_text = (workspace / "results" / "report_phase3.md").read_text(encoding="utf-8")
+        self.assertIn("Estado interpretativo del ranking", report_text)
+        self.assertIn("ranking_real_produced", report_text)
+
     def test_literature_missing_does_not_exclude(self) -> None:
         workspace = self._workspace()
         features = self._base_features().head(1).copy()
@@ -178,12 +184,18 @@ class Phase3RankingBugfixTests(unittest.TestCase):
         workspace = self._workspace()
         features = self._base_features().tail(1).copy()
 
-        build_phase3_scores(workspace, self._config(workspace), features)
+        with pytest.warns(RuntimeWarning, match="only demo/template or missing candidates"):
+            build_phase3_scores(workspace, self._config(workspace), features)
         real = pd.read_csv(workspace / "results" / "ranking_nodos_phase3_real_candidates.csv")
+        report_text = (workspace / "results" / "report_phase3.md").read_text(encoding="utf-8")
+        theory_report = (workspace / "results" / "theory_of_nodes_report.md").read_text(encoding="utf-8")
 
         self.assertEqual(len(real), 0)
         self.assertIn("protein_id", real.columns)
         self.assertIn("ranking_inclusion_status", real.columns)
+        self.assertIn("no_real_ranking_demo_template_or_insufficient_evidence", report_text)
+        self.assertIn("no equivale a evidencia negativa", report_text)
+        self.assertIn("no_real_ranking_demo_template_or_insufficient_evidence", theory_report)
 
     def test_phase3_real_candidates_not_empty_for_partial_real_evidence(self) -> None:
         workspace = self._workspace()

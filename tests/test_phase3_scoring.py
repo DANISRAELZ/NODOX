@@ -91,7 +91,8 @@ class Phase3ScoringTests(unittest.TestCase):
         workspace = self._make_workspace()
         config = load_config(workspace / "config" / "params.yaml")
 
-        phase3, _ = build_phase3_scores(workspace, config, features)
+        with pytest.warns(RuntimeWarning, match="only demo/template or missing candidates"):
+            phase3, _ = build_phase3_scores(workspace, config, features)
 
         self.assertTrue(phase3["meta_priority_score_v3"].between(0, 1).all())
         self.assertTrue(phase3["functional_node_theory_score"].between(0, 1).all())
@@ -117,7 +118,8 @@ class Phase3ScoringTests(unittest.TestCase):
         workspace = self._make_workspace()
         config = load_config(workspace / "config" / "params.yaml")
 
-        phase3, _ = build_phase3_scores(workspace, config, features)
+        with pytest.warns(RuntimeWarning, match="only demo/template or missing candidates"):
+            phase3, _ = build_phase3_scores(workspace, config, features)
         scores = phase3.set_index("protein_id")["meta_priority_score_v3"]
 
         self.assertGreater(float(scores.loc["low_escape"]), float(scores.loc["high_escape"]))
@@ -142,7 +144,8 @@ class Phase3ScoringTests(unittest.TestCase):
         workspace = self._make_workspace()
         config = load_config(workspace / "config" / "params.yaml")
 
-        phase3, _ = build_phase3_scores(workspace, config, features)
+        with pytest.warns(RuntimeWarning, match="only demo/template or missing candidates"):
+            phase3, _ = build_phase3_scores(workspace, config, features)
         scores = phase3.set_index("protein_id")["meta_priority_score_v3"]
 
         self.assertGreater(float(scores.loc["high_constraint"]), float(scores.loc["low_constraint"]))
