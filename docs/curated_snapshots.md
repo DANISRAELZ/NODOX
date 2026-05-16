@@ -39,6 +39,12 @@ El segundo snapshot extiende el contrato a un organismo adicional usado como eje
 data_external/curated_snapshots/corynebacterium_pseudotuberculosis_biovar_ovis/
 ```
 
+El tercer snapshot agrega una validacion cruzada controlada para H37Rv:
+
+```text
+data_external/curated_snapshots/mycobacterium_tuberculosis_h37rv/
+```
+
 Estos directorios son fixtures auditables. Nuevos organismos deben poder agregarse sin cambiar el validador si cumplen el mismo contrato.
 
 ## PAO1 como baseline tecnico
@@ -137,6 +143,61 @@ Proximos pasos:
 - congelar manifiestos y checksums despues de revision humana;
 - mantener evidencia externa real separada de scaffolds controlados.
 
+## Mycobacterium tuberculosis H37Rv Controlled Snapshot
+
+Proposito:
+
+- validar el contrato de snapshots curados en un tercer organismo bacteriano;
+- usar H37Rv como ejemplo multiorganismo controlado, no como acoplamiento del proyecto a tuberculosis;
+- mantener separada la evidencia controlada de evidencia online fresca, datos demo, proxy o cache mutable.
+
+Alcance:
+
+- organismo: `Mycobacterium tuberculosis`;
+- strain: `H37Rv`;
+- `taxon_id`: `83332`;
+- acquisition mode: `controlled_curated_offline`;
+- network policy: `no_fresh_network_calls`;
+- evidence status: `controlled_reference_snapshot`.
+
+Diferencias frente a PAO1 y Corynebacterium:
+
+- PAO1 sigue siendo un demo controlado con validacion STRING/UniProt cerrada y documentada.
+- Corynebacterium sigue siendo un ejemplo generico multi-organismo con scaffold controlado offline.
+- H37Rv es una validacion cruzada controlada para probar el mismo contrato en otro organismo estable, sin convertirlo en organismo central del proyecto.
+- STRING y UniProt aparecen solo como `not_queried_no_network`, con `is_real_external=false`.
+- Las anotaciones funcionales son representativas y controladas; validan estructura y procedencia, no ranking.
+
+Archivos:
+
+```text
+data_external/curated_snapshots/
+  mycobacterium_tuberculosis_h37rv/
+    snapshot_metadata.json
+    taxonomy.json
+    sources_manifest.json
+    functional_annotations.json
+    provenance.json
+    README.md
+```
+
+Anotaciones controladas incluidas:
+
+- `rpoB`
+- `katG`
+- `inhA`
+- `embB`
+- `gyrA`
+
+Limitaciones:
+
+- no es descarga fresca;
+- no representa evidencia online validada en tiempo real;
+- no es un catalogo completo de blancos de H37Rv ni una validacion terapeutica;
+- no sustituye datos de usuario ni evidencia externa trazable;
+- no altera scoring, ranking ni contratos de exportacion;
+- la ausencia de genes, capas o variables en este snapshot no equivale a ausencia biologica, bajo riesgo ni irrelevancia terapeutica.
+
 ## Contrato de `snapshot_metadata.json`
 
 Campos obligatorios:
@@ -223,6 +284,6 @@ C:\Users\danis\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\p
 La siguiente expansion puede profundizar snapshots reales curados, en commits separados, para validar mejor la teoria en ejemplos tecnicos como:
 
 - `Corynebacterium pseudotuberculosis`: pasar del scaffold controlado a evidencia externa validada cuando exista protocolo online.
-- `Mycobacterium tuberculosis` H37Rv: usar como validacion cruzada por cobertura publica estable.
+- `Mycobacterium tuberculosis` H37Rv: pasar del snapshot controlado actual a evidencia externa validada solo si existe un protocolo online explicito y auditable.
 
 Ambos deben mantener la misma separacion entre evidencia externa real, controlada, stub, fallback y cache.
