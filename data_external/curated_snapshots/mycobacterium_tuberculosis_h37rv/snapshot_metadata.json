@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "organism": "Mycobacterium tuberculosis",
+  "strain": "H37Rv",
+  "canonical_organism_name": "Mycobacterium tuberculosis",
+  "biovar": null,
+  "strain_scope": "H37Rv controlled reference strain",
+  "taxon_id": "83332",
+  "snapshot_id": "mycobacterium_tuberculosis_h37rv_controlled_reference_v1",
+  "snapshot_label": "Mycobacterium tuberculosis H37Rv controlled reference snapshot v1",
+  "created_at_utc": "2026-05-16T00:00:00Z",
+  "acquisition_mode": "controlled_curated_offline",
+  "network_policy": "no_fresh_network_calls",
+  "allowed_sources": [
+    "controlled_taxonomy_reference",
+    "controlled_curated_snapshot",
+    "not_queried_no_network"
+  ],
+  "source_versions": {
+    "NCBI_Taxonomy": "taxon_id=83332 controlled reference, no fresh API query",
+    "STRING": "not_queried",
+    "UniProt": "not_queried",
+    "controlled_snapshot": "v1"
+  },
+  "cache_policy": "This snapshot does not materialize or depend on mutable provider caches or generated data_sessions outputs.",
+  "evidence_status": "controlled_reference_snapshot",
+  "confidence_policy": "Controlled entries use limited confidence and must not be interpreted as fresh external validation or user-curated experimental evidence.",
+  "provenance_policy": "Sources must separate controlled reference material from real external evidence, demo data, proxy inference and cache reuse.",
+  "limitations": [
+    "No STRING, UniProt or other online provider request was executed to create this snapshot.",
+    "This snapshot is a small controlled reference for validating multiorganism snapshot structure and provenance.",
+    "Functional annotations are representative controlled entries and do not alter scoring, ranking or export contracts.",
+    "Absence of a feature in this snapshot is not evidence of biological absence, low risk or therapeutic irrelevance."
+  ],
+  "generated_by": "Codex controlled curated snapshot phase",
+  "reproducibility_notes": [
+    "This snapshot is deterministic, compact and hand-auditable.",
+    "Do not replace with data_sessions outputs or generated reports.",
+    "Future online refresh must happen under an explicit online validation protocol."
+  ]
+}

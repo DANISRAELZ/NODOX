@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "snapshot_id": "mycobacterium_tuberculosis_h37rv_controlled_reference_v1",
+  "organism": "Mycobacterium tuberculosis",
+  "strain": "H37Rv",
+  "provenance_class": "controlled_reference_snapshot",
+  "created_at_utc": "2026-05-16T00:00:00Z",
+  "created_by": "Codex controlled curated snapshot phase",
+  "network_policy": "no_fresh_network_calls",
+  "data_generation_policy": "manual_controlled_reference_files_only",
+  "excluded_inputs": [
+    "data_sessions",
+    "results",
+    "data_processed",
+    "provider_cache_materialization",
+    "demo_data"
+  ],
+  "interpretation_limits": [
+    "This is not a fresh online acquisition.",
+    "This is not a demo dataset.",
+    "This is not a proxy inference layer.",
+    "This is not evidence of low evolutionary escape risk.",
+    "Missing entries are absence of curated snapshot content, not evidence of biological absence and not negative biological evidence."
+  ],
+  "audit_notes": [
+    "Designed to validate multiorganism snapshot contracts for H37Rv without coupling the project to H37Rv.",
+    "PAO1 and Corynebacterium snapshots remain independent examples and are not mixed with this snapshot."
+  ]
+}

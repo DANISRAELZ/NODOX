@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "source_name": "controlled_curated_snapshot",
+  "evidence_kind": "controlled_fixture",
+  "annotations": [
+    {
+      "gene_or_node_id": "rpoB",
+      "display_name": "RNA polymerase beta subunit",
+      "functional_category": "core_transcription_process",
+      "therapeutic_relevance": "controlled comparator for bactericidal target context",
+      "evidence_status": "controlled_reference",
+      "evidence_kind": "controlled_fixture",
+      "is_controlled": true,
+      "source_reference": "controlled H37Rv snapshot scaffold; not a fresh external validation record",
+      "confidence": 0.55,
+      "notes": "Representative H37Rv node for validating snapshot structure and provenance only; does not alter scoring."
+    },
+    {
+      "gene_or_node_id": "katG",
+      "display_name": "Catalase-peroxidase KatG",
+      "functional_category": "oxidative_stress_and_drug_activation_context",
+      "therapeutic_relevance": "controlled comparator for resistance-association curation workflows",
+      "evidence_status": "controlled_reference",
+      "evidence_kind": "controlled_fixture",
+      "is_controlled": true,
+      "source_reference": "controlled H37Rv snapshot scaffold; not a fresh external validation record",
+      "confidence": 0.52,
+      "notes": "Included as a controlled reference entry so provenance tests can distinguish controlled reference from real external evidence."
+    },
+    {
+      "gene_or_node_id": "inhA",
+      "display_name": "Enoyl-ACP reductase InhA",
+      "functional_category": "mycolic_acid_biosynthesis_context",
+      "therapeutic_relevance": "controlled comparator for cell envelope target context",
+      "evidence_status": "controlled_reference",
+      "evidence_kind": "controlled_fixture",
+      "is_controlled": true,
+      "source_reference": "controlled H37Rv snapshot scaffold; not a fresh external validation record",
+      "confidence": 0.52,
+      "notes": "Representative controlled entry; not user-curated experimental evidence and not online evidence."
+    },
+    {
+      "gene_or_node_id": "embB",
+      "display_name": "Arabinosyltransferase EmbB",
+      "functional_category": "cell_envelope_biosynthesis_context",
+      "therapeutic_relevance": "controlled comparator for cell wall and resistance-context curation",
+      "evidence_status": "controlled_reference",
+      "evidence_kind": "controlled_fixture",
+      "is_controlled": true,
+      "source_reference": "controlled H37Rv snapshot scaffold; not a fresh external validation record",
+      "confidence": 0.5,
+      "notes": "Controlled reference entry for snapshot validation only."
+    },
+    {
+      "gene_or_node_id": "gyrA",
+      "display_name": "DNA gyrase subunit A",
+      "functional_category": "core_dna_replication_process",
+      "therapeutic_relevance": "controlled comparator for conserved functional node context",
+      "evidence_status": "controlled_reference",
+      "evidence_kind": "controlled_fixture",
+      "is_controlled": true,
+      "source_reference": "controlled H37Rv snapshot scaffold; not a fresh external validation record",
+      "confidence": 0.5,
+      "notes": "Comparator node for contract validation; absence of other genes is not negative evidence."
+    }
+  ],
+  "notes": [
+    "These entries are controlled references for validating snapshot structure and provenance.",
+    "They must not replace real user-curated evidence, real external evidence or experimental validation.",
+    "Absence of any gene or feature from this minimal file is not evidence of biological absence or low therapeutic risk."
+  ]
+}

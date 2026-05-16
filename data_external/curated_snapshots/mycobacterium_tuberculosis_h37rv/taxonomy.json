@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "organism": "Mycobacterium tuberculosis",
+  "canonical_organism_name": "Mycobacterium tuberculosis",
+  "taxon_id": "83332",
+  "strain_scope": "H37Rv controlled reference strain",
+  "taxonomy_resolution_mode": "controlled_reference_offline",
+  "taxonomy_source": "NCBI Taxonomy controlled reference identifier; no fresh API query in this snapshot phase",
+  "confidence": 0.9,
+  "limitations": [
+    "Taxon id is recorded as controlled reference metadata, not as a fresh online lookup.",
+    "This taxonomy file does not imply that any organism-specific evidence layer was fetched online."
+  ]
+}

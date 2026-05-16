@@ -19,6 +19,7 @@ from tests.helpers import PROJECT_ROOT
 
 PAO1_SNAPSHOT_DIR = PROJECT_ROOT / "data_external" / "curated_snapshots" / "pseudomonas_aeruginosa_pao1"
 CORY_SNAPSHOT_DIR = PROJECT_ROOT / "data_external" / "curated_snapshots" / "corynebacterium_pseudotuberculosis_biovar_ovis"
+H37RV_SNAPSHOT_DIR = PROJECT_ROOT / "data_external" / "curated_snapshots" / "mycobacterium_tuberculosis_h37rv"
 SNAPSHOTS_ROOT = PROJECT_ROOT / "data_external" / "curated_snapshots"
 
 
@@ -43,12 +44,41 @@ def test_corynebacterium_curated_snapshot_is_valid() -> None:
 
 
 @pytest.mark.unit
+def test_h37rv_curated_snapshot_is_valid_controlled_reference() -> None:
+    errors = validate_snapshot(H37RV_SNAPSHOT_DIR)
+
+    assert errors == []
+    snapshot = load_curated_snapshot(H37RV_SNAPSHOT_DIR)
+    assert snapshot["metadata"]["organism"] == "Mycobacterium tuberculosis"
+    assert snapshot["metadata"]["strain"] == "H37Rv"
+    assert snapshot["metadata"]["taxon_id"] == "83332"
+    assert snapshot["metadata"]["evidence_status"] == "controlled_reference_snapshot"
+    assert "demo" not in snapshot["metadata"]["allowed_sources"]
+    assert snapshot["metadata"]["network_policy"] == "no_fresh_network_calls"
+
+
+@pytest.mark.unit
+def test_h37rv_snapshot_keeps_controlled_reference_separate_from_demo_cache_and_online() -> None:
+    snapshot = load_curated_snapshot(H37RV_SNAPSHOT_DIR)
+    sources = snapshot["sources_manifest"]["sources"]
+    provenance = _read_json(H37RV_SNAPSHOT_DIR / "provenance.json")
+
+    assert all(source["source_type"] != "demo" for source in sources)
+    assert all(source["cache_status"] != "project_cache_reference" for source in sources)
+    assert all(source["retrieval_status"] != "fresh_api_run" for source in sources)
+    assert all(source["is_real_external"] is False for source in sources)
+    assert any(source["source_type"] == "controlled_curated_snapshot" for source in sources)
+    assert "not evidence of biological absence" in " ".join(provenance["interpretation_limits"])
+
+
+@pytest.mark.unit
 def test_multiple_curated_snapshots_validate_together() -> None:
-    results = validate_curated_snapshots([PAO1_SNAPSHOT_DIR, CORY_SNAPSHOT_DIR])
+    results = validate_curated_snapshots([PAO1_SNAPSHOT_DIR, CORY_SNAPSHOT_DIR, H37RV_SNAPSHOT_DIR])
 
     assert results == {
         "pseudomonas_aeruginosa_pao1": [],
         "corynebacterium_pseudotuberculosis_biovar_ovis": [],
+        "mycobacterium_tuberculosis_h37rv": [],
     }
 
 
@@ -58,8 +88,11 @@ def test_snapshots_can_be_listed_and_loaded_by_id_without_organism_specific_func
 
     assert PAO1_SNAPSHOT_DIR in snapshot_dirs
     assert CORY_SNAPSHOT_DIR in snapshot_dirs
+    assert H37RV_SNAPSHOT_DIR in snapshot_dirs
     snapshot = load_curated_snapshot_by_id(SNAPSHOTS_ROOT, "corynebacterium_pseudotuberculosis_biovar_ovis_controlled_v1")
     assert snapshot["metadata"]["organism"] == "Corynebacterium pseudotuberculosis"
+    h37rv = load_curated_snapshot_by_id(SNAPSHOTS_ROOT, "mycobacterium_tuberculosis_h37rv_controlled_reference_v1")
+    assert h37rv["metadata"]["strain"] == "H37Rv"
 
 
 @pytest.mark.unit
