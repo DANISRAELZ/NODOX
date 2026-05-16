@@ -7,6 +7,35 @@ multi-organismo, los ejemplos, snapshots, conectores online, importadores,
 pruebas y reportes existen para operacionalizar y auditar esa teoria, no para
 convertir ningun organismo o fuente de datos en el centro conceptual.
 
+## Regla theory-first multi-organismo
+
+La Teoría de Nodos Funcionales es el centro conceptual del proyecto. El
+software, los pipelines, importadores, snapshots, consultas online y reportes
+solo operacionalizan y auditan la teoria; no la sustituyen ni convierten una
+corrida concreta en verdad biologica general.
+
+El proyecto no esta acoplado a un organismo especifico. Cualquier usuario debe
+poder ingresar informacion de cualquier organismo bacteriano compatible con las
+capas del modelo. PAO1, Corynebacterium y H37Rv son ejemplos, fixtures, casos de
+validacion o snapshots controlados, no organismos centrales del proyecto.
+
+Los datos demo, controlados o generados para mantener el flujo reproducible no
+deben interpretarse como evidencia real del usuario. Deben conservar su
+procedencia y sus limites en reportes, auditorias y explicaciones.
+
+La subcapa evolutiva es una dimension vital de la teoria y de la priorizacion
+terapeutica. Deben preservarse como variables centrales:
+
+- `evolutionary_escape_risk`
+- `evolutionary_constraint`
+- `mutation_tolerance`
+- `pathway_redundancy`
+- `paralog_count`
+- `mobile_context`
+- `hgt_context`
+- `recombination_context`
+- `resistance_association`
+
 ## Separacion de proyectos
 
 El proyecto Nodos Funcionales es una plataforma multi-organismo para priorizacion de blancos terapeuticos. No depende de colecciones particulares de aislados ni de proyectos genomicos externos.

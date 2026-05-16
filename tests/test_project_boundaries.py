@@ -47,6 +47,38 @@ def test_key_docs_do_not_reintroduce_project_coupling_phrases():
             assert phrase not in text, f"{phrase!r} found in {path}"
 
 
+def test_project_boundaries_preserve_theory_first_multiorganism_rule():
+    text = (ROOT / "docs" / "project_boundaries.md").read_text(encoding="utf-8")
+    normalized = text.casefold()
+
+    assert "Teoría de Nodos Funcionales" in text or "Teoria de Nodos Funcionales" in text
+    assert "multi-organismo" in normalized or "multiorganismo" in normalized
+
+    for organism in ["PAO1", "Corynebacterium", "H37Rv"]:
+        assert organism.casefold() in normalized
+
+    centrality_guard_terms = [
+        "no organismos centrales",
+        "no esta acoplado a un organismo especifico",
+        "no está acoplado a un organismo específico",
+    ]
+    assert any(term in normalized for term in centrality_guard_terms)
+
+    evolutionary_terms = [
+        "evolutionary_escape_risk",
+        "evolutionary_constraint",
+        "mutation_tolerance",
+        "pathway_redundancy",
+        "paralog_count",
+        "mobile_context",
+        "hgt_context",
+        "recombination_context",
+        "resistance_association",
+    ]
+    for term in evolutionary_terms:
+        assert term in text
+
+
 def test_theory_doc_treats_evolutionary_axis_as_central():
     text = (ROOT / "docs" / "functional_nodes_theory_operationalization.md").read_text(
         encoding="utf-8"
