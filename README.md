@@ -107,22 +107,29 @@ Cada archivo debe respetar los encabezados de `data_templates/`.
 
 Para iniciar una validacion con datos reales proporcionados por el usuario, ver
 `docs/user_curated_validation_protocol.md`. Ese protocolo define `user_curated`
-y lo separa de `controlled_reference`, demo, proxy, cache y online.
+y lo separa de `controlled_reference`, demo, proxy, cache y online. Cada dataset
+real debe acompanarse de un manifest basado en
+`data_templates/user_curated_dataset_manifest_template.csv`.
 
 La capa opcional `literature_support` permite preparar curacion bibliografica
 manual. Por defecto se valida y normaliza si existe, se reporta como evidencia
 interpretativa en `results/literature_support_summary.*` y no cambia los
 scores ni el ranking.
 
-## Demo, datos reales, cache y proxy
+## Demo, user_curated, controlled_reference, cache, proxy y online
 
 - `data_demo/`: datos pequenos para probar el software; no son evidencia
   biologica final.
-- datos reales de usuario: deben colocarse en el workspace o importarse segun
-  las instrucciones de adquisicion.
+- `user_curated`: datos reales aportados o revisados por el usuario para el
+  organismo evaluado; deben colocarse en el workspace o importarse segun las
+  instrucciones de adquisicion, con manifest de trazabilidad.
+- `controlled_reference`: referencia o snapshot controlado para verificar
+  estructura y reproducibilidad; no sustituye evidencia real del usuario.
 - cache: reproduce consultas o capas ya resueltas.
 - proxy: valor explicito usado cuando falta una capa; sirve para mantener el
   flujo, pero reduce la fuerza interpretativa.
+- online: respuesta fresca de proveedores externos; debe tratarse en fases o
+  workspaces auditables separados cuando corresponda.
 
 ## Auditoría de procedencia de capas
 

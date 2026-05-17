@@ -30,7 +30,9 @@ La arquitectura final se interpreta como una cadena de auditoria:
    reales del usuario ni evidencia externa fresca.
 5. Validacion `user_curated`: usa datos reales aportados o revisados por el
    usuario en un workspace separado, sin mezclar demo, proxy, cache,
-   `controlled_reference` u online fresco como evidencia principal.
+   `controlled_reference` u online fresco como evidencia principal. Cada dataset
+   real debe acompanarse de un manifest trazable basado en
+   `data_templates/user_curated_dataset_manifest_template.csv`.
 6. Limites interpretativos: ausencia o insuficiencia de evidencia no equivale a
    bajo riesgo, ausencia biologica, evidencia negativa ni irrelevancia
    terapeutica.
