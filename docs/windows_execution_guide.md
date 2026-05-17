@@ -58,6 +58,20 @@ otros scripts del proyecto:
 .\scripts\validate_user_curated_manifest.ps1 -ManifestPath <ruta_manifest.csv>
 ```
 
+Si PowerShell bloquea scripts no firmados, puede aplicar `Bypass` solo a ese
+comando:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\validate_user_curated_manifest.ps1 data_templates\user_curated_dataset_manifest_template.csv
+```
+
+Esto no cambia permanentemente la politica del sistema. Como alternativa dentro
+de una sesion ya abierta, se puede usar:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
 El comando devuelve codigo `0` si el manifest cumple la estructura minima y un
 codigo distinto de `0` si debe corregirse. Esta revision solo comprueba contrato
 de columnas y procedencia minima; no valida biologicamente el dataset.
