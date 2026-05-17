@@ -87,13 +87,21 @@ En Windows tambien puede usarse:
 .\scripts\validate_user_curated_manifest.ps1 -ManifestPath path\to\user_curated_dataset_manifest.csv
 ```
 
+## Integracion opt-in disponible
+
+La prevalidacion ya puede ejecutarse desde `import_dataset.py` con la bandera
+explicita `--validate-user-curated-manifest <ruta_manifest.csv>`. Si el manifest
+tiene errores, el importador se detiene antes de copiar o normalizar datos. Si
+la bandera no se usa, el comportamiento previo del importador se conserva.
+
+Esta integracion no ejecuta scoring, no llama al pipeline y no modifica salidas
+historicas.
+
 ## Siguiente paso seguro
 
-El siguiente paso recomendado es una integracion opcional con
-`import_dataset.py` mediante una bandera explicita, por ejemplo una opcion de
-prevalidacion de manifest antes de copiar o normalizar archivos. Esa integracion
-debe seguir siendo opt-in, no debe ejecutar scoring y debe conservar una salida
-clara cuando el manifest no cumpla el contrato.
+El siguiente paso recomendado es probar la bandera con un dataset real revisado
+por el usuario en un workspace temporal o dedicado. Si la experiencia es clara,
+puede documentarse como flujo recomendado para nuevas cargas `user_curated`.
 
 No se recomienda integrar esta prevalidacion directamente en `run_pipeline.py`
 ni en Snakemake hasta probarla con un dataset real revisado por el usuario.

@@ -60,6 +60,17 @@ El comando devuelve codigo `0` si no hay errores y un codigo distinto de `0` si
 el manifest debe corregirse. No llama a `import_dataset.py`, `run_pipeline.py`
 ni Snakemake.
 
+Tambien puede pedirse la misma prevalidacion como paso previo explicito dentro
+del importador:
+
+```powershell
+.\.venv\Scripts\python.exe import_dataset.py --workspace data_sessions/my_organism_workspace --dataset essentiality --input path\to\essentiality.csv --validate-user-curated-manifest path\to\user_curated_dataset_manifest.csv
+```
+
+Si el manifest tiene errores, el importador los imprime y se detiene antes de
+copiar o normalizar datos. Sin esta bandera, el comportamiento de
+`import_dataset.py` permanece igual que antes.
+
 ## Uso
 
 ```bash

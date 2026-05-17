@@ -10,6 +10,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.nodos_funcionales.acquisition import import_user_dataset
 from src.nodos_funcionales.generic_annotation_import import write_layer_csvs
 from src.nodos_funcionales.io_errors import explain_cli_error
+from src.nodos_funcionales.user_curated_validation import validate_user_curated_manifest
 from src.nodos_funcionales.validation import DATASET_SPECS
 
 
@@ -27,6 +28,10 @@ def build_parser() -> argparse.ArgumentParser:
         default="generic_csv",
         help="Formato de entrada. generic_annotations materializa varias capas desde anotaciones genomicas locales.",
     )
+    parser.add_argument(
+        "--validate-user-curated-manifest",
+        help="Prevalidar un manifest user_curated antes de importar. Si hay errores, la importacion se detiene.",
+    )
     return parser
 
 
@@ -41,6 +46,15 @@ def main(argv: list[str] | None = None) -> int:
 def _main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.validate_user_curated_manifest:
+        errors = validate_user_curated_manifest(Path(args.validate_user_curated_manifest))
+        if errors:
+            print("[ERROR] Manifest user_curated invalido:", file=sys.stderr)
+            for error in errors:
+                print(f"- {error}", file=sys.stderr)
+            return 1
+        print("[OK] Manifest user_curated valido para revision/importacion.")
+
     if args.input_format == "generic_annotations":
         if not args.input_dir:
             parser.error("--input-format generic_annotations requiere --input-dir")
