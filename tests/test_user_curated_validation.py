@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import csv
+import subprocess
+import sys
 from pathlib import Path
 
 from src.nodos_funcionales.user_curated_validation import (
     USER_CURATED_MANIFEST_COLUMNS,
     validate_user_curated_manifest,
 )
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _write_manifest(path: Path, rows: list[dict[str, str]], columns: list[str] | None = None) -> None:
@@ -102,3 +106,49 @@ def test_validate_user_curated_manifest_rejects_forbidden_organism_defaults(tmp_
     assert any("H37Rv" in error for error in errors)
     assert any("Corynebacterium" in error for error in errors)
     assert any("Mycobacterium tuberculosis" in error for error in errors)
+
+
+def test_validate_user_curated_manifest_cli_accepts_valid_manifest(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "user_curated_dataset_manifest.csv"
+    _write_manifest(manifest_path, [_valid_row()])
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(PROJECT_ROOT / "scripts" / "validate_user_curated_manifest.py"),
+            str(manifest_path),
+        ],
+        cwd=PROJECT_ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "Manifest user_curated valido" in result.stdout
+    assert result.stderr == ""
+
+
+def test_validate_user_curated_manifest_cli_reports_errors(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "user_curated_dataset_manifest.csv"
+    row = _valid_row()
+    row["source_type"] = "cache"
+    _write_manifest(manifest_path, [row])
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(PROJECT_ROOT / "scripts" / "validate_user_curated_manifest.py"),
+            str(manifest_path),
+        ],
+        cwd=PROJECT_ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "Manifest user_curated invalido" in result.stderr
+    assert "source_type must be user_curated" in result.stderr

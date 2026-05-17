@@ -44,6 +44,16 @@ Una lista vacia significa que el manifest cumple la prevalidacion estructural
 minima. No significa que el dataset este aceptado cientificamente ni que pueda
 usarse para conclusiones terapeuticas.
 
+La misma revision puede ejecutarse desde consola:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\validate_user_curated_manifest.py path\to\user_curated_dataset_manifest.csv
+```
+
+El comando devuelve codigo `0` si no hay errores y un codigo distinto de `0` si
+el manifest debe corregirse. No llama a `import_dataset.py`, `run_pipeline.py`
+ni Snakemake.
+
 ## Uso
 
 ```bash
