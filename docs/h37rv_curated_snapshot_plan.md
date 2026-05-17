@@ -1,15 +1,31 @@
 # Plan de snapshot curado H37Rv
 
+## Estado actual
+
+Este plan queda como registro historico de criterios. El snapshot controlado
+H37Rv ya fue creado en:
+
+```text
+data_external/curated_snapshots/mycobacterium_tuberculosis_h37rv/
+```
+
+El estado vigente se documenta en `docs/curated_snapshots.md` y el protocolo de
+validacion online futura en
+`docs/online_validation_runs/h37rv_string_uniprot_protocol.md`. Este documento
+no debe leerse como una tarea pendiente de creacion del snapshot, sino como la
+lista de criterios que guiaron su preparacion y que siguen siendo utiles para
+auditar futuras extensiones.
+
 ## 1. Proposito
 
-Este documento define como preparar, en una fase posterior, un snapshot curado
-para `Mycobacterium tuberculosis` H37Rv. El objetivo es crear una referencia
-pequena, trazable y auditable para validar el contrato multi-organismo de Nodos
-Funcionales sin convertir H37Rv en default universal del proyecto.
+Este documento definio como preparar un snapshot curado para `Mycobacterium
+tuberculosis` H37Rv. El objetivo fue crear una referencia pequena, trazable y
+auditable para validar el contrato multi-organismo de Nodos Funcionales sin
+convertir H37Rv en default universal del proyecto.
 
 Este plan no contiene datos biologicos curados, no descarga fuentes externas y
-no modifica reglas de scoring. Solo establece criterios para decidir que debe
-llenarse antes de congelar un snapshot.
+no modifica reglas de scoring. Solo conserva criterios para auditar que debe
+llenarse antes de congelar o ampliar un snapshot.
 
 ## 2. Por que H37Rv es util
 
@@ -37,8 +53,9 @@ Su valor dentro del proyecto es tecnico y metodologico:
 
 ## 4. Capas minimas requeridas
 
-Antes de considerar listo un snapshot H37Rv, deben prepararse archivos pequenos
-y revisados para estas capas, usando las plantillas existentes cuando aplique:
+Antes de considerar listo o ampliable un snapshot H37Rv, deben existir archivos
+pequenos y revisados para estas capas, usando las plantillas existentes cuando
+aplique:
 
 - `organism_profile`: identidad del organismo, cepa, taxon id, alcance de cepa o
   especie y notas de limitacion.
@@ -103,8 +120,8 @@ Reglas adicionales:
 
 ## 7. Fuentes candidatas para consulta posterior
 
-Estas fuentes pueden evaluarse en una fase futura. Este plan no descarga ni
-consulta ninguna de ellas:
+Estas fuentes pueden evaluarse en una validacion online futura. Este plan no
+descarga ni consulta ninguna de ellas:
 
 - Mycobrowser.
 - TBDB, si sigue aplicando y se define su estado de mantenimiento.
@@ -121,7 +138,8 @@ estado de confianza.
 
 ## 8. Criterios minimos de listo
 
-El snapshot H37Rv puede considerarse listo para versionarse solo si cumple:
+Un snapshot H37Rv puede considerarse listo para versionarse o ampliarse solo si
+cumple:
 
 - identidad taxonomica documentada, indicando si se usa taxon id de cepa o de
   especie;

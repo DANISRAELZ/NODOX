@@ -2,6 +2,11 @@
 
 Fecha: 2026-05-08
 
+Nota de estado: este documento conserva el cierre historico de la fase de
+separacion y enriquecimiento online. El estado de release actual ya supero el
+bloqueo local descrito abajo: la suite offline `not online` fue restaurada y
+pasa al 100% en el entorno `.venv` del repositorio.
+
 ## Referencias eliminadas o renombradas
 
 - `src/nodos_funcionales/cpseudo_import.py` fue renombrado a `src/nodos_funcionales/generic_annotation_import.py`.
@@ -56,7 +61,11 @@ Resultado: OK, taxon id `1719`, reportes generados, capas vacias marcadas como `
 - Ejemplo `online_optional --force-refresh`: bloqueado por el runtime local con `OPENSSL_Uplink ... no OPENSSL_Applink` antes de que la excepcion pueda manejarse en Python. Se repitio con permisos escalados y el resultado fue el mismo.
 - Corrida del pipeline sobre el workspace generico: OK informativo; no ejecuta ranking porque faltan capas obligatorias con filas reales.
 
-La suite offline completa queda pendiente por el mismo bloqueo OpenSSL observado previamente en pruebas existentes del resolvedor online.
+En esta fase historica, la suite offline completa habia quedado pendiente por
+el mismo bloqueo OpenSSL observado previamente en pruebas existentes del
+resolvedor online. Ese pendiente ya no representa el estado actual del proyecto:
+la suite offline `not online` pasa al 100% en el entorno local preparado para
+release.
 
 ## Limitaciones
 
@@ -64,7 +73,7 @@ La suite offline completa queda pendiente por el mismo bloqueo OpenSSL observado
 - Sin datos locales, algunas capas obligatorias para ranking completo pueden seguir incompletas.
 - `evolutionary_escape_risk.csv` usa `unknown` o `insufficient_evidence` cuando no hay pangenoma, variantes, HGT, movilidad o resistoma.
 
-## Estado de git final
+## Estado de git final de esta fase historica
 
 La rama de trabajo es `codex-project-separation-online-enrichment`.
 
