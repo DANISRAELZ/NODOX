@@ -105,6 +105,10 @@ Las capas principales son `essentiality`, `virulence`, `human_homologs`,
 `clinical_impact`, `curated_disease_context` y `therapy_site_context`.
 Cada archivo debe respetar los encabezados de `data_templates/`.
 
+Para iniciar una validacion con datos reales proporcionados por el usuario, ver
+`docs/user_curated_validation_protocol.md`. Ese protocolo define `user_curated`
+y lo separa de `controlled_reference`, demo, proxy, cache y online.
+
 La capa opcional `literature_support` permite preparar curacion bibliografica
 manual. Por defecto se valida y normaliza si existe, se reporta como evidencia
 interpretativa en `results/literature_support_summary.*` y no cambia los
@@ -850,4 +854,5 @@ python -m unittest discover -s tests -v
 - [Collateral sensitivity](docs/collateral_sensitivity.md)
 - [Phase 3 scoring](docs/phase3_scoring.md)
 - [Dataset import](docs/dataset_import.md)
+- [User-curated validation protocol](docs/user_curated_validation_protocol.md)
 - [Workspace comparison](docs/workspace_comparison.md)

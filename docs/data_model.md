@@ -4,6 +4,11 @@ El modelo de datos codifica las capas computacionales de la Teoria de Nodos
 Funcionales. Cada columna debe ayudar a explicar un nodo, su evidencia, su
 confianza o su contexto terapeutico, sin asumir un organismo central.
 
+Para validaciones `user_curated`, los archivos de entrada deben seguir las
+plantillas de `data_templates/` y declarar procedencia real del usuario. El
+protocolo operativo esta en `docs/user_curated_validation_protocol.md` y separa
+datos de usuario de demo, proxy, cache, online y `controlled_reference`.
+
 ## Capa de identificación
 
 - `protein_id_original`

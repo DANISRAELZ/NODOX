@@ -28,10 +28,13 @@ La arquitectura final se interpreta como una cadena de auditoria:
 4. Snapshots controlados: validan contratos de estructura y procedencia en
    ejemplos separados como PAO1, Corynebacterium y H37Rv, sin sustituir datos
    reales del usuario ni evidencia externa fresca.
-5. Limites interpretativos: ausencia o insuficiencia de evidencia no equivale a
+5. Validacion `user_curated`: usa datos reales aportados o revisados por el
+   usuario en un workspace separado, sin mezclar demo, proxy, cache,
+   `controlled_reference` u online fresco como evidencia principal.
+6. Limites interpretativos: ausencia o insuficiencia de evidencia no equivale a
    bajo riesgo, ausencia biologica, evidencia negativa ni irrelevancia
    terapeutica.
-6. Validacion online futura: STRING y UniProt deben ejecutarse solo bajo modos
+7. Validacion online futura: STRING y UniProt deben ejecutarse solo bajo modos
    `online_optional` o protocolos auditables, en workspaces separados y sin
    mezclar resultados frescos con snapshots, cache mutable, proxy, demo o datos
    de usuario.

@@ -5,6 +5,12 @@
 `import_dataset.py` ayuda a convertir exports tabulares del usuario al esquema
 interno del workspace sin editar manualmente las columnas una por una.
 
+Para validaciones con datos reales de usuario, usar este importador como apoyo
+del protocolo `user_curated` descrito en
+`docs/user_curated_validation_protocol.md`. El importador normaliza columnas,
+pero no convierte automaticamente un export en evidencia curada: la procedencia
+y la revision biologica deben quedar declaradas por el usuario.
+
 ## Uso
 
 ```bash
