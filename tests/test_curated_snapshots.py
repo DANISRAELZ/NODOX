@@ -83,6 +83,54 @@ def test_multiple_curated_snapshots_validate_together() -> None:
 
 
 @pytest.mark.unit
+def test_controlled_snapshots_coexist_without_organism_coupling_or_source_mixing() -> None:
+    snapshots = {
+        "pao1": load_curated_snapshot(PAO1_SNAPSHOT_DIR),
+        "corynebacterium": load_curated_snapshot(CORY_SNAPSHOT_DIR),
+        "h37rv": load_curated_snapshot(H37RV_SNAPSHOT_DIR),
+    }
+
+    snapshot_ids = {snapshot["metadata"]["snapshot_id"] for snapshot in snapshots.values()}
+    organism_scopes = {
+        (snapshot["metadata"]["organism"], snapshot["metadata"].get("strain"), snapshot["metadata"].get("biovar"))
+        for snapshot in snapshots.values()
+    }
+
+    assert len(snapshot_ids) == 3
+    assert len(organism_scopes) == 3
+    assert snapshots["pao1"]["metadata"]["evidence_status"] == "controlled_demo_reference"
+    assert snapshots["corynebacterium"]["metadata"]["evidence_status"] == "controlled_reference_snapshot"
+    assert snapshots["h37rv"]["metadata"]["evidence_status"] == "controlled_reference_snapshot"
+
+    for key, snapshot in snapshots.items():
+        metadata = snapshot["metadata"]
+        sources = snapshot["sources_manifest"]["sources"]
+        serialized_sources = json.dumps(sources, ensure_ascii=False)
+
+        assert metadata["network_policy"] in {"no_network", "no_fresh_network_calls"}
+        assert all(source["retrieval_status"] != "fresh_api_run" for source in sources)
+        assert "data_sessions" not in serialized_sources
+        assert "results/" not in serialized_sources
+
+        if key == "pao1":
+            assert metadata["evidence_status"] == "controlled_demo_reference"
+            assert "curated_demo" in metadata["allowed_sources"]
+            assert all(
+                source["cache_status"] in {"not_cache", "frozen_cache_reference"}
+                for source in sources
+            )
+            assert all(
+                source["evidence_kind"] == "cached_external_reference"
+                for source in sources
+                if source["is_real_external"]
+            )
+        else:
+            assert all(source["cache_status"] != "frozen_cache_reference" for source in sources)
+            assert all(source["is_real_external"] is False for source in sources)
+            assert "demo" not in json.dumps(metadata["allowed_sources"], ensure_ascii=False).casefold()
+
+
+@pytest.mark.unit
 def test_snapshots_can_be_listed_and_loaded_by_id_without_organism_specific_function() -> None:
     snapshot_dirs = list_available_snapshots(SNAPSHOTS_ROOT)
 
