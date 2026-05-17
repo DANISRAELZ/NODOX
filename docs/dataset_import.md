@@ -11,6 +11,12 @@ del protocolo `user_curated` descrito en
 pero no convierte automaticamente un export en evidencia curada: la procedencia
 y la revision biologica deben quedar declaradas por el usuario.
 
+Para dejar trazabilidad por archivo, completar tambien un manifest basado en
+`data_templates/user_curated_dataset_manifest_template.csv`. Ese manifest
+describe el dataset, su version, curador, procedencia, esquema de entrada y si
+es requerido para scoring; no cambia la logica de importacion ni ejecuta el
+pipeline.
+
 ## Uso
 
 ```bash

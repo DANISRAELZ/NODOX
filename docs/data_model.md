@@ -8,6 +8,9 @@ Para validaciones `user_curated`, los archivos de entrada deben seguir las
 plantillas de `data_templates/` y declarar procedencia real del usuario. El
 protocolo operativo esta en `docs/user_curated_validation_protocol.md` y separa
 datos de usuario de demo, proxy, cache, online y `controlled_reference`.
+La plantilla `data_templates/user_curated_dataset_manifest_template.csv`
+documenta metadatos por dataset curado; es un registro operativo y no una capa
+de features para scoring.
 
 ## Capa de identificación
 

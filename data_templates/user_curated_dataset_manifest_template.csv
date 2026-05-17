@@ -1,0 +1,2 @@
+organism,strain,dataset_id,dataset_version,curator_name,curation_date,source_type,evidence_status,evidence_kind,provenance,input_file,input_schema,required_for_scoring,notes
+<organism_name>,<strain_or_isolate>,<dataset_id>,<dataset_version>,<curator_name>,<YYYY-MM-DD>,user_curated,<reviewed_or_pending>,<experimental_or_literature_or_local_export>,<source_description_or_reference>,<input_file_name>,<data_templates/schema_template.csv>,<true_or_false>,<short_notes_about_scope_limits_or_missingness>

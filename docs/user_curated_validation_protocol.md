@@ -68,6 +68,12 @@ Tambien puede importarlas con `import_dataset.py`, que materializa los CSVs en
 `workspace/data_raw/` y conserva copias del export original en
 `workspace/data_raw/source_exports/`.
 
+Ademas, se recomienda mantener un manifest de datasets curados usando
+`data_templates/user_curated_dataset_manifest_template.csv`. Ese manifest no
+alimenta el scoring; sirve para declarar, por cada archivo de usuario, organismo,
+cepa, version, curador, procedencia, estado de evidencia, esquema usado y si la
+capa es requerida para scoring.
+
 Columnas minimas esperadas segun `data_templates/`:
 
 | Archivo | Columnas principales |
@@ -106,6 +112,7 @@ resume los insumos esperados o recomendados para una validacion `user_curated`.
 | Recomendado | `data_raw/collateral_sensitivity.csv` | `data_templates/collateral_sensitivity_template.csv` | Sensibilidad colateral y oportunidades de combinacion. |
 | Recomendado | `data_raw/evidence_quality.csv` | `data_templates/evidence_quality_template.csv` | Calidad de evidencia, techo de confianza y flags de auditoria. |
 | Recomendado | `organism_profile.csv` o documentacion equivalente | `data_templates/organism_profile_template.csv` | Organismo, cepa, taxonomia, proteoma, curador y alcance. |
+| Recomendado | `user_curated_dataset_manifest.csv` | `data_templates/user_curated_dataset_manifest_template.csv` | Manifest de trazabilidad por dataset curado; no modifica scores. |
 
 Las plantillas con filas de ejemplo no convierten esos ejemplos en evidencia
 real. Para esta fase, el usuario debe reemplazar los ejemplos por datos propios
@@ -187,6 +194,8 @@ puntos:
   organismos demo;
 - declara procedencia suficientemente informativa en `database` u otra columna
   de fuente;
+- esta registrado en un manifest `user_curated` o documentacion equivalente con
+  `source_type=user_curated`;
 - distingue evidencia directa, literatura, base externa revisada, inferencia,
   proxy y faltante;
 - conserva referencias, version de herramienta, fecha, curador o notas cuando
