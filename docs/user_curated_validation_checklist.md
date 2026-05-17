@@ -44,6 +44,9 @@ controlada.
 ## 3. Manifest `user_curated`
 
 Usar `data_templates/user_curated_dataset_manifest_template.csv` como guia.
+Como prevalidacion estructural opcional antes de importar, puede llamarse
+`validate_user_curated_manifest()` desde Python. Esta funcion devuelve errores
+del manifest, pero no valida biologicamente el dataset ni calcula scores.
 
 - [ ] Existe un manifest para los archivos a revisar o una documentacion
   equivalente.

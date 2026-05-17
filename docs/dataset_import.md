@@ -17,6 +17,33 @@ describe el dataset, su version, curador, procedencia, esquema de entrada y si
 es requerido para scoring; no cambia la logica de importacion ni ejecuta el
 pipeline.
 
+## Prevalidar el manifest
+
+Antes de importar datos, puede revisarse la estructura y procedencia minima del
+manifest con `validate_user_curated_manifest()`. Esta utilidad no ejecuta el
+pipeline, no calcula scores y no valida biologicamente el dataset; solo devuelve
+errores de contrato del manifest para decidir si puede avanzar a revision o
+importacion.
+
+```python
+from pathlib import Path
+
+from src.nodos_funcionales.user_curated_validation import validate_user_curated_manifest
+
+manifest_path = Path("path/to/user_curated_dataset_manifest.csv")
+errors = validate_user_curated_manifest(manifest_path)
+
+if errors:
+    for error in errors:
+        print(error)
+else:
+    print("Manifest listo para revision/importacion.")
+```
+
+Una lista vacia significa que el manifest cumple la prevalidacion estructural
+minima. No significa que el dataset este aceptado cientificamente ni que pueda
+usarse para conclusiones terapeuticas.
+
 ## Uso
 
 ```bash

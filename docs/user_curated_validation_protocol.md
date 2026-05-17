@@ -74,6 +74,11 @@ alimenta el scoring; sirve para declarar, por cada archivo de usuario, organismo
 cepa, version, curador, procedencia, estado de evidencia, esquema usado y si la
 capa es requerida para scoring.
 
+El manifest puede prevalidarse con
+`validate_user_curated_manifest()` antes de importar datos. Esta revision es
+estructural y de procedencia minima; no equivale a validacion biologica, scoring
+ni aceptacion cientifica del dataset.
+
 Columnas minimas esperadas segun `data_templates/`:
 
 | Archivo | Columnas principales |
