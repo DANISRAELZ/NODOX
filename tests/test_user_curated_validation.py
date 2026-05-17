@@ -152,3 +152,24 @@ def test_validate_user_curated_manifest_cli_reports_errors(tmp_path: Path) -> No
     assert result.returncode != 0
     assert "Manifest user_curated invalido" in result.stderr
     assert "source_type must be user_curated" in result.stderr
+
+
+def test_validate_user_curated_manifest_cli_reports_missing_file(tmp_path: Path) -> None:
+    missing_manifest = tmp_path / "missing_manifest.csv"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(PROJECT_ROOT / "scripts" / "validate_user_curated_manifest.py"),
+            str(missing_manifest),
+        ],
+        cwd=PROJECT_ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "Manifest user_curated invalido" in result.stderr
+    assert "does not exist" in result.stderr
