@@ -50,6 +50,14 @@ class WindowsScriptsExistTests(unittest.TestCase):
         self.assertIn('-m "not online"', text)
         self.assertIn("Stable offline", text)
 
+    def test_user_curated_manifest_validation_cli_exists(self) -> None:
+        path = PROJECT_ROOT / "scripts" / "validate_user_curated_manifest.py"
+        self.assertTrue(path.exists())
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("validate_user_curated_manifest", text)
+        self.assertIn("pipeline", text)
+        self.assertIn("scoring", text)
+
     def test_demo_script_labels_pao1_as_demo_only(self) -> None:
         text = (PROJECT_ROOT / "scripts" / "run_demo.ps1").read_text(encoding="utf-8")
         self.assertIn("PAO1 demo pipeline", text)
@@ -77,6 +85,7 @@ class WindowsScriptsExistTests(unittest.TestCase):
         self.assertIn("PowerShell", text)
         self.assertIn("PYTHON_EXE", text)
         self.assertIn("Corynebacterium pseudotuberculosis", text)
+        self.assertIn("validate_user_curated_manifest.py", text)
         self.assertIn("<RUTA_DEL_REPOSITORIO>", text)
         self.assertNotIn("C:\\Users\\danis", text)
 

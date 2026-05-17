@@ -42,6 +42,19 @@ Tambien puedes pasarlo como parametro:
 
 Este script ejecuta pruebas principales y pruebas nuevas si existen.
 
+## Prevalidar manifest user_curated
+
+Antes de importar datos reales de usuario, se puede revisar el manifest sin
+ejecutar importacion, pipeline ni scoring:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\validate_user_curated_manifest.py <ruta_manifest.csv>
+```
+
+El comando devuelve codigo `0` si el manifest cumple la estructura minima y un
+codigo distinto de `0` si debe corregirse. Esta revision solo comprueba contrato
+de columnas y procedencia minima; no valida biologicamente el dataset.
+
 ## Ejecutar demo
 
 ```powershell
