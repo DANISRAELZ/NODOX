@@ -11,6 +11,7 @@ SCRIPT_NAMES = [
     "run_cpseudo_dryrun.ps1",
     "run_corynebacterium_online_demo.ps1",
     "clean_project.ps1",
+    "validate_user_curated_manifest.ps1",
 ]
 
 
@@ -26,6 +27,7 @@ class WindowsScriptsExistTests(unittest.TestCase):
             "run_demo.ps1",
             "run_cpseudo_dryrun.ps1",
             "run_corynebacterium_online_demo.ps1",
+            "validate_user_curated_manifest.ps1",
         ]:
             with self.subTest(script=script_name):
                 text = (PROJECT_ROOT / "scripts" / script_name).read_text(encoding="utf-8")
@@ -38,6 +40,7 @@ class WindowsScriptsExistTests(unittest.TestCase):
             "run_tests.ps1",
             "run_demo.ps1",
             "run_corynebacterium_online_demo.ps1",
+            "validate_user_curated_manifest.ps1",
         ]:
             with self.subTest(script=script_name):
                 text = (PROJECT_ROOT / "scripts" / script_name).read_text(encoding="utf-8")
@@ -57,6 +60,16 @@ class WindowsScriptsExistTests(unittest.TestCase):
         self.assertIn("validate_user_curated_manifest", text)
         self.assertIn("pipeline", text)
         self.assertIn("scoring", text)
+
+    def test_user_curated_manifest_validation_powershell_wrapper_exists(self) -> None:
+        path = PROJECT_ROOT / "scripts" / "validate_user_curated_manifest.ps1"
+        self.assertTrue(path.exists())
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("ManifestPath", text)
+        self.assertIn("Resolve-Python", text)
+        self.assertIn(".venv\\Scripts\\python.exe", text)
+        self.assertIn("validate_user_curated_manifest.py", text)
+        self.assertIn("exit $LASTEXITCODE", text)
 
     def test_demo_script_labels_pao1_as_demo_only(self) -> None:
         text = (PROJECT_ROOT / "scripts" / "run_demo.ps1").read_text(encoding="utf-8")
@@ -86,6 +99,7 @@ class WindowsScriptsExistTests(unittest.TestCase):
         self.assertIn("PYTHON_EXE", text)
         self.assertIn("Corynebacterium pseudotuberculosis", text)
         self.assertIn("validate_user_curated_manifest.py", text)
+        self.assertIn("validate_user_curated_manifest.ps1", text)
         self.assertIn("<RUTA_DEL_REPOSITORIO>", text)
         self.assertNotIn("C:\\Users\\danis", text)
 

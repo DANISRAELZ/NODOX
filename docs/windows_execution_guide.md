@@ -51,6 +51,13 @@ ejecutar importacion, pipeline ni scoring:
 .\.venv\Scripts\python.exe scripts\validate_user_curated_manifest.py <ruta_manifest.csv>
 ```
 
+Tambien existe un wrapper PowerShell opcional que resuelve Python igual que los
+otros scripts del proyecto:
+
+```powershell
+.\scripts\validate_user_curated_manifest.ps1 -ManifestPath <ruta_manifest.csv>
+```
+
 El comando devuelve codigo `0` si el manifest cumple la estructura minima y un
 codigo distinto de `0` si debe corregirse. Esta revision solo comprueba contrato
 de columnas y procedencia minima; no valida biologicamente el dataset.

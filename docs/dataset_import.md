@@ -50,6 +50,12 @@ La misma revision puede ejecutarse desde consola:
 .\.venv\Scripts\python.exe scripts\validate_user_curated_manifest.py path\to\user_curated_dataset_manifest.csv
 ```
 
+En Windows tambien puede usarse el wrapper opcional:
+
+```powershell
+.\scripts\validate_user_curated_manifest.ps1 -ManifestPath path\to\user_curated_dataset_manifest.csv
+```
+
 El comando devuelve codigo `0` si no hay errores y un codigo distinto de `0` si
 el manifest debe corregirse. No llama a `import_dataset.py`, `run_pipeline.py`
 ni Snakemake.
