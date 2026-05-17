@@ -6,6 +6,40 @@ bacteriano puede analizarse mediante un workspace independiente, capas
 estandarizadas y auditoria de procedencia. Los organismos nombrados en demos,
 tests o cache son ejemplos de uso y validacion, no dependencias del modelo.
 
+## Cierre metodologico theory-first
+
+La Teoria de Nodos Funcionales es el centro conceptual del proyecto. El
+software, los pipelines, los importadores, los reportes, los snapshots
+controlados y las validaciones online solo operacionalizan y auditan esa teoria:
+no la sustituyen ni convierten un organismo ejemplo en organismo central.
+
+La arquitectura final se interpreta como una cadena de auditoria:
+
+1. Teoria de Nodos Funcionales: define que un blanco terapeutico debe evaluarse
+   por su posicion funcional, contexto biologico, trazabilidad y capacidad de
+   restringir rutas de escape.
+2. Capas de evidencia: integran datos del usuario, evidencia externa trazable,
+   referencias controladas, cache, proxy, demo o faltantes, siempre con
+   procedencia explicita.
+3. Subcapa evolutiva: conserva como eje vital `evolutionary_escape_risk`,
+   `evolutionary_constraint`, `mutation_tolerance`, `pathway_redundancy`,
+   `paralog_count`, `mobile_context`, `hgt_context`, `recombination_context` y
+   `resistance_association`.
+4. Snapshots controlados: validan contratos de estructura y procedencia en
+   ejemplos separados como PAO1, Corynebacterium y H37Rv, sin sustituir datos
+   reales del usuario ni evidencia externa fresca.
+5. Limites interpretativos: ausencia o insuficiencia de evidencia no equivale a
+   bajo riesgo, ausencia biologica, evidencia negativa ni irrelevancia
+   terapeutica.
+6. Validacion online futura: STRING y UniProt deben ejecutarse solo bajo modos
+   `online_optional` o protocolos auditables, en workspaces separados y sin
+   mezclar resultados frescos con snapshots, cache mutable, proxy, demo o datos
+   de usuario.
+
+El enfoque sigue siendo multiorganismo: cualquier usuario debe poder ingresar
+informacion de cualquier organismo bacteriano, siempre que las capas se declaren
+con procedencia, confianza y limitaciones suficientes.
+
 ## Objetivo
 
 La Fase 2 transforma un ranking lineal en una plataforma modular y auditable.
