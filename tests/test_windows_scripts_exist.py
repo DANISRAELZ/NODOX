@@ -44,6 +44,12 @@ class WindowsScriptsExistTests(unittest.TestCase):
                 self.assertNotIn("C:\\Users\\danis", text)
                 self.assertIn("$env:USERPROFILE", text)
 
+    def test_run_tests_script_uses_stable_offline_suite(self) -> None:
+        text = (PROJECT_ROOT / "scripts" / "run_tests.ps1").read_text(encoding="utf-8")
+        self.assertIn("-p no:cacheprovider", text)
+        self.assertIn('-m "not online"', text)
+        self.assertIn("Stable offline", text)
+
     def test_demo_script_labels_pao1_as_demo_only(self) -> None:
         text = (PROJECT_ROOT / "scripts" / "run_demo.ps1").read_text(encoding="utf-8")
         self.assertIn("PAO1 demo pipeline", text)
