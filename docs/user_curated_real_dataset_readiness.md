@@ -65,6 +65,18 @@ La plantilla versionada para documentar una carpeta local de staging esta en
 dentro de la carpeta local ignorada cuando se necesite documentar el paquete de
 entrada; no copiar datos reales de vuelta al repositorio.
 
+Opcionalmente, la estructura vacia puede crearse con:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\create_user_curated_staging.py <project_id>
+```
+
+El script crea solo carpetas locales ignoradas, `manifest.csv` desde
+`data_templates/user_curated_dataset_manifest_template.csv` y `README.md` desde
+`docs/templates/user_curated_staging_README_template.md`. No descarga datos, no
+importa datasets, no ejecuta pipeline y no calcula scoring. Si la carpeta del
+proyecto ya existe, se detiene sin sobrescribir archivos.
+
 ## 3. Copiar el manifest template
 
 Copiar la plantilla:
