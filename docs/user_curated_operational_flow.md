@@ -18,6 +18,8 @@ pipeline ni calcular scoring. Para validar solo el scaffold local puede usarse
 `.\.venv\Scripts\python.exe scripts\create_user_curated_staging.py test_user_curated_scaffold`;
 la carpeta creada queda ignorada por Git y puede borrarse con
 `Remove-Item -Recurse -Force user_curated_staging\test_user_curated_scaffold`.
+El arranque operativo del primer dataset real esta en
+`docs/first_user_curated_dataset_startup.md`.
 
 El objetivo es asegurar que cada archivo real aportado o revisado por el
 usuario tenga estructura minima, procedencia clara y separacion estricta frente
