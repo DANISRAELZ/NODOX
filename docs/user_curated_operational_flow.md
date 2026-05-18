@@ -14,7 +14,10 @@ datos sensibles. Si se necesita un README local para esa carpeta, copiar
 manualmente `docs/templates/user_curated_staging_README_template.md` dentro del
 staging ignorado. La utilidad opcional `scripts/create_user_curated_staging.py`
 puede crear esa estructura vacia sin descargar datos, importar, ejecutar
-pipeline ni calcular scoring.
+pipeline ni calcular scoring. Para validar solo el scaffold local puede usarse
+`.\.venv\Scripts\python.exe scripts\create_user_curated_staging.py test_user_curated_scaffold`;
+la carpeta creada queda ignorada por Git y puede borrarse con
+`Remove-Item -Recurse -Force user_curated_staging\test_user_curated_scaffold`.
 
 El objetivo es asegurar que cada archivo real aportado o revisado por el
 usuario tenga estructura minima, procedencia clara y separacion estricta frente

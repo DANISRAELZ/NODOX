@@ -77,6 +77,21 @@ El script crea solo carpetas locales ignoradas, `manifest.csv` desde
 importa datasets, no ejecuta pipeline y no calcula scoring. Si la carpeta del
 proyecto ya existe, se detiene sin sobrescribir archivos.
 
+Validacion operativa opcional del scaffold:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\create_user_curated_staging.py test_user_curated_scaffold
+```
+
+Ese comando debe crear `user_curated_staging/test_user_curated_scaffold/` con
+`manifest.csv`, `README.md`, `raw_inputs/`, `notes/` y `provenance/`. La carpeta
+debe permanecer local e ignorada por Git; no debe agregarse al repositorio. Si
+solo se uso para probar el scaffold, puede eliminarse con:
+
+```powershell
+Remove-Item -Recurse -Force user_curated_staging\test_user_curated_scaffold
+```
+
 ## 3. Copiar el manifest template
 
 Copiar la plantilla:
