@@ -50,12 +50,20 @@ Uso recomendado:
 - `notes/`: decisiones de curacion, faltantes y limites.
 - `provenance/`: referencias, versiones de herramientas, citas o descripcion
   de origen.
+- `README.md`: copia local opcional de
+  `docs/templates/user_curated_staging_README_template.md` para resumir
+  alcance, archivos, procedencia y estado de validacion sin versionar datos.
 
 Esta carpeta es local/de trabajo. No debe versionarse por defecto si contiene
 datos reales, privados, clinicos, sensibles o aun no liberados. No ejecutar
 `git add .` sobre ella. Las rutas sugeridas `user_curated_staging/`,
 `local_user_curated_data/` y `private_user_curated_data/` estan pensadas como
 carpetas locales ignoradas por `.gitignore`, no como artefactos del repositorio.
+
+La plantilla versionada para documentar una carpeta local de staging esta en
+`docs/templates/user_curated_staging_README_template.md`. Copiarla manualmente
+dentro de la carpeta local ignorada cuando se necesite documentar el paquete de
+entrada; no copiar datos reales de vuelta al repositorio.
 
 ## 3. Copiar el manifest template
 

@@ -10,7 +10,9 @@ Sirve como guia practica entre el protocolo cientifico y el uso de
 Antes de importar un primer dataset real, usar
 `docs/user_curated_real_dataset_readiness.md` para organizar una carpeta local
 de staging ignorada por `.gitignore`, revisar procedencia y evitar versionar
-datos sensibles.
+datos sensibles. Si se necesita un README local para esa carpeta, copiar
+manualmente `docs/templates/user_curated_staging_README_template.md` dentro del
+staging ignorado.
 
 El objetivo es asegurar que cada archivo real aportado o revisado por el
 usuario tenga estructura minima, procedencia clara y separacion estricta frente
