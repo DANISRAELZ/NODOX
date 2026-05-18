@@ -92,3 +92,42 @@ def test_user_curated_staging_readme_template_contract() -> None:
 
     for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
         assert forbidden_default not in template_text
+
+
+def test_first_user_curated_dataset_startup_document_contract() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    doc_path = project_root / "docs" / "first_user_curated_dataset_startup.md"
+
+    assert doc_path.exists()
+
+    doc_text = doc_path.read_text(encoding="utf-8")
+    required_terms = {
+        "user_curated_staging",
+        "create_user_curated_staging.py",
+        "manifest.csv",
+        "README.md",
+        "raw_inputs",
+        "provenance",
+        "notes",
+        "source_type=user_curated",
+        "git status --short",
+    }
+    for term in required_terms:
+        assert term in doc_text
+
+    required_warnings = {
+        "sin versionar datos reales",
+        "No ejecutar",
+        "pipeline",
+        "scoring",
+        "demo, proxy, cache",
+        "user_curated",
+        "validacion biologica",
+        "terapeutica",
+        "clinica",
+    }
+    for warning in required_warnings:
+        assert warning in doc_text
+
+    for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
+        assert forbidden_default not in doc_text

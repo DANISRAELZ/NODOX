@@ -253,7 +253,8 @@ Detener el flujo si:
 - hay mezcla con demo, proxy, cache, online o `controlled_reference`;
 - se usan defaults de organismos de ejemplo;
 - se intenta ejecutar pipeline o scoring antes de revision;
-- se pretende interpretar la prevalidacion como validacion biologica o clinica;
+- se pretende interpretar la prevalidacion como validacion biologica,
+  terapeutica o clinica;
 - hay datos sensibles en rutas versionadas.
 
 ## Relacion con otros documentos
