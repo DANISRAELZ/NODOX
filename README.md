@@ -114,6 +114,8 @@ estructuralmente con `validate_user_curated_manifest()` antes de importar datos.
 El flujo operativo completo, desde copiar la plantilla hasta importar con
 prevalidacion opt-in y detenerse antes de scoring/pipeline, esta en
 `docs/user_curated_operational_flow.md`.
+Para preparar un primer dataset real sin versionar datos sensibles, revisar
+`docs/user_curated_real_dataset_readiness.md` antes de importar.
 
 La capa opcional `literature_support` permite preparar curacion bibliografica
 manual. Por defecto se valida y normaliza si existe, se reporta como evidencia
