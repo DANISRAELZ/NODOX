@@ -63,6 +63,19 @@ def _run_import_dataset(args: list[str]) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _versioned_output_files() -> set[Path]:
+    protected_dirs = [
+        PROJECT_ROOT / "results",
+        PROJECT_ROOT / "data_processed",
+        PROJECT_ROOT / "data_sessions",
+    ]
+    files: set[Path] = set()
+    for directory in protected_dirs:
+        if directory.exists():
+            files.update(path.relative_to(PROJECT_ROOT) for path in directory.rglob("*") if path.is_file())
+    return files
+
+
 def test_import_dataset_without_manifest_flag_keeps_previous_behavior(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     _write_workspace_config(workspace)
@@ -137,3 +150,56 @@ def test_import_dataset_with_invalid_user_curated_manifest_stops_before_import(t
     assert "Manifest user_curated invalido" in result.stderr
     assert "source_type must be user_curated" in result.stderr
     assert not (workspace / "data_raw" / "virulence.csv").exists()
+
+
+def test_user_curated_operational_flow_is_prevalidated_and_tmp_only(tmp_path: Path) -> None:
+    before_outputs = _versioned_output_files()
+    workspace = tmp_path / "workspace"
+    _write_workspace_config(workspace)
+    source = tmp_path / "source" / "virulence_export.csv"
+    valid_manifest = tmp_path / "manifest" / "valid_user_curated_dataset_manifest.csv"
+    invalid_manifest = tmp_path / "manifest" / "invalid_user_curated_dataset_manifest.csv"
+    _write_virulence_export(source)
+    _write_manifest(valid_manifest, _valid_manifest_row())
+    _write_manifest(invalid_manifest, _valid_manifest_row(source_type="cache"))
+
+    valid_result = _run_import_dataset(
+        [
+            "--workspace",
+            str(workspace),
+            "--dataset",
+            "virulence",
+            "--input",
+            str(source),
+            "--validate-user-curated-manifest",
+            str(valid_manifest),
+        ]
+    )
+
+    assert valid_result.returncode == 0
+    assert "Manifest user_curated valido" in valid_result.stdout
+    assert "[OK] Dataset importado: virulence" in valid_result.stdout
+    assert (workspace / "data_raw" / "virulence.csv").exists()
+
+    blocked_workspace = tmp_path / "blocked_workspace"
+    _write_workspace_config(blocked_workspace)
+    missing_source = tmp_path / "source" / "missing_virulence_export.csv"
+    invalid_result = _run_import_dataset(
+        [
+            "--workspace",
+            str(blocked_workspace),
+            "--dataset",
+            "virulence",
+            "--input",
+            str(missing_source),
+            "--validate-user-curated-manifest",
+            str(invalid_manifest),
+        ]
+    )
+
+    assert invalid_result.returncode != 0
+    assert "Manifest user_curated invalido" in invalid_result.stderr
+    assert "source_type must be user_curated" in invalid_result.stderr
+    assert "No such file" not in invalid_result.stderr
+    assert not (blocked_workspace / "data_raw" / "virulence.csv").exists()
+    assert _versioned_output_files() == before_outputs
