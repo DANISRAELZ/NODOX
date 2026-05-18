@@ -53,7 +53,9 @@ Uso recomendado:
 
 Esta carpeta es local/de trabajo. No debe versionarse por defecto si contiene
 datos reales, privados, clinicos, sensibles o aun no liberados. No ejecutar
-`git add .` sobre ella.
+`git add .` sobre ella. Las rutas sugeridas `user_curated_staging/`,
+`local_user_curated_data/` y `private_user_curated_data/` estan pensadas como
+carpetas locales ignoradas por `.gitignore`, no como artefactos del repositorio.
 
 ## 3. Copiar el manifest template
 

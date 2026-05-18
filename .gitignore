@@ -28,6 +28,9 @@ data_external/curated_snapshots/*
 data_raw/
 data_sessions/
 data_user/
+user_curated_staging/
+local_user_curated_data/
+private_user_curated_data/
 
 # Generated outputs
 results/

@@ -11,7 +11,8 @@ del protocolo `user_curated` descrito en
 prevalidacion e importacion controlada esta descrito en
 `docs/user_curated_operational_flow.md`. Para preparar un primer dataset real
 en staging local antes de importarlo, ver
-`docs/user_curated_real_dataset_readiness.md`. El importador normaliza columnas,
+`docs/user_curated_real_dataset_readiness.md`; las rutas de staging sugeridas
+son locales e ignoradas por `.gitignore`. El importador normaliza columnas,
 pero no convierte automaticamente un export en evidencia curada: la procedencia
 y la revision biologica deben quedar declaradas por el usuario.
 
