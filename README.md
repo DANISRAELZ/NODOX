@@ -111,6 +111,9 @@ y lo separa de `controlled_reference`, demo, proxy, cache y online. Cada dataset
 real debe acompanarse de un manifest basado en
 `data_templates/user_curated_dataset_manifest_template.csv`, que puede revisarse
 estructuralmente con `validate_user_curated_manifest()` antes de importar datos.
+El flujo operativo completo, desde copiar la plantilla hasta importar con
+prevalidacion opt-in y detenerse antes de scoring/pipeline, esta en
+`docs/user_curated_operational_flow.md`.
 
 La capa opcional `literature_support` permite preparar curacion bibliografica
 manual. Por defecto se valida y normaliza si existe, se reporta como evidencia

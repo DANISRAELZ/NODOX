@@ -24,6 +24,9 @@ importacion.
   disponibles y brechas de trazabilidad.
 - `docs/user_curated_validation_checklist.md`: checklist operativo previo a
   importacion.
+- `docs/user_curated_operational_flow.md`: guia paso a paso para preparar el
+  manifest, prevalidarlo por CLI o PowerShell, usar la bandera opt-in de
+  `import_dataset.py` y detenerse antes de scoring o pipeline.
 - `src/nodos_funcionales/user_curated_validation.py`: validador puro
   `validate_user_curated_manifest(path)` que devuelve una lista de errores.
 - `scripts/validate_user_curated_manifest.py`: CLI minima para ejecutar la
@@ -101,7 +104,8 @@ historicas.
 
 El siguiente paso recomendado es probar la bandera con un dataset real revisado
 por el usuario en un workspace temporal o dedicado. Si la experiencia es clara,
-puede documentarse como flujo recomendado para nuevas cargas `user_curated`.
+seguir el flujo documentado en `docs/user_curated_operational_flow.md` para
+nuevas cargas `user_curated`.
 
 No se recomienda integrar esta prevalidacion directamente en `run_pipeline.py`
 ni en Snakemake hasta probarla con un dataset real revisado por el usuario.
