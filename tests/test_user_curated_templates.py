@@ -35,6 +35,68 @@ FORBIDDEN_ORGANISM_DEFAULTS = {
     "Mycobacterium tuberculosis",
 }
 
+USER_CURATED_ENTRY_TEMPLATES = {
+    "functional_annotations_template.csv": {
+        "organism",
+        "strain",
+        "protein_id",
+        "gene",
+        "functional_annotation",
+        "source_database",
+        "evidence_status",
+    },
+    "gene_list_template.csv": {
+        "organism",
+        "strain",
+        "protein_id",
+        "gene",
+        "source_database",
+        "evidence_status",
+    },
+    "conservation_template.csv": {
+        "organism",
+        "strain",
+        "protein_id",
+        "gene",
+        "conservation_scope",
+        "source_database",
+        "evidence_status",
+    },
+    "virulence_template.csv": {
+        "protein_id",
+        "gene",
+        "virulence_score",
+        "virulence_factor",
+        "database",
+    },
+    "essentiality_template.csv": {
+        "protein_id",
+        "gene",
+        "essential",
+        "evidence",
+        "database",
+    },
+    "external_sources_template.csv": {
+        "organism",
+        "strain",
+        "protein_id",
+        "gene",
+        "source_database",
+        "source_record_id",
+        "evidence_status",
+    },
+    "manual_curation_template.csv": {
+        "organism",
+        "strain",
+        "protein_id",
+        "gene",
+        "curator_name",
+        "curation_decision",
+        "evidence_status",
+    },
+    "user_curated_dataset_manifest_template.csv": set(EXPECTED_MANIFEST_COLUMNS),
+}
+
 
 def test_user_curated_dataset_manifest_template_contract() -> None:
     project_root = Path(__file__).resolve().parents[1]
@@ -131,3 +193,31 @@ def test_first_user_curated_dataset_startup_document_contract() -> None:
 
     for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
         assert forbidden_default not in doc_text
+
+
+def test_user_curated_entry_templates_contract() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    templates_dir = project_root / "data_templates"
+
+    for template_name, required_columns in USER_CURATED_ENTRY_TEMPLATES.items():
+        template_path = templates_dir / template_name
+        assert template_path.exists(), template_name
+
+        with template_path.open(newline="", encoding="utf-8") as handle:
+            rows = list(csv.reader(handle))
+
+        assert rows, template_name
+        header = set(rows[0])
+        assert required_columns <= header
+
+        template_text = template_path.read_text(encoding="utf-8")
+        for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
+            assert forbidden_default not in template_text
+
+    manifest_columns = set(
+        (templates_dir / "user_curated_dataset_manifest_template.csv")
+        .read_text(encoding="utf-8")
+        .splitlines()[0]
+        .split(",")
+    )
+    assert {"dataset_id", "source_type", "input_file", "input_schema"} <= manifest_columns

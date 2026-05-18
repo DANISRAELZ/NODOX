@@ -13,6 +13,13 @@ La validacion `user_curated` no busca demostrar eficacia clinica. Solo valida
 que el software operacionaliza la teoria con datos trazables del usuario y que
 separa procedencia, confianza, faltantes y limites de interpretacion.
 
+En la fase de entrada con archivos reales, `user_curated` tambien define el
+paquete local de trabajo que se prepara antes de importar datos. Ese paquete
+puede incluir anotaciones funcionales, listas de genes, conservacion,
+virulencia, esencialidad, exports externos revisados y curacion manual. La
+preparacion de esos archivos no ejecuta pipeline, no calcula scoring y no
+convierte automaticamente evidencia debil en evidencia fuerte.
+
 ## Definicion de `user_curated`
 
 Dentro de este proyecto, `user_curated` significa evidencia preparada,
@@ -51,6 +58,37 @@ centro de esta validacion.
 No deben ejecutarse llamadas online. Si despues se desea comparar STRING,
 UniProt u otro proveedor, eso debe ocurrir en una fase `online_optional`
 separada, con protocolo y workspace propios.
+
+## Estructura esperada de staging
+
+Los archivos reales deben organizarse primero en una carpeta local ignorada por
+Git:
+
+```text
+user_curated_staging/<dataset_id>/
+  README.md
+  manifest.csv
+  raw_inputs/
+  notes/
+  provenance/
+```
+
+Uso esperado:
+
+- `README.md`: resumen local del paquete, alcance, curador, estado de revision
+  y limites. No debe contener datos sensibles completos.
+- `manifest.csv`: copia local del manifest basado en
+  `data_templates/user_curated_dataset_manifest_template.csv`.
+- `raw_inputs/`: ubicacion local para archivos reales, como anotaciones
+  funcionales, lista de genes, tablas de conservacion, virulencia,
+  esencialidad, exports externos o tablas curadas manualmente.
+- `notes/`: decisiones de curacion, exclusiones, dudas, faltantes y conflictos.
+- `provenance/`: referencias, versiones de herramientas, citas, descripciones
+  de export y trazabilidad de origen.
+
+La carpeta `user_curated_staging/` es local e ignorada por `.gitignore`. No debe
+agregarse al repositorio ni mezclarse con `results/`, `data_processed/`,
+`data_sessions/`, snapshots curados o datos demo.
 
 ## Archivos minimos obligatorios
 
@@ -122,6 +160,29 @@ resume los insumos esperados o recomendados para una validacion `user_curated`.
 Las plantillas con filas de ejemplo no convierten esos ejemplos en evidencia
 real. Para esta fase, el usuario debe reemplazar los ejemplos por datos propios
 o dejar la capa ausente y declarar el faltante.
+
+Plantillas de entrada amplia para paquetes reales:
+
+| Archivo real esperado | Plantilla de referencia | Uso |
+| --- | --- | --- |
+| `functional_annotations.csv` | `data_templates/functional_annotations_template.csv` | Anotaciones funcionales revisadas por proteina o gen. |
+| `gene_list.csv` | `data_templates/gene_list_template.csv` | Inventario basico de genes/proteinas del paquete. |
+| `conservation.csv` | `data_templates/conservation_template.csv` | Conservacion por alcance, cepas, aislados o linajes definidos. |
+| `virulence.csv` | `data_templates/virulence_template.csv` | Evidencia de virulencia compatible con el pipeline. |
+| `essentiality.csv` | `data_templates/essentiality_template.csv` | Evidencia de esencialidad compatible con el pipeline. |
+| `external_sources.csv` | `data_templates/external_sources_template.csv` | Exports revisados de UniProt, STRING, VFDB, CARD u otras fuentes. |
+| `manual_curation.csv` | `data_templates/manual_curation_template.csv` | Decisiones de curacion manual y notas trazables por candidato. |
+| `manifest.csv` | `data_templates/user_curated_dataset_manifest_template.csv` | Declaracion de procedencia, version, esquema y estado por archivo. |
+
+Columnas minimas recomendadas:
+
+| Tipo de archivo | Columnas minimas |
+| --- | --- |
+| Anotaciones funcionales | `organism`, `strain`, `protein_id`, `gene`, `functional_annotation`, `source_database`, `evidence_status` |
+| Lista de genes | `organism`, `strain`, `protein_id`, `gene`, `source_database`, `evidence_status` |
+| Conservacion | `organism`, `strain`, `protein_id`, `gene`, `conservation_scope`, `source_database`, `evidence_status` |
+| Fuentes externas | `organism`, `strain`, `protein_id`, `gene`, `source_database`, `source_record_id`, `evidence_status` |
+| Curacion manual | `organism`, `strain`, `protein_id`, `gene`, `curator_name`, `curation_decision`, `evidence_status` |
 
 ## Capas recomendadas
 
@@ -252,6 +313,18 @@ Puede declararse que hubo ranking real si se cumplen todos estos puntos:
   evidencia fuerte;
 - las variables evolutivas presentes se interpretan como subcapa de robustez y
   restriccion del escape, no como prueba absoluta de bajo riesgo.
+
+## Score alto y confianza baja
+
+Un score alto no equivale por si solo a evidencia fuerte. Si un candidato tiene
+score alto pero baja confianza, faltantes relevantes, procedencia incompleta,
+proxy marcado o evidencia derivada de cache/demo/referencia controlada, debe
+interpretarse como hipotesis computacional priorizada, no como conclusion
+terapeutica robusta.
+
+La plataforma prioriza blancos terapeuticos bacterianos para exploracion y
+revision. No sustituye validacion experimental, revision microbiologica,
+evaluacion farmacologica, evaluacion clinica ni decisiones de uso terapeutico.
 
 Para Fase 3, si se activa en otra corrida, `ranking_nodos_phase3_real_candidates.csv`
 debe contener candidatos incluidos y el reporte debe indicar

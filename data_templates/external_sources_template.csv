@@ -1,0 +1,2 @@
+organism,strain,protein_id,gene,source_database,source_record_id,source_version,export_date,evidence_type,evidence_status,source_url_or_reference,curator_notes
+<organism_name>,<strain_or_isolate>,<protein_id>,<gene_name>,<source_database>,<source_record_id>,<source_version>,<YYYY-MM-DD>,<evidence_type>,<evidence_status>,<source_url_or_reference>,<curator_notes>

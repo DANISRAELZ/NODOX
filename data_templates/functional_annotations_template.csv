@@ -1,0 +1,2 @@
+organism,strain,protein_id,gene,functional_annotation,product_name,pathway,go_terms,ec_number,source_database,evidence_status,curator_notes
+<organism_name>,<strain_or_isolate>,<protein_id>,<gene_name>,<functional_annotation>,<product_name>,<pathway_or_process>,<go_terms>,<ec_number>,<source_database>,<evidence_status>,<curator_notes>

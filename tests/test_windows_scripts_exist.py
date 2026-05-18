@@ -12,6 +12,9 @@ SCRIPT_NAMES = [
     "run_corynebacterium_online_demo.ps1",
     "clean_project.ps1",
     "validate_user_curated_manifest.ps1",
+    "new_user_curated_dataset.ps1",
+    "validate_user_curated_dataset.ps1",
+    "run_user_curated_dataset.ps1",
 ]
 
 
@@ -28,6 +31,9 @@ class WindowsScriptsExistTests(unittest.TestCase):
             "run_cpseudo_dryrun.ps1",
             "run_corynebacterium_online_demo.ps1",
             "validate_user_curated_manifest.ps1",
+            "new_user_curated_dataset.ps1",
+            "validate_user_curated_dataset.ps1",
+            "run_user_curated_dataset.ps1",
         ]:
             with self.subTest(script=script_name):
                 text = (PROJECT_ROOT / "scripts" / script_name).read_text(encoding="utf-8")
@@ -41,6 +47,9 @@ class WindowsScriptsExistTests(unittest.TestCase):
             "run_demo.ps1",
             "run_corynebacterium_online_demo.ps1",
             "validate_user_curated_manifest.ps1",
+            "new_user_curated_dataset.ps1",
+            "validate_user_curated_dataset.ps1",
+            "run_user_curated_dataset.ps1",
         ]:
             with self.subTest(script=script_name):
                 text = (PROJECT_ROOT / "scripts" / script_name).read_text(encoding="utf-8")
@@ -102,6 +111,38 @@ class WindowsScriptsExistTests(unittest.TestCase):
         self.assertIn("validate_user_curated_manifest.ps1", text)
         self.assertIn("<RUTA_DEL_REPOSITORIO>", text)
         self.assertNotIn("C:\\Users\\danis", text)
+
+    def test_user_curated_helper_scripts_are_generic_and_safe(self) -> None:
+        forbidden_defaults = [
+            "PAO1",
+            "H37Rv",
+            "Corynebacterium",
+            "Pseudomonas aeruginosa",
+            "Mycobacterium tuberculosis",
+            "--allow-demo-data",
+        ]
+        for script_name in [
+            "new_user_curated_dataset.ps1",
+            "validate_user_curated_dataset.ps1",
+            "run_user_curated_dataset.ps1",
+        ]:
+            with self.subTest(script=script_name):
+                text = (PROJECT_ROOT / "scripts" / script_name).read_text(encoding="utf-8")
+                self.assertIn("user_curated", text)
+                self.assertIn("Resolve-Python", text)
+                for forbidden in forbidden_defaults:
+                    self.assertNotIn(forbidden, text)
+
+    def test_user_friendly_workflow_documents_scores_and_source_separation(self) -> None:
+        path = PROJECT_ROOT / "docs" / "user_friendly_workflow.md"
+        self.assertTrue(path.exists())
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("user_curated", text)
+        self.assertIn("evidence_confidence_score", text)
+        self.assertIn("therapeutic_priority_score", text)
+        self.assertIn("demo, proxy, cache", text)
+        self.assertIn("controlled_reference", text)
+        self.assertIn("validacion experimental", text)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,2 @@
+organism,strain,protein_id,gene,locus_tag,gene_description,source_database,evidence_status,curator_notes
+<organism_name>,<strain_or_isolate>,<protein_id>,<gene_name>,<locus_tag>,<gene_description>,<source_database>,<evidence_status>,<curator_notes>
