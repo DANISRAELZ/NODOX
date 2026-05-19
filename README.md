@@ -121,6 +121,8 @@ Como apoyo opcional de onboarding, existe una GUI Streamlit documentada en
 `docs/user_curated_gui_onboarding.md`. Streamlit no es una dependencia
 obligatoria en esta fase; la GUI no ejecuta pipeline, no ejecuta scoring, no
 genera outputs cientificos y no sustituye revision experta.
+El cierre tecnico y operativo de las fases GUI `user_curated` 1-4 esta en
+`docs/user_curated_gui_phase_closure.md`.
 
 La capa opcional `literature_support` permite preparar curacion bibliografica
 manual. Por defecto se valida y normaliza si existe, se reporta como evidencia
@@ -873,5 +875,6 @@ python -m unittest discover -s tests -v
 - [Phase 3 scoring](docs/phase3_scoring.md)
 - [Dataset import](docs/dataset_import.md)
 - [User-friendly onboarding](docs/user_friendly_onboarding.md)
+- [User-curated GUI phase closure](docs/user_curated_gui_phase_closure.md)
 - [User-curated validation protocol](docs/user_curated_validation_protocol.md)
 - [Workspace comparison](docs/workspace_comparison.md)

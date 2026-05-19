@@ -206,6 +206,9 @@ revision experta. En fase 4 agrega una vista de preparacion para scoring que
 solo orienta readiness conservador; cualquier scoring real queda para una fase
 futura controlada.
 
+El cierre tecnico y operativo de las fases GUI 1-4 esta resumido en
+`docs/user_curated_gui_phase_closure.md`.
+
 ## Que hacer si falta un archivo
 
 Si el manifest menciona un archivo en `input_file` y ese archivo no existe,

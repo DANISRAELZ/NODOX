@@ -7,6 +7,9 @@ Esta guia describe la primera interfaz grafica opcional para preparar datos
 que quieren crear staging local y prevalidar un `manifest.csv` sin conocer la
 arquitectura interna del proyecto.
 
+El cierre tecnico y operativo de las fases GUI 1-4 esta resumido en
+`docs/user_curated_gui_phase_closure.md`.
+
 Esta fase incluye `user-curated GUI phase 4: scoring readiness view`. Agrega una
 vista de preparacion para scoring que ayuda a revisar si un manifest parece
 preparado para una futura corrida controlada, sin ejecutar scoring, pipeline ni
