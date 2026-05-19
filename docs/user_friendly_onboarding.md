@@ -202,7 +202,9 @@ pero no lo ejecuta desde la GUI. En fase 3 agrega revision visual orientativa
 de calidad/evidencia del manifest para revisar procedencia y completitud. No
 calcula `confidence_score`, no calcula `therapeutic_priority_score`, no ejecuta
 pipeline ni scoring, no genera rankings ni outputs cientificos y no sustituye
-revision experta.
+revision experta. En fase 4 agrega una vista de preparacion para scoring que
+solo orienta readiness conservador; cualquier scoring real queda para una fase
+futura controlada.
 
 ## Que hacer si falta un archivo
 
