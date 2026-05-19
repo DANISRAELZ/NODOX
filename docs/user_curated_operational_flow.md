@@ -7,6 +7,10 @@ prevalidar e importar datos `user_curated` sin ejecutar scoring ni pipeline.
 Sirve como guia practica entre el protocolo cientifico y el uso de
 `import_dataset.py`.
 
+Para una introduccion mas simple, orientada a usuarios nuevos que todavia no
+conocen la arquitectura del proyecto, empezar por
+`docs/user_friendly_onboarding.md`.
+
 Antes de importar un primer dataset real, usar
 `docs/user_curated_real_dataset_readiness.md` para organizar una carpeta local
 de staging ignorada por `.gitignore`, revisar procedencia y evitar versionar
@@ -285,3 +289,12 @@ El flujo operativo queda completo cuando:
   `--validate-user-curated-manifest <ruta_manifest.csv>`;
 - el trabajo se detiene antes de scoring, pipeline y Snakemake;
 - los limites de evidencia quedan documentados para la siguiente revision.
+
+## Relacion con otros documentos
+
+- `docs/user_friendly_onboarding.md`: guia inicial en lenguaje claro para
+  usuarios nuevos.
+- `docs/first_user_curated_dataset_startup.md`: pasos para crear y revisar el
+  primer staging local.
+- `docs/user_curated_real_dataset_readiness.md`: criterios de preparacion antes
+  de importar datos reales.

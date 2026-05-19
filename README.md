@@ -106,9 +106,10 @@ Las capas principales son `essentiality`, `virulence`, `human_homologs`,
 Cada archivo debe respetar los encabezados de `data_templates/`.
 
 Para iniciar una validacion con datos reales proporcionados por el usuario, ver
-`docs/user_curated_validation_protocol.md`. Ese protocolo define `user_curated`
-y lo separa de `controlled_reference`, demo, proxy, cache y online. Cada dataset
-real debe acompanarse de un manifest basado en
+`docs/user_friendly_onboarding.md` como guia inicial para usuarios nuevos. Luego
+ver `docs/user_curated_validation_protocol.md`. Ese protocolo define
+`user_curated` y lo separa de `controlled_reference`, demo, proxy, cache y
+online. Cada dataset real debe acompanarse de un manifest basado en
 `data_templates/user_curated_dataset_manifest_template.csv`, que puede revisarse
 estructuralmente con `validate_user_curated_manifest()` antes de importar datos.
 El flujo operativo completo, desde copiar la plantilla hasta importar con
@@ -867,5 +868,6 @@ python -m unittest discover -s tests -v
 - [Collateral sensitivity](docs/collateral_sensitivity.md)
 - [Phase 3 scoring](docs/phase3_scoring.md)
 - [Dataset import](docs/dataset_import.md)
+- [User-friendly onboarding](docs/user_friendly_onboarding.md)
 - [User-curated validation protocol](docs/user_curated_validation_protocol.md)
 - [Workspace comparison](docs/workspace_comparison.md)

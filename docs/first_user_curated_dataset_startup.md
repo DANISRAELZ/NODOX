@@ -7,6 +7,10 @@ dataset real `user_curated` en una carpeta local ignorada por Git. La meta es
 organizar datos, manifest, README, procedencia y notas antes de cualquier
 importacion, sin versionar datos reales y sin ejecutar pipeline ni scoring.
 
+Si es la primera vez que se usa el proyecto, leer primero
+`docs/user_friendly_onboarding.md`. Esa guia explica en lenguaje no tecnico que
+significan `user_curated`, manifest, staging local, prevalidacion e importacion.
+
 Esta fase no produce outputs versionados. Solo prepara una carpeta local de
 trabajo bajo `user_curated_staging/<project_id>/`.
 
@@ -259,6 +263,8 @@ Detener el flujo si:
 
 ## Relacion con otros documentos
 
+- `docs/user_friendly_onboarding.md`: explicacion inicial para usuarios nuevos,
+  sin asumir conocimiento de la arquitectura interna.
 - `docs/user_curated_real_dataset_readiness.md`: preparacion general del
   dataset real y staging local.
 - `docs/user_curated_operational_flow.md`: flujo desde manifest hasta
