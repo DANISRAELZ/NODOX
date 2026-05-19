@@ -18,10 +18,13 @@ from src.nodos_funcionales.user_curated_validation import validate_user_curated_
 
 
 APP_TITLE = "Nodos Funcionales - user_curated onboarding"
-APP_SUBTITLE = "Onboarding seguro para preparar staging local y prevalidar manifest, antes de cualquier importacion."
+APP_SUBTITLE = (
+    "Onboarding seguro user_curated: staging local, prevalidacion de manifest "
+    "e importacion validada asistida sin ejecutar pipeline ni scoring."
+)
 SAFETY_NOTICE = (
     "Esta GUI no ejecuta pipeline, no ejecuta scoring, no importa datasets y no "
-    "genera outputs cientificos. No versionar datos reales."
+    "genera ranking terapeutico ni outputs cientificos. No versionar datos reales."
 )
 MANUAL_IMPORT_COMMAND = (
     r".\.venv\Scripts\python.exe import_dataset.py "
@@ -60,9 +63,27 @@ def _render_preparation_checklist() -> None:
         "sin mezcla demo/proxy/cache como evidencia real",
         "sin pipeline/scoring todavia",
         "git status revisado y sin datos reales visibles",
+        "usuario entiende que no hay scoring/pipeline",
     ]
     for item in checklist_items:
         st.checkbox(item, value=False)
+
+
+def _render_import_checklist() -> None:
+    st.subheader("Checklist antes de importacion validada")
+    import_checklist_items = [
+        "manifest validado sin errores",
+        "README.md revisado",
+        "raw_inputs/ contiene archivos reales",
+        "provenance/ contiene procedencia",
+        "notes/ contiene notas de curacion",
+        "source_type=user_curated",
+        "no hay mezcla demo/proxy/cache",
+        "git status revisado",
+        "usuario entiende que no hay scoring/pipeline",
+    ]
+    for item in import_checklist_items:
+        st.checkbox(item, value=False, key=f"import_check_{item}")
 
 
 def _render_interpretation_limits() -> None:
@@ -109,6 +130,7 @@ def _render_streamlit_app() -> None:
         - no importa datos;
         - no ejecuta pipeline;
         - no ejecuta scoring;
+        - no ejecuta Snakemake;
         - no genera outputs cientificos ni rankings;
         - no valida biologicamente el dataset;
         - no valida clinicamente candidatos;
@@ -187,27 +209,42 @@ def _render_streamlit_app() -> None:
                     "ni validacion clinica. Detenerse antes de pipeline y scoring."
                 )
 
-    st.header("5. Proximos pasos manuales")
+    st.header("5. Importacion validada asistida")
     st.markdown(
         """
-        La importacion validada es una fase posterior y manual. Esta GUI no la
-        ejecuta. Cuando el equipo decida avanzar, usar un comando revisado fuera
-        de la GUI, por ejemplo:
+        La importacion validada ocurre despues de que el manifest valida sin
+        errores. En esta fase la GUI solo prepara el comando manual y no ejecuta
+        `import_dataset.py`.
         """
     )
+    _render_import_checklist()
+    st.markdown("Comando manual sugerido para una fase posterior:")
     st.code(MANUAL_IMPORT_COMMAND, language="powershell")
     st.warning(
-        "Incluso despues de importar, no interpretar el dataset ni futuros scores "
-        "como validacion terapeutica, biologica o clinica."
+        "Este comando no ejecuta pipeline, no ejecuta scoring, no genera ranking "
+        "terapeutico y no valida biologica ni clinicamente el dataset."
     )
 
     _render_interpretation_limits()
 
-    st.header("Siguiente fase")
+    st.header("La GUI se detiene aqui")
+    st.markdown(
+        """
+        - no pipeline;
+        - no scoring;
+        - no ranking;
+        - no outputs cientificos;
+        - no validacion clinica;
+        - no validacion biologica;
+        - siguiente fase futura: revision de calidad/evidencia antes de cualquier scoring.
+        """
+    )
+
+    st.header("Siguiente fase futura")
     st.button("Importar dataset (deshabilitado en esta version)", disabled=True)
     st.caption(
         "La importacion con import_dataset.py queda documentada como siguiente fase; "
-        "esta GUI solo prepara staging y valida manifest."
+        "esta GUI solo prepara staging, valida manifest y muestra el comando manual."
     )
 
 

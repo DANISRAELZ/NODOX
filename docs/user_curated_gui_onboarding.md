@@ -7,9 +7,11 @@ Esta guia describe la primera interfaz grafica opcional para preparar datos
 que quieren crear staging local y prevalidar un `manifest.csv` sin conocer la
 arquitectura interna del proyecto.
 
-Esta fase corresponde a `user-curated GUI onboarding phase 1 complete`: una GUI
-mas clara y util para onboarding, sin ampliar el alcance hacia importacion,
-pipeline, scoring ni consulta online.
+Esta fase corresponde a `user-curated GUI phase 2: assisted validated import`.
+Agrega asistencia para preparar una importacion validada manual con
+`import_dataset.py --validate-user-curated-manifest`, sin ejecutar el comando
+desde la GUI y sin ampliar el alcance hacia pipeline, scoring, rankings,
+outputs cientificos ni consulta online.
 
 ## Alcance
 
@@ -26,7 +28,10 @@ La app permite:
 - mostrar errores de validacion de forma legible;
 - mostrar un mensaje de exito cuando el manifest cumple el contrato minimo;
 - mostrar una checklist visual de preparacion;
-- mostrar comandos manuales para pasos posteriores sin ejecutarlos.
+- mostrar una seccion de `Importacion validada asistida`;
+- mostrar comandos manuales para pasos posteriores sin ejecutarlos;
+- dejar visible que la GUI se detiene antes de pipeline, scoring, rankings y
+  outputs cientificos.
 
 ## Ayuda contextual visible
 
@@ -42,6 +47,11 @@ La interfaz incluye secciones explicitas de orientacion:
 - Checklist visual: recuerda revisar `README.md`, completar `manifest.csv`,
   usar `source_type=user_curated`, evitar mezcla demo/proxy/cache, revisar
   `git status --short` y detenerse antes de pipeline/scoring.
+- `Importacion validada asistida`: muestra una checklist previa a la importacion
+  manual y el comando sugerido con `--validate-user-curated-manifest`, pero no
+  lo ejecuta.
+- `La GUI se detiene aqui`: recuerda que no hay pipeline, scoring, ranking,
+  outputs cientificos, validacion clinica ni validacion biologica.
 
 Cuando se crea staging, la GUI muestra las rutas esperadas y advierte que
 `user_curated_staging/` debe permanecer ignorado por Git.
@@ -52,6 +62,10 @@ Esta GUI no ejecuta pipeline, no ejecuta scoring, no ejecuta Snakemake, no llama
 a `import_dataset.py`, no genera rankings y no genera outputs cientificos.
 Tampoco valida biologicamente el dataset: solo prevalidacion estructural y de
 procedencia minima del manifest.
+
+La GUI no forma parte obligatoria del pipeline. Streamlit sigue siendo una
+dependencia opcional y la app puede usarse solo como ayuda visual de preparacion
+local.
 
 La GUI no sustituye revision experta, curacion biologica ni validacion
 experimental. Un manifest valido solo indica que cumple el contrato minimo para
@@ -66,8 +80,10 @@ La GUI puede mostrar este comando como siguiente paso manual, pero no lo ejecuta
 .\.venv\Scripts\python.exe import_dataset.py --validate-user-curated-manifest <ruta_manifest.csv>
 ```
 
-Incluso despues de importar, el dataset no debe interpretarse como validacion
-terapeutica, biologica o clinica.
+La importacion validada, si el usuario la realiza manualmente fuera de la GUI,
+no equivale a scoring, no genera ranking terapeutico y no produce conclusiones
+terapeuticas. Incluso despues de importar, el dataset no debe interpretarse como
+validacion terapeutica, biologica o clinica.
 
 No subir ni versionar datos reales. Los archivos reales deben permanecer en
 rutas locales ignoradas, como `user_curated_staging/<project_id>/raw_inputs/`.
@@ -136,7 +152,11 @@ obligatoria del proyecto.
 5. Colocar archivos reales solo en `raw_inputs/`.
 6. Documentar procedencia en `provenance/`.
 7. Validar el manifest desde la GUI.
-8. Detenerse antes de importacion, pipeline y scoring.
+8. Revisar la seccion `Importacion validada asistida`.
+9. Si corresponde, copiar el comando manual fuera de la GUI y adaptarlo con
+   workspace, dataset e input reales.
+10. Detenerse antes de pipeline, scoring, ranking o interpretacion terapeutica.
 
 La importacion con `import_dataset.py` queda para una fase posterior y debe
-seguir usando validacion explicita del manifest.
+seguir usando validacion explicita del manifest. La GUI fase 2 solo muestra el
+comando manual y no ejecuta `import_dataset.py`.

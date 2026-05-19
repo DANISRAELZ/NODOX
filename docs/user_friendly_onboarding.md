@@ -196,8 +196,10 @@ pero Streamlit no es una dependencia obligatoria del proyecto en esta fase.
 
 La guia de uso esta en `docs/user_curated_gui_onboarding.md`. La GUI muestra
 una checklist visual, rutas esperadas del staging y mensajes de validacion mas
-claros. No ejecuta importacion, pipeline ni scoring; no genera outputs
-cientificos y no sustituye revision experta.
+claros. En fase 2 tambien muestra una seccion de importacion validada asistida
+con el comando manual de `import_dataset.py --validate-user-curated-manifest`,
+pero no lo ejecuta desde la GUI. No ejecuta pipeline ni scoring, no genera
+rankings ni outputs cientificos y no sustituye revision experta.
 
 ## Que hacer si falta un archivo
 
