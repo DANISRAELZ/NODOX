@@ -195,6 +195,72 @@ def test_first_user_curated_dataset_startup_document_contract() -> None:
         assert forbidden_default not in doc_text
 
 
+def test_user_friendly_onboarding_document_contract() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    doc_path = project_root / "docs" / "user_friendly_onboarding.md"
+
+    assert doc_path.exists()
+
+    doc_text = doc_path.read_text(encoding="utf-8")
+    required_terms = {
+        "Nodos Funcionales",
+        "user_curated",
+        "manifest",
+        "staging local",
+        "create_user_curated_staging.py",
+        "validate_user_curated_manifest",
+        "import_dataset.py",
+        "--validate-user-curated-manifest",
+        "PowerShell",
+        "ExecutionPolicy Bypass",
+    }
+    for term in required_terms:
+        assert term in doc_text
+
+    doc_text_lower = doc_text.lower()
+    required_guidance = {
+        "primer uso recomendado",
+        "errores frecuentes",
+        "l\u00edmites de interpretaci\u00f3n",
+        "no ejecutar pipeline",
+        "no ejecutar scoring",
+        "no versionar datos reales",
+        "prevalidar no es validacion biologica",
+        "un score alto no equivale a validacion clinica",
+        "requiere revision experta y validacion experimental",
+    }
+    for guidance in required_guidance:
+        assert guidance in doc_text_lower
+
+    for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
+        assert forbidden_default not in doc_text
+
+
+def test_user_curated_onboarding_streamlit_app_contract() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    app_path = project_root / "apps" / "user_curated_onboarding_app.py"
+
+    assert app_path.exists()
+
+    app_text = app_path.read_text(encoding="utf-8")
+    required_terms = {
+        "streamlit",
+        "create_staging",
+        "validate_user_curated_manifest",
+        "manifest.csv",
+        "project_id",
+        "no ejecuta pipeline",
+        "no ejecuta scoring",
+        "No versionar datos reales",
+        "Importar dataset (deshabilitado en esta version)",
+    }
+    for term in required_terms:
+        assert term in app_text
+
+    for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
+        assert forbidden_default not in app_text
+
+
 def test_user_curated_entry_templates_contract() -> None:
     project_root = Path(__file__).resolve().parents[1]
     templates_dir = project_root / "data_templates"

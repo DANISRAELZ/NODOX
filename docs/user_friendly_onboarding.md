@@ -85,6 +85,8 @@ Los datos reales pueden ser privados, sensibles, incompletos, no liberados o
 dificiles de redistribuir. Por eso deben quedarse en carpetas locales ignoradas
 por Git mientras se revisan.
 
+Regla practica: no versionar datos reales.
+
 No usar `git add .` durante esta preparacion. Antes y despues de copiar archivos
 reales, revisar:
 
@@ -183,7 +185,8 @@ a importar.
 9. Detenerse antes de scoring o pipeline.
 
 No ejecutar `run_pipeline.py`, Snakemake ni scripts de scoring durante este
-onboarding.
+onboarding. En otras palabras: no ejecutar pipeline y no ejecutar scoring en
+esta fase.
 
 ## Que hacer si falta un archivo
 
@@ -223,7 +226,7 @@ no existen.
 
 ## Límites de interpretación
 
-Prevalidar no es validar biologicamente. Solo confirma que el manifest cumple
+Prevalidar no es validacion biologica. Solo confirma que el manifest cumple
 reglas tecnicas minimas.
 
 Importar no significa que el dataset sea cientificamente suficiente. Solo mueve
@@ -233,8 +236,8 @@ Un score alto no equivale a validacion clinica. El sistema prioriza blancos
 candidatos, no confirma terapias.
 
 Los resultados futuros deben interpretarse como priorizacion computacional
-exploratoria. Siempre se requiere revision experta, validacion experimental y,
-cuando aplique, evaluacion clinica independiente.
+exploratoria. Siempre se requiere revision experta y validacion experimental;
+cuando aplique, tambien se requiere evaluacion clinica independiente.
 
 ## Siguiente paso logico
 
