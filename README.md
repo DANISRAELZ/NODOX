@@ -117,6 +117,10 @@ prevalidacion opt-in y detenerse antes de scoring/pipeline, esta en
 `docs/user_curated_operational_flow.md`.
 Para preparar un primer dataset real sin versionar datos sensibles, revisar
 `docs/user_curated_real_dataset_readiness.md` antes de importar.
+Como apoyo opcional de onboarding, existe una GUI Streamlit documentada en
+`docs/user_curated_gui_onboarding.md`. Streamlit no es una dependencia
+obligatoria en esta fase; la GUI no ejecuta pipeline, no ejecuta scoring, no
+genera outputs cientificos y no sustituye revision experta.
 
 La capa opcional `literature_support` permite preparar curacion bibliografica
 manual. Por defecto se valida y normaliza si existe, se reporta como evidencia

@@ -39,6 +39,14 @@ def test_user_curated_onboarding_gui_app_text_contract() -> None:
     for term in required_terms:
         assert term in app_text
 
+    forbidden_runtime_calls = {
+        "subprocess",
+        "run_pipeline.py",
+        "import_dataset.py --",
+    }
+    for forbidden_call in forbidden_runtime_calls:
+        assert forbidden_call not in app_text
+
     for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
         assert forbidden_default not in app_text
 
@@ -50,8 +58,10 @@ def test_user_curated_onboarding_gui_document_text_contract() -> None:
     assert doc_path.exists()
 
     doc_text = doc_path.read_text(encoding="utf-8")
+    normalized_doc_text = " ".join(doc_text.split())
     required_terms = {
         "Streamlit",
+        "Streamlit es una dependencia opcional",
         "streamlit run apps/user_curated_onboarding_app.py",
         "pip install streamlit",
         "no ejecuta scoring",
@@ -61,7 +71,15 @@ def test_user_curated_onboarding_gui_document_text_contract() -> None:
         "no sustituye",
     }
     for term in required_terms:
-        assert term in doc_text
+        assert term in normalized_doc_text
+
+    required_optional_dependency_terms = {
+        "No se agrega Streamlit a las dependencias globales",
+        "Streamlit sigue siendo opcional",
+        "dependencia obligatoria",
+    }
+    for term in required_optional_dependency_terms:
+        assert term in normalized_doc_text
 
     for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
         assert forbidden_default not in doc_text

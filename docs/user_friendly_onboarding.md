@@ -188,6 +188,16 @@ No ejecutar `run_pipeline.py`, Snakemake ni scripts de scoring durante este
 onboarding. En otras palabras: no ejecutar pipeline y no ejecutar scoring en
 esta fase.
 
+## GUI opcional
+
+Existe una primera GUI opcional de onboarding para ayudar a crear staging local
+y prevalidar el manifest. Esta GUI usa Streamlit si esta instalado localmente,
+pero Streamlit no es una dependencia obligatoria del proyecto en esta fase.
+
+La guia de uso esta en `docs/user_curated_gui_onboarding.md`. La GUI no ejecuta
+pipeline, no ejecuta scoring, no genera outputs cientificos y no sustituye
+revision experta.
+
 ## Que hacer si falta un archivo
 
 Si el manifest menciona un archivo en `input_file` y ese archivo no existe,

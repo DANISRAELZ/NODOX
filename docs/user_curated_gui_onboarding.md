@@ -62,7 +62,34 @@ Tambien puede instalarse desde el Python del entorno virtual:
 .\.venv\Scripts\python.exe -m pip install streamlit
 ```
 
+Y ejecutarse desde el mismo entorno virtual:
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run apps\user_curated_onboarding_app.py
+```
+
 No se agrega Streamlit a las dependencias globales del proyecto en esta fase.
+
+## Validacion manual local
+
+La GUI opcional fue probada localmente en Windows con el entorno `.venv`.
+Streamlit no estaba instalado inicialmente, por lo que se instalo de forma
+local y manual:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install streamlit
+```
+
+Despues se ejecuto:
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run apps\user_curated_onboarding_app.py
+```
+
+La interfaz abrio correctamente para revision visual. Esta validacion manual no
+ejecuto pipeline, no ejecuto scoring, no genero rankings y no genero outputs
+cientificos. Streamlit sigue siendo opcional y no se agrega como dependencia
+obligatoria del proyecto.
 
 ## Flujo recomendado
 
