@@ -24,7 +24,10 @@ def test_user_curated_onboarding_gui_app_text_contract() -> None:
         "ModuleNotFoundError",
         "create_staging",
         "validate_user_curated_manifest",
+        "Que hace esta GUI",
+        "Que NO hace esta GUI",
         "project_id",
+        "user_curated_staging",
         "README.md",
         "manifest.csv",
         "raw_inputs/",
@@ -32,8 +35,12 @@ def test_user_curated_onboarding_gui_app_text_contract() -> None:
         "provenance/",
         "no ejecuta pipeline",
         "no ejecuta scoring",
+        "no genera outputs cientificos",
         "No versionar datos reales",
         "validacion biologica",
+        "validacion clinica",
+        "suficiencia cientifica",
+        "revision experta",
         "Importar dataset (deshabilitado en esta version)",
     }
     for term in required_terms:
@@ -43,6 +50,8 @@ def test_user_curated_onboarding_gui_app_text_contract() -> None:
         "subprocess",
         "run_pipeline.py",
         "import_dataset.py --",
+        "import import_dataset",
+        "from import_dataset",
     }
     for forbidden_call in forbidden_runtime_calls:
         assert forbidden_call not in app_text
@@ -62,13 +71,21 @@ def test_user_curated_onboarding_gui_document_text_contract() -> None:
     required_terms = {
         "Streamlit",
         "Streamlit es una dependencia opcional",
+        "Que hace esta GUI",
+        "Que NO hace esta GUI",
         "streamlit run apps/user_curated_onboarding_app.py",
         "pip install streamlit",
         "no ejecuta scoring",
         "no ejecuta pipeline",
         "no genera outputs cientificos",
+        "no valida biologicamente",
+        "no valida clinicamente",
         "revision experta",
         "no sustituye",
+        "raw_inputs",
+        "provenance",
+        "notes",
+        "user_curated_staging",
     }
     for term in required_terms:
         assert term in normalized_doc_text

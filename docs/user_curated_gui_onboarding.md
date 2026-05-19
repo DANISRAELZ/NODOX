@@ -22,6 +22,21 @@ La app permite:
 - mostrar errores de validacion de forma legible;
 - mostrar un mensaje de exito cuando el manifest cumple el contrato minimo.
 
+## Ayuda contextual visible
+
+La interfaz incluye secciones explicitas de orientacion:
+
+- `Que hace esta GUI`: resume que solo crea staging local y prevalida manifest.
+- `Que NO hace esta GUI`: recuerda que no ejecuta pipeline, no ejecuta scoring,
+  no genera outputs cientificos ni rankings, no valida biologicamente, no valida
+  clinicamente y no sustituye revision experta.
+- Revision de archivos locales: indica que los datos reales van solo en
+  `raw_inputs/`, que la procedencia se documenta en `provenance/` y que las
+  decisiones, limites o faltantes se revisan en `notes/`.
+
+Cuando se crea staging, la GUI muestra las rutas esperadas y advierte que
+`user_curated_staging/` debe permanecer ignorado por Git.
+
 ## Limites
 
 Esta GUI no ejecuta pipeline, no ejecuta scoring, no ejecuta Snakemake, no llama
@@ -32,6 +47,9 @@ procedencia minima del manifest.
 La GUI no sustituye revision experta, curacion biologica ni validacion
 experimental. Un manifest valido solo indica que cumple el contrato minimo para
 revision o una fase posterior de importacion controlada.
+
+Si el manifest valida, eso no implica suficiencia cientifica. Si el manifest no
+valida, los errores deben corregirse antes de importar en una fase posterior.
 
 No subir ni versionar datos reales. Los archivos reales deben permanecer en
 rutas locales ignoradas, como `user_curated_staging/<project_id>/raw_inputs/`.

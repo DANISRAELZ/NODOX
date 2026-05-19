@@ -18,6 +18,7 @@ from src.nodos_funcionales.user_curated_validation import validate_user_curated_
 
 
 APP_TITLE = "Nodos Funcionales - user_curated onboarding"
+APP_SUBTITLE = "Onboarding seguro para preparar staging local y prevalidar manifest, antes de cualquier importacion."
 SAFETY_NOTICE = (
     "Esta GUI no ejecuta pipeline, no ejecuta scoring, no importa datasets y no "
     "genera outputs cientificos. No versionar datos reales."
@@ -45,6 +46,7 @@ def _format_staging_paths(staging_path: Path) -> str:
 def _render_streamlit_app() -> None:
     st.set_page_config(page_title=APP_TITLE, layout="centered")
     st.title(APP_TITLE)
+    st.caption(APP_SUBTITLE)
     st.warning(SAFETY_NOTICE)
 
     st.markdown(
@@ -52,6 +54,29 @@ def _render_streamlit_app() -> None:
         Esta primera interfaz ayuda a crear una carpeta local de staging y a
         prevalidar un `manifest.csv` user_curated. Mantiene el flujo detenido
         antes de importacion, pipeline y scoring.
+        """
+    )
+
+    st.header("Que hace esta GUI")
+    st.markdown(
+        """
+        - crea `user_curated_staging/<project_id>/` con la logica existente;
+        - muestra rutas locales esperadas para `README.md`, `manifest.csv`,
+          `raw_inputs/`, `notes/` y `provenance/`;
+        - prevalida un manifest con `validate_user_curated_manifest()`;
+        - ayuda a detectar errores antes de una fase posterior de importacion manual.
+        """
+    )
+
+    st.header("Que NO hace esta GUI")
+    st.markdown(
+        """
+        - no ejecuta pipeline;
+        - no ejecuta scoring;
+        - no genera outputs cientificos ni rankings;
+        - no valida biologicamente el dataset;
+        - no valida clinicamente candidatos;
+        - no sustituye revision experta.
         """
     )
 
@@ -71,6 +96,10 @@ def _render_streamlit_app() -> None:
                 "Revise README.md, complete manifest.csv, coloque archivos reales "
                 "solo en raw_inputs/ y documente procedencia en provenance/."
             )
+            st.warning(
+                "La carpeta user_curated_staging/ debe permanecer ignorada por Git. "
+                "Si `git status --short` muestra datos reales, detengase y corrija la ruta."
+            )
 
     st.header("2. Revisar archivos locales")
     st.markdown(
@@ -82,6 +111,7 @@ def _render_streamlit_app() -> None:
         - colocar archivos reales solo en `raw_inputs/`;
         - registrar decisiones de curacion en `notes/`;
         - documentar procedencia en `provenance/`;
+        - revisar notas de faltantes, limites y decisiones pendientes en `notes/`;
         - confirmar con `git status --short` que los datos reales no aparecen.
         """
     )
@@ -99,13 +129,18 @@ def _render_streamlit_app() -> None:
             errors = validate_user_curated_manifest(manifest_path)
             if errors:
                 st.error("El manifest no valida. Corrija estos puntos antes de avanzar:")
+                st.markdown("Errores encontrados:")
                 for error in errors:
-                    st.write(f"- {error}")
+                    st.markdown(f"- `{error}`")
+                st.warning(
+                    "Corrija estos errores antes de importar. Esta GUI no ejecuta importacion; "
+                    "la importacion validada queda para una fase posterior/manual."
+                )
             else:
-                st.success("Manifest valido para revision/importacion controlada.")
+                st.success("Manifest valido para revision o una importacion controlada posterior.")
                 st.info(
-                    "Esta prevalidacion no es validacion biologica. Detenerse "
-                    "antes de pipeline y scoring."
+                    "Manifest valido no implica suficiencia cientifica, validacion biologica "
+                    "ni validacion clinica. Detenerse antes de pipeline y scoring."
                 )
 
     st.header("Siguiente fase")
