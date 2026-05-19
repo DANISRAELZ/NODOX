@@ -137,7 +137,7 @@ foreach ($row in $rows) {
         $schemaHeader = @(Read-CsvHeader -PathValue $schemaPath)
         $missingFromSchema = @($schemaHeader | Where-Object { $_ -notin $header })
         if ($missingFromSchema.Count -gt 0) {
-            Write-Host "[WARN] Columnas de la plantilla ausentes en $inputFile: $($missingFromSchema -join ', ')"
+            Write-Host "[WARN] Columnas de la plantilla ausentes en ${inputFile}: $($missingFromSchema -join ', ')"
             $warnings += 1
         }
     } else {
@@ -149,7 +149,7 @@ foreach ($row in $rows) {
     if ($requiredByDataset.ContainsKey($datasetId)) { $requiredColumns = $requiredByDataset[$datasetId] }
     $missingRequired = @($requiredColumns | Where-Object { $_ -notin $header })
     if ($missingRequired.Count -gt 0) {
-        Write-Host "[ERROR] Columnas requeridas faltantes en $inputFile: $($missingRequired -join ', ')"
+        Write-Host "[ERROR] Columnas requeridas faltantes en ${inputFile}: $($missingRequired -join ', ')"
         Write-Host "[NEXT] Agregue estas columnas o use la plantilla correspondiente en data_templates/."
         $errors += 1
     } else {
@@ -159,7 +159,7 @@ foreach ($row in $rows) {
     if ($optionalByDataset.ContainsKey($datasetId)) {
         $missingOptional = @($optionalByDataset[$datasetId] | Where-Object { $_ -notin $header })
         if ($missingOptional.Count -gt 0) {
-            Write-Host "[INFO] Columnas opcionales ausentes en $inputFile: $($missingOptional -join ', ')"
+            Write-Host "[INFO] Columnas opcionales ausentes en ${inputFile}: $($missingOptional -join ', ')"
         }
     }
 
@@ -175,7 +175,7 @@ foreach ($row in $rows) {
             $values = Import-Csv -LiteralPath $inputPath | Select-Object -ExpandProperty $column -ErrorAction SilentlyContinue
             $mixed = @($values | Where-Object { "$_".Trim().ToLowerInvariant() -in @("demo", "proxy", "cache", "controlled_reference", "online") })
             if ($mixed.Count -gt 0) {
-                Write-Host "[ERROR] $inputFile contiene valores no user_curated en $column: $($mixed | Select-Object -Unique)"
+                Write-Host "[ERROR] $inputFile contiene valores no user_curated en ${column}: $($mixed | Select-Object -Unique)"
                 Write-Host "[NEXT] Separe esas filas o marque la procedencia sin usarlas como evidencia real."
                 $errors += 1
             }
