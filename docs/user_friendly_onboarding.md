@@ -198,8 +198,11 @@ La guia de uso esta en `docs/user_curated_gui_onboarding.md`. La GUI muestra
 una checklist visual, rutas esperadas del staging y mensajes de validacion mas
 claros. En fase 2 tambien muestra una seccion de importacion validada asistida
 con el comando manual de `import_dataset.py --validate-user-curated-manifest`,
-pero no lo ejecuta desde la GUI. No ejecuta pipeline ni scoring, no genera
-rankings ni outputs cientificos y no sustituye revision experta.
+pero no lo ejecuta desde la GUI. En fase 3 agrega revision visual orientativa
+de calidad/evidencia del manifest para revisar procedencia y completitud. No
+calcula `confidence_score`, no calcula `therapeutic_priority_score`, no ejecuta
+pipeline ni scoring, no genera rankings ni outputs cientificos y no sustituye
+revision experta.
 
 ## Que hacer si falta un archivo
 
