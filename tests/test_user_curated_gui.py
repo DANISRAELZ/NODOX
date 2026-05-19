@@ -26,6 +26,9 @@ def test_user_curated_onboarding_gui_app_text_contract() -> None:
         "validate_user_curated_manifest",
         "Que hace esta GUI",
         "Que NO hace esta GUI",
+        "Checklist visual de preparacion",
+        "Proximos pasos manuales",
+        "Limites interpretativos",
         "project_id",
         "user_curated_staging",
         "README.md",
@@ -41,6 +44,11 @@ def test_user_curated_onboarding_gui_app_text_contract() -> None:
         "validacion clinica",
         "suficiencia cientifica",
         "revision experta",
+        "source_type=user_curated",
+        "sin mezcla demo/proxy/cache",
+        "git status revisado",
+        r".\.venv\Scripts\python.exe import_dataset.py",
+        "--validate-user-curated-manifest <ruta_manifest.csv>",
         "Importar dataset (deshabilitado en esta version)",
     }
     for term in required_terms:
@@ -49,7 +57,6 @@ def test_user_curated_onboarding_gui_app_text_contract() -> None:
     forbidden_runtime_calls = {
         "subprocess",
         "run_pipeline.py",
-        "import_dataset.py --",
         "import import_dataset",
         "from import_dataset",
     }
@@ -73,8 +80,10 @@ def test_user_curated_onboarding_gui_document_text_contract() -> None:
         "Streamlit es una dependencia opcional",
         "Que hace esta GUI",
         "Que NO hace esta GUI",
+        "Checklist visual",
         "streamlit run apps/user_curated_onboarding_app.py",
         "pip install streamlit",
+        r".\.venv\Scripts\python.exe -m streamlit run apps\user_curated_onboarding_app.py",
         "no ejecuta scoring",
         "no ejecuta pipeline",
         "no genera outputs cientificos",
@@ -86,6 +95,8 @@ def test_user_curated_onboarding_gui_document_text_contract() -> None:
         "provenance",
         "notes",
         "user_curated_staging",
+        "--validate-user-curated-manifest <ruta_manifest.csv>",
+        "no lo ejecuta",
     }
     for term in required_terms:
         assert term in normalized_doc_text

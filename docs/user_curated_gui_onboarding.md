@@ -7,6 +7,10 @@ Esta guia describe la primera interfaz grafica opcional para preparar datos
 que quieren crear staging local y prevalidar un `manifest.csv` sin conocer la
 arquitectura interna del proyecto.
 
+Esta fase corresponde a `user-curated GUI onboarding phase 1 complete`: una GUI
+mas clara y util para onboarding, sin ampliar el alcance hacia importacion,
+pipeline, scoring ni consulta online.
+
 ## Alcance
 
 La app permite:
@@ -20,7 +24,9 @@ La app permite:
 - indicar la ruta de un `manifest.csv` existente;
 - validar el manifest con `validate_user_curated_manifest()`;
 - mostrar errores de validacion de forma legible;
-- mostrar un mensaje de exito cuando el manifest cumple el contrato minimo.
+- mostrar un mensaje de exito cuando el manifest cumple el contrato minimo;
+- mostrar una checklist visual de preparacion;
+- mostrar comandos manuales para pasos posteriores sin ejecutarlos.
 
 ## Ayuda contextual visible
 
@@ -33,6 +39,9 @@ La interfaz incluye secciones explicitas de orientacion:
 - Revision de archivos locales: indica que los datos reales van solo en
   `raw_inputs/`, que la procedencia se documenta en `provenance/` y que las
   decisiones, limites o faltantes se revisan en `notes/`.
+- Checklist visual: recuerda revisar `README.md`, completar `manifest.csv`,
+  usar `source_type=user_curated`, evitar mezcla demo/proxy/cache, revisar
+  `git status --short` y detenerse antes de pipeline/scoring.
 
 Cuando se crea staging, la GUI muestra las rutas esperadas y advierte que
 `user_curated_staging/` debe permanecer ignorado por Git.
@@ -50,6 +59,15 @@ revision o una fase posterior de importacion controlada.
 
 Si el manifest valida, eso no implica suficiencia cientifica. Si el manifest no
 valida, los errores deben corregirse antes de importar en una fase posterior.
+
+La GUI puede mostrar este comando como siguiente paso manual, pero no lo ejecuta:
+
+```powershell
+.\.venv\Scripts\python.exe import_dataset.py --validate-user-curated-manifest <ruta_manifest.csv>
+```
+
+Incluso despues de importar, el dataset no debe interpretarse como validacion
+terapeutica, biologica o clinica.
 
 No subir ni versionar datos reales. Los archivos reales deben permanecer en
 rutas locales ignoradas, como `user_curated_staging/<project_id>/raw_inputs/`.

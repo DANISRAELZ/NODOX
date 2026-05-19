@@ -194,9 +194,10 @@ Existe una primera GUI opcional de onboarding para ayudar a crear staging local
 y prevalidar el manifest. Esta GUI usa Streamlit si esta instalado localmente,
 pero Streamlit no es una dependencia obligatoria del proyecto en esta fase.
 
-La guia de uso esta en `docs/user_curated_gui_onboarding.md`. La GUI no ejecuta
-pipeline, no ejecuta scoring, no genera outputs cientificos y no sustituye
-revision experta.
+La guia de uso esta en `docs/user_curated_gui_onboarding.md`. La GUI muestra
+una checklist visual, rutas esperadas del staging y mensajes de validacion mas
+claros. No ejecuta importacion, pipeline ni scoring; no genera outputs
+cientificos y no sustituye revision experta.
 
 ## Que hacer si falta un archivo
 

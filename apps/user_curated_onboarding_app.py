@@ -13,7 +13,7 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - optional GUI dependency
     st = None
 
-from scripts.create_user_curated_staging import create_staging
+from scripts.create_user_curated_staging import create_staging, validate_project_id
 from src.nodos_funcionales.user_curated_validation import validate_user_curated_manifest
 
 
@@ -22,6 +22,10 @@ APP_SUBTITLE = "Onboarding seguro para preparar staging local y prevalidar manif
 SAFETY_NOTICE = (
     "Esta GUI no ejecuta pipeline, no ejecuta scoring, no importa datasets y no "
     "genera outputs cientificos. No versionar datos reales."
+)
+MANUAL_IMPORT_COMMAND = (
+    r".\.venv\Scripts\python.exe import_dataset.py "
+    r"--validate-user-curated-manifest <ruta_manifest.csv>"
 )
 
 
@@ -41,6 +45,37 @@ def _format_staging_paths(staging_path: Path) -> str:
         "provenance/": staging_path / "provenance",
     }
     return "\n".join(f"{label}: {path}" for label, path in paths.items())
+
+
+def _render_preparation_checklist() -> None:
+    st.header("3. Checklist visual de preparacion")
+    st.caption("Use esta lista como control manual antes de pensar en importar.")
+    checklist_items = [
+        "README.md revisado",
+        "manifest.csv llenado y sin placeholders",
+        "archivos reales colocados solo en raw_inputs/",
+        "procedencia documentada en provenance/",
+        "notas de curacion, faltantes y limites registradas en notes/",
+        "cada fila real usa source_type=user_curated",
+        "sin mezcla demo/proxy/cache como evidencia real",
+        "sin pipeline/scoring todavia",
+        "git status revisado y sin datos reales visibles",
+    ]
+    for item in checklist_items:
+        st.checkbox(item, value=False)
+
+
+def _render_interpretation_limits() -> None:
+    st.header("Limites interpretativos")
+    st.markdown(
+        """
+        - prevalidar no es validacion biologica;
+        - importar no significa evidencia suficiente;
+        - score alto no equivale a validacion clinica;
+        - el sistema prioriza candidatos, no confirma terapias;
+        - requiere revision experta y validacion experimental.
+        """
+    )
 
 
 def _render_streamlit_app() -> None:
@@ -64,13 +99,14 @@ def _render_streamlit_app() -> None:
         - muestra rutas locales esperadas para `README.md`, `manifest.csv`,
           `raw_inputs/`, `notes/` y `provenance/`;
         - prevalida un manifest con `validate_user_curated_manifest()`;
-        - ayuda a detectar errores antes de una fase posterior de importacion manual.
+        - muestra errores de manifest antes de una fase posterior de importacion manual.
         """
     )
 
     st.header("Que NO hace esta GUI")
     st.markdown(
         """
+        - no importa datos;
         - no ejecuta pipeline;
         - no ejecuta scoring;
         - no genera outputs cientificos ni rankings;
@@ -85,21 +121,27 @@ def _render_streamlit_app() -> None:
     project_id = st.text_input("project_id", placeholder="<project_id>")
     if st.button("Crear staging local"):
         try:
-            created_path = create_staging(project_id)
-        except (FileExistsError, FileNotFoundError, OSError, ValueError) as exc:
-            st.error(str(exc))
+            safe_project_id = validate_project_id(project_id)
+        except ValueError as exc:
+            st.error(f"project_id invalido: {exc}")
+            st.info("Use un nombre simple de carpeta, sin barras, rutas absolutas, '..' ni separadores de unidad.")
         else:
-            st.success("Staging local creado.")
-            st.code(str(created_path), language="text")
-            st.code(_format_staging_paths(created_path), language="text")
-            st.info(
-                "Revise README.md, complete manifest.csv, coloque archivos reales "
-                "solo en raw_inputs/ y documente procedencia en provenance/."
-            )
-            st.warning(
-                "La carpeta user_curated_staging/ debe permanecer ignorada por Git. "
-                "Si `git status --short` muestra datos reales, detengase y corrija la ruta."
-            )
+            try:
+                created_path = create_staging(safe_project_id)
+            except (FileExistsError, FileNotFoundError, OSError, ValueError) as exc:
+                st.error(str(exc))
+            else:
+                st.success("Staging local creado.")
+                st.code(str(created_path), language="text")
+                st.code(_format_staging_paths(created_path), language="text")
+                st.info(
+                    "Revise README.md, complete manifest.csv, coloque archivos reales "
+                    "solo en raw_inputs/ y documente procedencia en provenance/."
+                )
+                st.warning(
+                    "La carpeta user_curated_staging/ debe permanecer ignorada por Git. "
+                    "Si `git status --short` muestra datos reales, detengase y corrija la ruta."
+                )
 
     st.header("2. Revisar archivos locales")
     st.markdown(
@@ -116,7 +158,9 @@ def _render_streamlit_app() -> None:
         """
     )
 
-    st.header("3. Validar manifest")
+    _render_preparation_checklist()
+
+    st.header("4. Validar manifest")
     manifest_input = st.text_input(
         "Ruta a manifest.csv",
         placeholder=r"user_curated_staging\<project_id>\manifest.csv",
@@ -142,6 +186,22 @@ def _render_streamlit_app() -> None:
                     "Manifest valido no implica suficiencia cientifica, validacion biologica "
                     "ni validacion clinica. Detenerse antes de pipeline y scoring."
                 )
+
+    st.header("5. Proximos pasos manuales")
+    st.markdown(
+        """
+        La importacion validada es una fase posterior y manual. Esta GUI no la
+        ejecuta. Cuando el equipo decida avanzar, usar un comando revisado fuera
+        de la GUI, por ejemplo:
+        """
+    )
+    st.code(MANUAL_IMPORT_COMMAND, language="powershell")
+    st.warning(
+        "Incluso despues de importar, no interpretar el dataset ni futuros scores "
+        "como validacion terapeutica, biologica o clinica."
+    )
+
+    _render_interpretation_limits()
 
     st.header("Siguiente fase")
     st.button("Importar dataset (deshabilitado en esta version)", disabled=True)
