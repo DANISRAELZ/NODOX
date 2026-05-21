@@ -44,6 +44,20 @@ controlada. Reutiliza el validador, muestra campos criticos y presenta estados
 conservadores como `No listo para scoring`, `Requiere revision experta antes de
 scoring` o `Potencialmente listo para una futura corrida controlada`.
 
+### Fase 5: quality gate previo a scoring
+
+La quinta fase agrega una compuerta conservadora que reutiliza el manifest y
+devuelve `not_ready_for_scoring`, `requires_expert_review` o
+`conditionally_ready_for_future_controlled_scoring`. Sigue siendo una decision
+previa a cualquier scoring y no valida biologia ni clinica.
+
+### Fase 6: resumen final exportable para revision experta
+
+La sexta fase agrega un resumen Markdown copiable o descargable desde Streamlit.
+Muestra `dataset_id`, archivos detectados, estado del manifest, quality gate,
+advertencias principales, decision final y limites interpretativos sin escribir
+outputs cientificos del pipeline.
+
 ## Limites explicitos
 
 La GUI:
@@ -55,6 +69,7 @@ La GUI:
 - no ejecuta scoring;
 - no genera rankings;
 - no genera outputs cientificos;
+- no escribe resumenes en `results/`, `data_processed/` ni `data_sessions/`;
 - no calcula `therapeutic_priority_score`;
 - no calcula `evidence_confidence_score`;
 - no valida biologica ni clinicamente;
@@ -65,6 +80,10 @@ Incluso si el manifest valida y la vista de readiness es favorable, eso solo
 significa que el paquete parece mejor preparado para una fase futura. No
 significa que el dataset sea clinicamente suficiente ni que exista validacion
 terapeutica.
+
+El resumen final no implica recomendacion terapeutica y no reemplaza revision
+experta. Un score alto, en fases futuras, no equivale automaticamente a
+confianza alta.
 
 ## Archivos principales
 
@@ -89,7 +108,9 @@ terapeutica.
 7. Validar manifest.
 8. Revisar calidad/evidencia.
 9. Revisar preparacion para scoring.
-10. Detenerse antes de cualquier scoring/pipeline.
+10. Revisar quality gate.
+11. Copiar o descargar el resumen final para revision experta.
+12. Detenerse antes de cualquier scoring/pipeline.
 
 Durante todo el flujo, `user_curated_staging/` debe permanecer local e ignorado
 por Git. No versionar datos reales y no usar `git add .`.
@@ -118,8 +139,9 @@ para confirmar que esta documentacion y las pruebas no ampliaron el alcance.
 
 No implementar scoring todavia desde la GUI.
 
-El siguiente paso seguro es usar el `quality gate` o `pre-scoring approval`
-documentado en `docs/user_curated_pre_scoring_quality_gate.md` y la plantilla
+El siguiente paso seguro es usar el resumen final junto con el `quality gate` o
+`pre-scoring approval` documentado en
+`docs/user_curated_pre_scoring_quality_gate.md` y la plantilla
 `docs/templates/user_curated_pre_scoring_approval_template.md`. Esta compuerta
 exige aceptacion explicita de limites, revision experta y evidencia suficiente
 antes de permitir cualquier corrida controlada.

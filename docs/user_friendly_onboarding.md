@@ -216,7 +216,15 @@ Sus estados conservadores son `not_ready_for_scoring`,
 `requires_expert_review` y
 `conditionally_ready_for_future_controlled_scoring`.
 
-El cierre tecnico y operativo de las fases GUI 1-4 esta resumido en
+En GUI Phase 6 tambien existe un resumen final exportable para revision
+experta. La app lo muestra como Markdown copiable o descargable antes de
+cualquier scoring; incluye el estado del manifest, archivos detectados,
+quality gate, advertencias y decision final. Ese resumen no es validacion
+biologica, no es validacion clinica, no implica recomendacion terapeutica y no
+sustituye revision experta. Un score alto, en fases futuras, no equivale
+automaticamente a confianza alta.
+
+El cierre tecnico y operativo de las fases GUI 1-6 esta resumido en
 `docs/user_curated_gui_phase_closure.md`.
 
 ## Que hacer si falta un archivo

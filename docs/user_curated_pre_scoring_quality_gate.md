@@ -107,6 +107,11 @@ La GUI `user_curated` puede mostrar el estado del quality gate de forma
 informativa. Esa vista no ejecuta scoring, no ejecuta pipeline, no muestra
 ranking y no genera outputs cientificos.
 
+La GUI tambien puede incorporar ese estado en un resumen final exportable para
+revision experta. El resumen se descarga como Markdown local desde Streamlit,
+no escribe resultados cientificos y solo muestra el comando manual de
+importacion validada cuando el estado conservador aplica.
+
 La GUI sigue siendo opcional. Streamlit no se convierte en dependencia
 obligatoria del proyecto.
 

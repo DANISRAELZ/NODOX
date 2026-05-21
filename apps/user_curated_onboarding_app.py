@@ -32,6 +32,13 @@ MANUAL_IMPORT_COMMAND = (
     r".\.venv\Scripts\python.exe import_dataset.py "
     r"--validate-user-curated-manifest <ruta_manifest.csv>"
 )
+EXPERT_REVIEW_REMINDERS = [
+    "No es validacion biologica.",
+    "No es validacion clinica.",
+    "No implica recomendacion terapeutica.",
+    "No sustituye revision experta.",
+    "Un score alto, en fases futuras, no equivale automaticamente a confianza alta.",
+]
 MANIFEST_REVIEW_FIELDS = [
     "organism",
     "strain",
@@ -102,6 +109,127 @@ def _load_manifest_rows(manifest_path: Path) -> tuple[list[dict[str, str]], list
             return list(csv.DictReader(handle)), []
     except (csv.Error, OSError, UnicodeDecodeError) as exc:
         return [], [f"Manifest could not be read for visual review: {exc}"]
+
+
+def _declared_input_path(manifest_path: Path, input_file: str) -> Path:
+    declared_path = Path(input_file)
+    if declared_path.is_absolute():
+        return declared_path
+    return manifest_path.parent / declared_path
+
+
+def _detected_summary_files(manifest_path: Path, rows: list[dict[str, str]]) -> list[str]:
+    detected_files = [
+        f"manifest.csv: {'detectado' if manifest_path.is_file() else 'no detectado'} ({manifest_path})"
+    ]
+    for row_index, row in enumerate(rows, start=2):
+        input_file = (row.get("input_file") or "").strip()
+        if not input_file:
+            detected_files.append(f"fila {row_index}: input_file no declarado")
+            continue
+
+        input_path = _declared_input_path(manifest_path, input_file)
+        state = "detectado" if input_path.is_file() else "no detectado"
+        detected_files.append(f"fila {row_index}: {state} ({input_file})")
+    return detected_files
+
+
+def _summary_dataset_ids(rows: list[dict[str, str]]) -> list[str]:
+    dataset_ids = {
+        (row.get("dataset_id") or "").strip()
+        for row in rows
+        if (row.get("dataset_id") or "").strip()
+    }
+    return sorted(dataset_ids) or ["no declarado"]
+
+
+def _manual_import_command_for_summary(manifest_path: Path, status: str) -> str | None:
+    if status != "conditionally_ready_for_future_controlled_scoring":
+        return None
+    return MANUAL_IMPORT_COMMAND.replace("<ruta_manifest.csv>", str(manifest_path))
+
+
+def _build_expert_review_summary(manifest_path: Path) -> dict[str, object]:
+    structural_errors = validate_user_curated_manifest(manifest_path)
+    rows, read_errors = _load_manifest_rows(manifest_path)
+    assessment = assess_pre_scoring_readiness(manifest_path)
+    visual_warnings = _review_manifest_rows(rows) if rows else []
+    warnings = [*structural_errors, *read_errors, *visual_warnings, *assessment["warnings"]]
+    manifest_status = "valido estructuralmente" if not structural_errors and not read_errors else "con errores"
+    import_command = _manual_import_command_for_summary(manifest_path, assessment["status"])
+
+    lines = [
+        "# Resumen final user_curated para revision experta",
+        "",
+        "Este resumen se genera antes de cualquier scoring o pipeline.",
+        "",
+        "## Dataset",
+        f"- dataset_id: {', '.join(_summary_dataset_ids(rows))}",
+        f"- manifest_path: {manifest_path}",
+        f"- estado_manifest_csv: {manifest_status}",
+        f"- resultado_quality_gate: {assessment['status']}",
+        f"- decision_final: {assessment['status']}",
+        "",
+        "## Archivos detectados",
+    ]
+    lines.extend(f"- {item}" for item in _detected_summary_files(manifest_path, rows))
+    lines.extend(
+        [
+            "",
+            "## Advertencias principales",
+        ]
+    )
+    if warnings:
+        lines.extend(f"- {warning}" for warning in dict.fromkeys(warnings))
+    else:
+        lines.append("- Sin advertencias tecnicas detectadas por esta vista.")
+
+    lines.extend(
+        [
+            "",
+            "## Limites y separacion de fuentes",
+            "- Este resumen conserva source_type=user_curated como alcance esperado.",
+            "- No mezclar user_curated con demo, proxy, cache, controlled_reference u online.",
+        ]
+    )
+    lines.extend(f"- {reminder}" for reminder in EXPERT_REVIEW_REMINDERS)
+    lines.extend(
+        [
+            "- No ejecuta scoring, no ejecuta pipeline y no genera rankings.",
+            "- No escribe outputs cientificos en results/, data_processed/ ni data_sessions/.",
+        ]
+    )
+
+    if import_command:
+        lines.extend(
+            [
+                "",
+                "## Comando manual sugerido para importacion validada",
+                "```powershell",
+                import_command,
+                "```",
+                "",
+                "El comando es manual y no se ejecuta desde esta GUI.",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "",
+                "## Comando manual sugerido para importacion validada",
+                "- No se sugiere todavia: primero resolver el estado del quality gate.",
+            ]
+        )
+
+    return {
+        "dataset_ids": _summary_dataset_ids(rows),
+        "detected_files": _detected_summary_files(manifest_path, rows),
+        "manifest_status": manifest_status,
+        "quality_gate": assessment,
+        "warnings": list(dict.fromkeys(warnings)),
+        "import_command": import_command,
+        "markdown": "\n".join(lines),
+    }
 
 
 def _review_manifest_rows(rows: list[dict[str, str]]) -> list[str]:
@@ -398,6 +526,50 @@ def _render_quality_gate_view(manifest_input: str) -> None:
     )
 
 
+def _render_expert_review_summary(manifest_input: str) -> None:
+    if not manifest_input.strip():
+        st.error("Indique la ruta del manifest.csv antes de generar el resumen final.")
+        return
+
+    manifest_path = _resolve_manifest_path(manifest_input)
+    summary = _build_expert_review_summary(manifest_path)
+    quality_gate = summary["quality_gate"]
+    st.subheader("Resumen integral antes de scoring")
+    st.markdown(f"- `dataset_id`: `{', '.join(summary['dataset_ids'])}`")
+    st.markdown(f"- `estado_manifest.csv`: `{summary['manifest_status']}`")
+    st.markdown(f"- `resultado_quality_gate`: `{quality_gate['status']}`")
+    st.markdown(f"- `decision_final`: `{quality_gate['status']}`")
+
+    st.markdown("Archivos detectados:")
+    for detected_file in summary["detected_files"]:
+        st.markdown(f"- {detected_file}")
+
+    st.markdown("Advertencias principales:")
+    if summary["warnings"]:
+        for warning in summary["warnings"]:
+            st.markdown(f"- {warning}")
+    else:
+        st.markdown("- Sin advertencias tecnicas detectadas por esta vista.")
+
+    st.code(summary["markdown"], language="markdown")
+    st.download_button(
+        "Descargar resumen Markdown local",
+        data=summary["markdown"],
+        file_name="user_curated_expert_review_summary.md",
+        mime="text/markdown",
+    )
+    if summary["import_command"]:
+        st.markdown("Comando manual sugerido para importacion validada:")
+        st.code(summary["import_command"], language="powershell")
+    else:
+        st.info("El comando manual de importacion solo se sugiere cuando el quality gate aplica.")
+
+    st.warning(
+        "No es validacion biologica ni clinica, no implica recomendacion terapeutica "
+        "y no sustituye revision experta."
+    )
+
+
 def _render_streamlit_app() -> None:
     st.set_page_config(page_title=APP_TITLE, layout="centered")
     st.title(APP_TITLE)
@@ -572,7 +744,27 @@ def _render_streamlit_app() -> None:
         "La plantilla manual esta en docs/templates/user_curated_pre_scoring_approval_template.md."
     )
 
-    st.header("8. Importacion validada asistida")
+    st.header("8. Resumen final exportable para revision experta")
+    st.markdown(
+        """
+        Esta vista genera un resumen Markdown copiable o descargable desde
+        Streamlit. Resume el manifest y el quality gate sin escribir outputs
+        cientificos, sin ejecutar scoring, sin ejecutar pipeline y sin generar
+        rankings.
+        """
+    )
+    st.caption(
+        "Mantener user_curated separado de demo, proxy, cache, controlled_reference y online."
+    )
+    summary_manifest_input = st.text_input(
+        "Ruta a manifest.csv para resumen final",
+        placeholder=r"user_curated_staging\<project_id>\manifest.csv",
+        key="expert_review_summary_manifest_path",
+    )
+    if st.button("Generar resumen final exportable"):
+        _render_expert_review_summary(summary_manifest_input)
+
+    st.header("9. Importacion validada asistida")
     st.markdown(
         """
         La importacion validada ocurre despues de que el manifest valida sin

@@ -232,6 +232,9 @@ def test_user_friendly_onboarding_document_contract() -> None:
         "not_ready_for_scoring",
         "requires_expert_review",
         "conditionally_ready_for_future_controlled_scoring",
+        "resumen final exportable",
+        "recomendacion terapeutica",
+        "score alto, en fases futuras, no equivale",
     }
     for guidance in required_guidance:
         assert guidance in doc_text_lower
