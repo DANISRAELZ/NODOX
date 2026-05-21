@@ -230,6 +230,11 @@ resumen exportable e importacion validada asistida como comando manual. La GUI
 no ofrece una accion de scoring ni convierte un quality gate favorable en una
 recomendacion terapeutica.
 
+Para una demo local controlada de ese flujo, usar la checklist
+`docs/user_curated_gui_local_demo_checklist.md`. La demo abre la GUI con
+Streamlit, usa el manifest template como prueba visual, cierra con `Ctrl+C` y
+documenta observaciones sin ejecutar pipeline, scoring ni rankings.
+
 El cierre tecnico y operativo de las fases GUI 1-7 esta resumido en
 `docs/user_curated_gui_phase_closure.md`.
 

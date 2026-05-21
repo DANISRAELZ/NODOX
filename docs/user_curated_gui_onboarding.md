@@ -203,6 +203,18 @@ ejecuto pipeline, no ejecuto scoring, no genero rankings y no genero outputs
 cientificos. Streamlit sigue siendo opcional y no se agrega como dependencia
 obligatoria del proyecto.
 
+## Demo local controlada
+
+Para recorrer visualmente el flujo completo sin datos reales, usar el manifest
+template `data_templates/user_curated_dataset_manifest_template.csv` y la
+checklist `docs/user_curated_gui_local_demo_checklist.md`.
+
+La checklist indica como abrir la GUI con Streamlit, que revisar en los siete
+pasos, como confirmar que importacion sigue siendo solo un comando manual, como
+cerrar la demo con `Ctrl+C` y como registrar observaciones sin escribir outputs
+cientificos. Como el template conserva placeholders, la demo debe mostrar
+validacion y quality gate conservadores.
+
 ## Flujo recomendado
 
 1. Abrir la app con Streamlit.

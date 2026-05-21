@@ -121,7 +121,9 @@ Como apoyo opcional de onboarding, existe una GUI Streamlit documentada en
 `docs/user_curated_gui_onboarding.md`. Streamlit no es una dependencia
 obligatoria en esta fase; la GUI no ejecuta pipeline, no ejecuta scoring, no
 genera outputs cientificos y no sustituye revision experta.
-El cierre tecnico y operativo de las fases GUI `user_curated` 1-4 esta en
+Para una demo local controlada de la GUI sin datos reales, usar
+`docs/user_curated_gui_local_demo_checklist.md`.
+El cierre tecnico y operativo de las fases GUI `user_curated` 1-7 esta en
 `docs/user_curated_gui_phase_closure.md`.
 
 La capa opcional `literature_support` permite preparar curacion bibliografica

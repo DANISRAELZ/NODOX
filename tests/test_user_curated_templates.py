@@ -237,6 +237,8 @@ def test_user_friendly_onboarding_document_contract() -> None:
         "score alto, en fases futuras, no equivale",
         "flujo final",
         "importacion validada asistida como comando manual",
+        "demo local controlada",
+        "user_curated_gui_local_demo_checklist.md",
     }
     for guidance in required_guidance:
         assert guidance in doc_text_lower

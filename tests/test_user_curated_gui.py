@@ -156,6 +156,8 @@ def test_user_curated_onboarding_gui_document_text_contract() -> None:
         "--validate-user-curated-manifest <ruta_manifest.csv>",
         "no lo ejecuta",
         "no forma parte obligatoria del pipeline",
+        "Demo local controlada",
+        "user_curated_gui_local_demo_checklist.md",
     }
     for term in required_terms:
         assert term in normalized_doc_text
@@ -170,6 +172,46 @@ def test_user_curated_onboarding_gui_document_text_contract() -> None:
 
     for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
         assert forbidden_default not in doc_text
+
+
+def test_user_curated_gui_local_demo_checklist_contract() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    checklist_path = project_root / "docs" / "user_curated_gui_local_demo_checklist.md"
+
+    assert checklist_path.exists()
+
+    checklist_text = checklist_path.read_text(encoding="utf-8")
+    normalized_text = " ".join(checklist_text.split())
+    required_terms = {
+        "demo local controlada",
+        "data_templates/user_curated_dataset_manifest_template.csv",
+        r".\.venv\Scripts\python.exe -m streamlit run apps\user_curated_onboarding_app.py",
+        "dataset_id",
+        "archivos esperados",
+        "manifest.csv",
+        "provenance",
+        "quality gate",
+        "decision conservadora",
+        "resumen experto",
+        "Markdown local",
+        "comando manual",
+        "No hay boton ni accion que ejecute scoring",
+        "No hay boton ni accion que ejecute pipeline",
+        "No se generan rankings",
+        "results/",
+        "data_processed/",
+        "data_sessions/",
+        "snapshots",
+        "Ctrl+C",
+        "Documentar observaciones",
+        "controlled_reference",
+        "online",
+    }
+    for term in required_terms:
+        assert term in normalized_text
+
+    for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
+        assert forbidden_default not in checklist_text
 
 
 def test_user_curated_onboarding_gui_final_flow_order() -> None:
