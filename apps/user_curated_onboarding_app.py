@@ -1,4 +1,12 @@
-from __future__ import annotations
+﻿from __future__ import annotations
+try:
+    from nodos_funcionales.user_curated_scoring_approval import (
+        summarize_scoring_approval,
+        validate_scoring_approval,
+    )
+except ImportError:
+    summarize_scoring_approval = None
+    validate_scoring_approval = None
 
 import csv
 import sys
@@ -669,3 +677,59 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# ---------------------------------------------------------------------------
+# Manual approval review for future controlled scoring
+# ---------------------------------------------------------------------------
+st.header("Manual approval for future controlled scoring")
+
+st.warning(
+    "This section does not run scoring, does not run the pipeline, and does not "
+    "generate rankings. It only reviews whether a manual expert approval record "
+    "could allow a future controlled scoring step."
+)
+
+approval_file = st.file_uploader(
+    "Upload manual approval JSON for review only",
+    type=["json"],
+    key="manual_approval_json",
+)
+
+if approval_file is not None:
+    if validate_scoring_approval is None or summarize_scoring_approval is None:
+        st.error("Approval validation module is not available.")
+    else:
+        import json
+
+        try:
+            approval_record = json.load(approval_file)
+            approval_validation = validate_scoring_approval(approval_record)
+
+            st.subheader("Approval validation result")
+            st.json(approval_validation)
+
+            st.subheader("Conservative approval summary")
+            st.text(summarize_scoring_approval(approval_record))
+
+            if approval_validation["allows_controlled_scoring"]:
+                st.success(
+                    "This approval record may allow a future controlled scoring step, "
+                    "but scoring is not executed from this GUI."
+                )
+            else:
+                st.error("This approval record does not allow controlled scoring.")
+
+            st.info(
+                "Even with approval, future scoring would not represent biological "
+                "validation, clinical validation, or a therapeutic recommendation."
+            )
+
+        except Exception as exc:
+            st.error(f"Could not read approval JSON: {exc}")
+else:
+    st.info(
+        "No approval file uploaded. Future controlled scoring remains unavailable "
+        "without explicit expert approval."
+    )
+
