@@ -884,3 +884,7 @@ python -m unittest discover -s tests -v
 - [User-curated GUI phase closure](docs/user_curated_gui_phase_closure.md)
 - [User-curated validation protocol](docs/user_curated_validation_protocol.md)
 - [Workspace comparison](docs/workspace_comparison.md)
+
+### User-curated approval JSON templates
+
+Manual approval JSON examples for future controlled scoring review are available in docs/templates/scoring_approval/. These files can be uploaded in the GUI approval-review section to verify approved, rejected and additional-curation outcomes without running scoring, pipeline execution or ranking generation.

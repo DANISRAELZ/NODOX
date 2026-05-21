@@ -61,3 +61,13 @@ importacion o corrida controlada, manteniendo separacion estricta entre
 confianza de evidencia, priorizacion computacional y validacion experimental.
 La primera especificacion documental de ese paso esta en
 `docs/user_curated_controlled_scoring_spec.md`.
+
+## Manual approval JSON templates for local GUI review
+
+The local GUI can review manual approval JSON records for future controlled scoring. This review is visual and conservative only: it does not execute scoring, does not run the pipeline, does not generate rankings, and does not write scientific outputs.
+
+Example templates are available in docs/templates/scoring_approval/: approved_for_controlled_scoring.example.json, rejected_for_scoring.example.json, and requires_additional_curation.example.json.
+
+During a local GUI demo, the reviewer can upload each JSON file in the manual approval section and confirm that the approved example allows a future controlled scoring step but does not execute it, the rejected example blocks controlled scoring, and the additional-curation example blocks controlled scoring until curation is completed.
+
+The approved template is only a demonstration of the approval-gate mechanism. It must be replaced with a real expert-reviewed record before any future controlled scoring workflow.
