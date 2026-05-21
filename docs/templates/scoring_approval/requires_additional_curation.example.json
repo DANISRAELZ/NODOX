@@ -1,0 +1,23 @@
+﻿{
+  "dataset_id": "user_curated_dataset_example_003",
+  "organism": "User defined organism",
+  "strain_or_lineage": "User defined strain or lineage",
+  "reviewer_name": "Expert reviewer name",
+  "reviewer_role": "Domain expert / curator",
+  "review_date": "2026-05-21",
+  "quality_gate_decision": "requires_expert_review",
+  "approval_status": "requires_additional_curation",
+  "approval_scope": "Additional curation required before any controlled scoring decision.",
+  "notes": "The dataset has potentially useful evidence, but provenance, completeness or evolutionary-risk interpretation requires additional expert curation.",
+  "provenance_summary": "User-curated evidence requires further review. Demo, proxy or cache material must not be treated as primary evidence.",
+  "primary_evidence_type": "user_curated",
+  "explicit_acknowledgements": {
+    "scoring_is_not_biological_validation": true,
+    "scoring_is_not_clinical_validation": true,
+    "scoring_is_not_therapeutic_recommendation": true,
+    "high_score_does_not_equal_high_confidence": true,
+    "incomplete_evidence_does_not_equal_low_risk": true,
+    "demo_proxy_cache_are_not_real_evidence": true,
+    "expert_review_required_before_controlled_scoring": true
+  }
+}

@@ -85,7 +85,7 @@ def load_scoring_approval(path: str | Path) -> dict[str, Any]:
     """
 
     approval_path = Path(path)
-    with approval_path.open("r", encoding="utf-8") as handle:
+    with approval_path.open("r", encoding="utf-8-sig") as handle:
         data = json.load(handle)
     return _as_mapping(data)
 
@@ -226,3 +226,4 @@ def summarize_scoring_approval(record: dict[str, Any]) -> str:
 def _is_placeholder_marker(value: Any) -> bool:
     normalized = _normalize(value).lower()
     return any(marker in normalized for marker in {"replace", "placeholder", "example"})
+
