@@ -59,3 +59,5 @@ El siguiente paso debe ser una fase separada y explicitamente aprobada. Puede
 definir como revisar paquetes `user_curated` ya preparados antes de una futura
 importacion o corrida controlada, manteniendo separacion estricta entre
 confianza de evidencia, priorizacion computacional y validacion experimental.
+La primera especificacion documental de ese paso esta en
+`docs/user_curated_controlled_scoring_spec.md`.

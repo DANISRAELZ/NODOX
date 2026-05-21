@@ -33,6 +33,8 @@ La arquitectura final se interpreta como una cadena de auditoria:
    `controlled_reference` u online fresco como evidencia principal. Cada dataset
    real debe acompanarse de un manifest trazable basado en
    `data_templates/user_curated_dataset_manifest_template.csv`.
+   La especificacion futura de scoring controlado `user_curated` se documenta
+   en `docs/user_curated_controlled_scoring_spec.md` sin implementarse todavia.
 6. Limites interpretativos: ausencia o insuficiencia de evidencia no equivale a
    bajo riesgo, ausencia biologica, evidencia negativa ni irrelevancia
    terapeutica.

@@ -127,3 +127,5 @@ gate con usuarios reales, ajustar la plantilla de aprobacion y definir una fase
 futura separada para cualquier corrida controlada. Esa fase futura debera tener
 pruebas propias, advertencias visibles y separacion estricta entre
 `evidence_confidence_score` y `therapeutic_priority_score`.
+La especificacion documental inicial de ese modo futuro esta en
+`docs/user_curated_controlled_scoring_spec.md`.

@@ -239,6 +239,9 @@ El cierre tecnico y operativo de las fases GUI 1-7 esta resumido en
 `docs/user_curated_gui_phase_closure.md`.
 La nota final de cierre integral esta en
 `docs/user_curated_gui_final_closure.md`.
+El posible scoring controlado posterior se describe solo como especificacion
+futura en `docs/user_curated_controlled_scoring_spec.md`; esta guia no lo
+ejecuta.
 
 ## Que hacer si falta un archivo
 
