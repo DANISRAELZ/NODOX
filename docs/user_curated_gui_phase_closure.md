@@ -118,10 +118,11 @@ para confirmar que esta documentacion y las pruebas no ampliaron el alcance.
 
 No implementar scoring todavia desde la GUI.
 
-El siguiente paso seguro es disenar una fase futura de `quality gate` o
-`pre-scoring approval`. Esa fase deberia exigir aceptacion explicita de limites,
-revision experta y evidencia suficiente antes de permitir cualquier corrida
-controlada.
+El siguiente paso seguro es usar el `quality gate` o `pre-scoring approval`
+documentado en `docs/user_curated_pre_scoring_quality_gate.md` y la plantilla
+`docs/templates/user_curated_pre_scoring_approval_template.md`. Esta compuerta
+exige aceptacion explicita de limites, revision experta y evidencia suficiente
+antes de permitir cualquier corrida controlada.
 
 Cualquier ejecucion futura de scoring debe ser una fase separada, con pruebas,
 advertencias visibles y sin mezclar `evidence_confidence_score` con

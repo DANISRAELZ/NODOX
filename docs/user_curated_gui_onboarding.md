@@ -18,6 +18,12 @@ Snakemake. La app sigue mostrando la importacion validada asistida con
 desde la GUI y sin ampliar el alcance hacia rankings, outputs cientificos ni
 consulta online.
 
+Tambien puede mostrar un `quality gate` previo a scoring como estado
+informativo. Ese quality gate reutiliza la revision conservadora documentada en
+`docs/user_curated_pre_scoring_quality_gate.md`; no ejecuta scoring, no ejecuta
+pipeline, no genera ranking y requiere revision experta y validacion
+experimental futura.
+
 ## Alcance
 
 La app permite:
@@ -46,6 +52,10 @@ La app permite:
 - mostrar un estado conservador: `No listo para scoring`,
   `Requiere revision experta antes de scoring` o
   `Potencialmente listo para una futura corrida controlada`;
+- mostrar una seccion informativa de `Quality gate previo a scoring`;
+- mostrar estados conservadores como `not_ready_for_scoring`,
+  `requires_expert_review` y
+  `conditionally_ready_for_future_controlled_scoring`;
 - mostrar una seccion de `Importacion validada asistida`;
 - mostrar comandos manuales para pasos posteriores sin ejecutarlos;
 - dejar visible que la GUI se detiene antes de pipeline, scoring, rankings y
@@ -71,6 +81,8 @@ La interfaz incluye secciones explicitas de orientacion:
 - `Preparacion para scoring (sin ejecutar scoring)`: revisa campos clave como
   `source_type`, `evidence_status`, `provenance`, `input_file` y
   `required_for_scoring`; muestra readiness conservador antes de una fase futura.
+- `Quality gate previo a scoring`: muestra una evaluacion conservadora y
+  editable por revision experta antes de cualquier scoring futuro.
 - `Importacion validada asistida`: muestra una checklist previa a la importacion
   manual y el comando sugerido con `--validate-user-curated-manifest`, pero no
   lo ejecuta.
@@ -98,6 +110,12 @@ ranking y no ejecuta scoring ni pipeline. Un estado favorable solo significa
 que el manifest parece potencialmente listo para una futura corrida controlada;
 no significa validacion biologica, suficiencia clinica ni conclusion
 terapeutica.
+
+El quality gate previo a scoring tambien es orientativo y conservador. No
+calcula `therapeutic_priority_score`, no calcula `evidence_confidence_score`,
+no ejecuta scoring, no ejecuta pipeline, no genera ranking y no genera outputs
+cientificos. Sirve para ordenar una decision humana antes de una fase futura;
+no reemplaza revision experta ni validacion experimental.
 
 La GUI no forma parte obligatoria del pipeline. Streamlit sigue siendo una
 dependencia opcional y la app puede usarse solo como ayuda visual de preparacion
@@ -190,12 +208,13 @@ obligatoria del proyecto.
 7. Validar el manifest desde la GUI.
 8. Revisar la seccion `Revision visual de calidad/evidencia del dataset`.
 9. Revisar la seccion `Preparacion para scoring (sin ejecutar scoring)`.
-10. Revisar la seccion `Importacion validada asistida`.
-11. Si corresponde, copiar el comando manual fuera de la GUI y adaptarlo con
+10. Revisar la seccion `Quality gate previo a scoring`.
+11. Revisar la seccion `Importacion validada asistida`.
+12. Si corresponde, copiar el comando manual fuera de la GUI y adaptarlo con
    workspace, dataset e input reales.
-12. Detenerse antes de pipeline, scoring, ranking o interpretacion terapeutica.
+13. Detenerse antes de pipeline, scoring, ranking o interpretacion terapeutica.
 
 La importacion con `import_dataset.py` queda para una fase posterior y debe
 seguir usando validacion explicita del manifest. La GUI fase 2 solo muestra el
 comando manual y no ejecuta `import_dataset.py`. Cualquier avance a scoring debe
-ser una fase futura controlada.
+ser una fase futura controlada despues de un quality gate y revision experta.

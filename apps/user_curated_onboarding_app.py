@@ -15,6 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional GUI dependency
     st = None
 
 from scripts.create_user_curated_staging import create_staging, validate_project_id
+from src.nodos_funcionales.user_curated_quality_gate import assess_pre_scoring_readiness
 from src.nodos_funcionales.user_curated_validation import validate_user_curated_manifest
 
 
@@ -361,6 +362,42 @@ def _render_scoring_readiness_checklist() -> None:
         st.checkbox(item, value=False, key=f"scoring_readiness_{item}")
 
 
+def _render_quality_gate_view(manifest_input: str) -> None:
+    if not manifest_input.strip():
+        st.error("Indique la ruta del manifest.csv antes de evaluar el quality gate.")
+        return
+
+    manifest_path = _resolve_manifest_path(manifest_input)
+    assessment = assess_pre_scoring_readiness(manifest_path)
+    status = assessment["status"]
+
+    if status == "not_ready_for_scoring":
+        st.error(status)
+    elif status == "requires_expert_review":
+        st.warning(status)
+    else:
+        st.success(status)
+
+    if assessment["errors"]:
+        st.markdown("Errores que bloquean avance:")
+        for error in assessment["errors"]:
+            st.markdown(f"- `{error}`")
+
+    if assessment["warnings"]:
+        st.markdown("Advertencias conservadoras:")
+        for warning in assessment["warnings"]:
+            st.markdown(f"- {warning}")
+
+    st.markdown("Checklist informativa del quality gate:")
+    for key, value in assessment["checklist"].items():
+        st.markdown(f"- `{key}`: `{value}`")
+
+    st.warning(
+        "Este quality gate previo a scoring no ejecuta scoring, no ejecuta pipeline, "
+        "no genera ranking, no genera outputs cientificos y requiere revision experta."
+    )
+
+
 def _render_streamlit_app() -> None:
     st.set_page_config(page_title=APP_TITLE, layout="centered")
     st.title(APP_TITLE)
@@ -511,7 +548,31 @@ def _render_streamlit_app() -> None:
         "Cualquier avance a scoring debe ser una fase futura controlada."
     )
 
-    st.header("7. Importacion validada asistida")
+    st.header("7. Quality gate previo a scoring")
+    st.markdown(
+        """
+        Esta revision conservadora evalua si el manifest parece cumplir
+        requisitos minimos antes de una futura fase controlada. No ejecuta
+        scoring, no ejecuta pipeline, no muestra rankings y no genera outputs
+        cientificos. El estado no equivale a validacion biologica ni clinica.
+        """
+    )
+    st.caption(
+        "Estados posibles: not_ready_for_scoring, requires_expert_review, "
+        "conditionally_ready_for_future_controlled_scoring."
+    )
+    quality_gate_manifest_input = st.text_input(
+        "Ruta a manifest.csv para quality gate",
+        placeholder=r"user_curated_staging\<project_id>\manifest.csv",
+        key="quality_gate_manifest_path",
+    )
+    if st.button("Evaluar quality gate informativo"):
+        _render_quality_gate_view(quality_gate_manifest_input)
+    st.caption(
+        "La plantilla manual esta en docs/templates/user_curated_pre_scoring_approval_template.md."
+    )
+
+    st.header("8. Importacion validada asistida")
     st.markdown(
         """
         La importacion validada ocurre despues de que el manifest valida sin

@@ -206,6 +206,16 @@ revision experta. En fase 4 agrega una vista de preparacion para scoring que
 solo orienta readiness conservador; cualquier scoring real queda para una fase
 futura controlada.
 
+Como paso previo a cualquier scoring futuro, existe una guia de quality gate en
+`docs/user_curated_pre_scoring_quality_gate.md` y una plantilla editable en
+`docs/templates/user_curated_pre_scoring_approval_template.md`. Esta compuerta
+no ejecuta scoring, no ejecuta pipeline, no genera ranking y no sustituye
+revision experta ni validacion experimental.
+
+Sus estados conservadores son `not_ready_for_scoring`,
+`requires_expert_review` y
+`conditionally_ready_for_future_controlled_scoring`.
+
 El cierre tecnico y operativo de las fases GUI 1-4 esta resumido en
 `docs/user_curated_gui_phase_closure.md`.
 
