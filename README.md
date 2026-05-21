@@ -125,6 +125,8 @@ Para una demo local controlada de la GUI sin datos reales, usar
 `docs/user_curated_gui_local_demo_checklist.md`.
 El cierre tecnico y operativo de las fases GUI `user_curated` 1-7 esta en
 `docs/user_curated_gui_phase_closure.md`.
+La nota final de cierre integral esta en
+`docs/user_curated_gui_final_closure.md`.
 
 La capa opcional `literature_support` permite preparar curacion bibliografica
 manual. Por defecto se valida y normaliza si existe, se reporta como evidencia

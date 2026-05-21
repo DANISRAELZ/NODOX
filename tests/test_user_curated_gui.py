@@ -158,6 +158,7 @@ def test_user_curated_onboarding_gui_document_text_contract() -> None:
         "no forma parte obligatoria del pipeline",
         "Demo local controlada",
         "user_curated_gui_local_demo_checklist.md",
+        "user_curated_gui_final_closure.md",
     }
     for term in required_terms:
         assert term in normalized_doc_text
@@ -212,6 +213,57 @@ def test_user_curated_gui_local_demo_checklist_contract() -> None:
 
     for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
         assert forbidden_default not in checklist_text
+
+
+def test_user_curated_gui_final_closure_contract() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    closure_path = project_root / "docs" / "user_curated_gui_final_closure.md"
+
+    assert closure_path.exists()
+
+    closure_text = closure_path.read_text(encoding="utf-8")
+    normalized_text = " ".join(closure_text.split())
+    required_terms = {
+        "User-Curated GUI Final Closure",
+        "staging local",
+        "revision de archivos locales",
+        "validacion de manifest",
+        "revision de evidencia",
+        "provenance",
+        "quality gate previo a scoring",
+        "resumen experto exportable",
+        "importacion validada asistida como comando manual",
+        "demo local controlada",
+        "user-curated-gui-pre-scoring-quality-gate-release-2026-05-21",
+        "user-curated-gui-expert-review-summary-release-2026-05-21",
+        "user-curated-gui-full-workflow-review-release-2026-05-21",
+        "user-curated-gui-local-demo-workflow-release-2026-05-21",
+        "user-curated-gui-local-demo-verified-2026-05-21",
+        "no ejecuta scoring",
+        "no ejecuta pipeline",
+        "no genera rankings",
+        "results/",
+        "data_processed/",
+        "data_sessions/",
+        "snapshots",
+        "user_curated",
+        "demo",
+        "proxy",
+        "cache",
+        "controlled_reference",
+        "online",
+        "multiples organismos",
+        "manifest valido no equivale a validacion biologica",
+        "quality gate favorable no equivale a recomendacion terapeutica",
+        "score alto futuro no equivale automaticamente a confianza alta",
+        "revision experta",
+        "validacion experimental",
+    }
+    for term in required_terms:
+        assert term in normalized_text
+
+    for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
+        assert forbidden_default not in closure_text
 
 
 def test_user_curated_onboarding_gui_final_flow_order() -> None:

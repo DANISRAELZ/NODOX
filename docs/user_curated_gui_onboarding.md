@@ -9,6 +9,8 @@ arquitectura interna del proyecto.
 
 El cierre tecnico y operativo de las fases GUI 1-7 esta resumido en
 `docs/user_curated_gui_phase_closure.md`.
+La nota final de cierre integral esta en
+`docs/user_curated_gui_final_closure.md`.
 
 La revision final del flujo deja una secuencia visible de siete pasos:
 staging local, revision de archivos locales, validacion de manifest, revision

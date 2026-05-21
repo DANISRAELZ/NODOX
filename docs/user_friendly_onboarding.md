@@ -237,6 +237,8 @@ documenta observaciones sin ejecutar pipeline, scoring ni rankings.
 
 El cierre tecnico y operativo de las fases GUI 1-7 esta resumido en
 `docs/user_curated_gui_phase_closure.md`.
+La nota final de cierre integral esta en
+`docs/user_curated_gui_final_closure.md`.
 
 ## Que hacer si falta un archivo
 
