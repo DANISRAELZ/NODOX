@@ -7,16 +7,14 @@ Esta guia describe la primera interfaz grafica opcional para preparar datos
 que quieren crear staging local y prevalidar un `manifest.csv` sin conocer la
 arquitectura interna del proyecto.
 
-El cierre tecnico y operativo de las fases GUI 1-6 esta resumido en
+El cierre tecnico y operativo de las fases GUI 1-7 esta resumido en
 `docs/user_curated_gui_phase_closure.md`.
 
-Esta fase incluye `user-curated GUI phase 4: scoring readiness view`. Agrega una
-vista de preparacion para scoring que ayuda a revisar si un manifest parece
-preparado para una futura corrida controlada, sin ejecutar scoring, pipeline ni
-Snakemake. La app sigue mostrando la importacion validada asistida con
-`import_dataset.py --validate-user-curated-manifest`, sin ejecutar el comando
-desde la GUI y sin ampliar el alcance hacia rankings, outputs cientificos ni
-consulta online.
+La revision final del flujo deja una secuencia visible de siete pasos:
+staging local, revision de archivos locales, validacion de manifest, revision
+de evidencia/calidad, quality gate, resumen exportable para revision experta e
+importacion validada asistida como comando manual. Todo ocurre sin ejecutar
+scoring, pipeline o Snakemake.
 
 Tambien puede mostrar un `quality gate` previo a scoring como estado
 informativo. Ese quality gate reutiliza la revision conservadora documentada en
@@ -53,11 +51,7 @@ La app permite:
   de `user_curated`, evidencia pendiente, procedencia debil y posible mezcla
   demo/proxy/cache;
 - mostrar una checklist visual de revision de evidencia;
-- mostrar una seccion de `Preparacion para scoring (sin ejecutar scoring)`;
-- mostrar si el manifest valida estructuralmente;
-- mostrar un estado conservador: `No listo para scoring`,
-  `Requiere revision experta antes de scoring` o
-  `Potencialmente listo para una futura corrida controlada`;
+- mostrar si el manifest valida estructuralmente antes del quality gate;
 - mostrar una seccion informativa de `Quality gate previo a scoring`;
 - mostrar estados conservadores como `not_ready_for_scoring`,
   `requires_expert_review` y
@@ -69,7 +63,7 @@ La app permite:
   advertencias, decision final y limites interpretativos;
 - mostrar un comando manual de importacion validada en el resumen solo cuando
   el estado conservador aplica;
-- mostrar una seccion de `Importacion validada asistida`;
+- mostrar una seccion de `Importacion validada asistida como comando manual`;
 - mostrar comandos manuales para pasos posteriores sin ejecutarlos;
 - dejar visible que la GUI se detiene antes de pipeline, scoring, rankings y
   outputs cientificos.
@@ -91,15 +85,13 @@ La interfaz incluye secciones explicitas de orientacion:
 - `Revision visual de calidad/evidencia del dataset`: muestra el contenido
   principal del manifest, senala placeholders o campos vacios y da una
   conclusion conservadora.
-- `Preparacion para scoring (sin ejecutar scoring)`: revisa campos clave como
-  `source_type`, `evidence_status`, `provenance`, `input_file` y
-  `required_for_scoring`; muestra readiness conservador antes de una fase futura.
 - `Quality gate previo a scoring`: muestra una evaluacion conservadora y
-  editable por revision experta antes de cualquier scoring futuro.
+  editable por revision experta antes de cualquier scoring futuro. Un estado
+  favorable no es recomendacion terapeutica.
 - `Resumen final exportable para revision experta`: genera Markdown copiable o
   descargable con el estado del paquete antes de cualquier scoring.
-- `Importacion validada asistida`: muestra una checklist previa a la importacion
-  manual y el comando sugerido con `--validate-user-curated-manifest`, pero no
+- `Importacion validada asistida como comando manual`: muestra una checklist
+  previa y el comando sugerido con `--validate-user-curated-manifest`, pero no
   lo ejecuta.
 - `La GUI se detiene aqui`: recuerda que no hay pipeline, scoring, ranking,
   outputs cientificos, validacion clinica ni validacion biologica.
@@ -118,13 +110,6 @@ La revision visual de evidencia es orientativa: no calcula `confidence_score`,
 no calcula `therapeutic_priority_score`, no interpreta blancos terapeuticos y no
 declara que el dataset sea biologicamente o clinicamente valido. Sirve para
 revisar procedencia y completitud antes de avanzar.
-
-La vista de preparacion para scoring tambien es orientativa. No calcula
-`therapeutic_priority_score`, no calcula `evidence_confidence_score`, no genera
-ranking y no ejecuta scoring ni pipeline. Un estado favorable solo significa
-que el manifest parece potencialmente listo para una futura corrida controlada;
-no significa validacion biologica, suficiencia clinica ni conclusion
-terapeutica.
 
 El quality gate previo a scoring tambien es orientativo y conservador. No
 calcula `therapeutic_priority_score`, no calcula `evidence_confidence_score`,
@@ -228,13 +213,12 @@ obligatoria del proyecto.
 6. Documentar procedencia en `provenance/`.
 7. Validar el manifest desde la GUI.
 8. Revisar la seccion `Revision visual de calidad/evidencia del dataset`.
-9. Revisar la seccion `Preparacion para scoring (sin ejecutar scoring)`.
-10. Revisar la seccion `Quality gate previo a scoring`.
-11. Generar o descargar el `Resumen final exportable para revision experta`.
-12. Revisar la seccion `Importacion validada asistida`.
-13. Si corresponde, copiar el comando manual fuera de la GUI y adaptarlo con
+9. Revisar la seccion `Quality gate previo a scoring`.
+10. Generar o descargar el `Resumen final exportable para revision experta`.
+11. Revisar la seccion `Importacion validada asistida como comando manual`.
+12. Si corresponde, copiar el comando manual fuera de la GUI y adaptarlo con
    workspace, dataset e input reales.
-14. Detenerse antes de pipeline, scoring, ranking o interpretacion terapeutica.
+13. Detenerse antes de pipeline, scoring, ranking o interpretacion terapeutica.
 
 La importacion con `import_dataset.py` queda para una fase posterior y debe
 seguir usando validacion explicita del manifest. La GUI fase 2 solo muestra el

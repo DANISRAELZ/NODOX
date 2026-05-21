@@ -29,10 +29,9 @@ def test_user_curated_onboarding_gui_app_text_contract() -> None:
         "validate_user_curated_manifest",
         "Que hace esta GUI",
         "Que NO hace esta GUI",
-        "Checklist visual de preparacion",
-        "Importacion validada asistida",
+        "Checklist visual de archivos locales",
+        "Importacion validada asistida como comando manual",
         "Revision visual de calidad/evidencia",
-        "Preparacion para scoring",
         "Quality gate previo a scoring",
         "Resumen final exportable para revision experta",
         "_build_expert_review_summary",
@@ -56,7 +55,6 @@ def test_user_curated_onboarding_gui_app_text_contract() -> None:
         "evidence_kind",
         "provenance",
         "required_for_scoring",
-        "evidence_confidence_score",
         "placeholders",
         "demo/proxy/cache",
         "raw_inputs/",
@@ -75,9 +73,6 @@ def test_user_curated_onboarding_gui_app_text_contract() -> None:
         "revision experta",
         "confidence_score",
         "therapeutic_priority_score",
-        "No listo para scoring",
-        "Requiere revision experta antes de scoring",
-        "Potencialmente listo para una futura corrida controlada",
         "Listo para revision/importacion",
         "Requiere correccion antes de avanzar",
         "source_type=user_curated",
@@ -86,8 +81,10 @@ def test_user_curated_onboarding_gui_app_text_contract() -> None:
         r".\.venv\Scripts\python.exe import_dataset.py",
         "--validate-user-curated-manifest <ruta_manifest.csv>",
         "La importacion validada ocurre despues de que el manifest valida sin",
-        "esta GUI solo prepara staging, valida manifest y muestra el comando manual",
-        "Importar dataset (deshabilitado en esta version)",
+        "La GUI no ejecuta este comando",
+        "un quality gate favorable no equivale a recomendacion terapeutica",
+        "un scoring futuro no sustituye revision experta",
+        "un score alto no equivale automaticamente a confianza alta",
     }
     for term in required_terms:
         assert term in app_text
@@ -121,8 +118,7 @@ def test_user_curated_onboarding_gui_document_text_contract() -> None:
         "Que NO hace esta GUI",
         "Checklist visual",
         "Revision visual de calidad/evidencia",
-        "Importacion validada asistida",
-        "Preparacion para scoring",
+        "Importacion validada asistida como comando manual",
         "Quality gate previo a scoring",
         "Resumen final exportable",
         "Markdown",
@@ -145,9 +141,6 @@ def test_user_curated_onboarding_gui_document_text_contract() -> None:
         "no valida clinicamente",
         "confidence_score",
         "therapeutic_priority_score",
-        "evidence_confidence_score",
-        "futura corrida controlada",
-        "fase futura controlada",
         "provenance",
         "required_for_scoring",
         "placeholders",
@@ -177,6 +170,27 @@ def test_user_curated_onboarding_gui_document_text_contract() -> None:
 
     for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
         assert forbidden_default not in doc_text
+
+
+def test_user_curated_onboarding_gui_final_flow_order() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    app_text = (project_root / "apps" / "user_curated_onboarding_app.py").read_text(
+        encoding="utf-8"
+    )
+    expected_headers = [
+        'st.header("1. Crear staging local")',
+        'st.header("2. Revisar archivos locales")',
+        'st.header("3. Validar manifest")',
+        'st.header("4. Revision visual de calidad/evidencia del dataset")',
+        'st.header("5. Quality gate previo a scoring")',
+        'st.header("6. Resumen final exportable para revision experta")',
+        'st.header("7. Importacion validada asistida como comando manual")',
+    ]
+
+    positions = [app_text.index(header) for header in expected_headers]
+    assert positions == sorted(positions)
+    assert "Revisar preparacion para scoring" not in app_text
+    assert "Importar dataset (deshabilitado en esta version)" not in app_text
 
 
 def test_user_curated_expert_review_summary_is_downloadable_markdown(tmp_path: Path) -> None:

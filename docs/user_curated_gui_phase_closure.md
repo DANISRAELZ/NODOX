@@ -58,6 +58,14 @@ Muestra `dataset_id`, archivos detectados, estado del manifest, quality gate,
 advertencias principales, decision final y limites interpretativos sin escribir
 outputs cientificos del pipeline.
 
+### Fase 7: revision final del flujo completo
+
+La septima fase ordena el recorrido visible en siete pasos: staging local,
+revision de archivos locales, validacion de manifest, revision de
+evidencia/calidad, quality gate, resumen exportable e importacion validada
+asistida como comando manual. El quality gate queda como la compuerta previa a
+cualquier scoring futuro y la GUI no muestra botones de importacion ejecutable.
+
 ## Limites explicitos
 
 La GUI:
@@ -107,9 +115,9 @@ confianza alta.
 6. Registrar notas en `notes/`.
 7. Validar manifest.
 8. Revisar calidad/evidencia.
-9. Revisar preparacion para scoring.
-10. Revisar quality gate.
-11. Copiar o descargar el resumen final para revision experta.
+9. Revisar quality gate.
+10. Copiar o descargar el resumen final para revision experta.
+11. Revisar importacion validada asistida como comando manual.
 12. Detenerse antes de cualquier scoring/pipeline.
 
 Durante todo el flujo, `user_curated_staging/` debe permanecer local e ignorado

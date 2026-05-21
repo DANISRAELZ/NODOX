@@ -224,7 +224,13 @@ biologica, no es validacion clinica, no implica recomendacion terapeutica y no
 sustituye revision experta. Un score alto, en fases futuras, no equivale
 automaticamente a confianza alta.
 
-El cierre tecnico y operativo de las fases GUI 1-6 esta resumido en
+En GUI Phase 7 el flujo final queda ordenado como staging local, revision de
+archivos, validacion de manifest, revision de evidencia/calidad, quality gate,
+resumen exportable e importacion validada asistida como comando manual. La GUI
+no ofrece una accion de scoring ni convierte un quality gate favorable en una
+recomendacion terapeutica.
+
+El cierre tecnico y operativo de las fases GUI 1-7 esta resumido en
 `docs/user_curated_gui_phase_closure.md`.
 
 ## Que hacer si falta un archivo

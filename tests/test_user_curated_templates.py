@@ -235,6 +235,8 @@ def test_user_friendly_onboarding_document_contract() -> None:
         "resumen final exportable",
         "recomendacion terapeutica",
         "score alto, en fases futuras, no equivale",
+        "flujo final",
+        "importacion validada asistida como comando manual",
     }
     for guidance in required_guidance:
         assert guidance in doc_text_lower
@@ -320,7 +322,7 @@ def test_user_curated_onboarding_streamlit_app_contract() -> None:
         "no ejecuta pipeline",
         "no ejecuta scoring",
         "No versionar datos reales",
-        "Importar dataset (deshabilitado en esta version)",
+        "Importacion validada asistida como comando manual",
     }
     for term in required_terms:
         assert term in app_text

@@ -112,6 +112,11 @@ revision experta. El resumen se descarga como Markdown local desde Streamlit,
 no escribe resultados cientificos y solo muestra el comando manual de
 importacion validada cuando el estado conservador aplica.
 
+En el flujo final de la GUI, el quality gate es la compuerta visible entre la
+revision de evidencia/calidad y el resumen exportable. Un estado favorable no
+equivale a recomendacion terapeutica y cualquier scoring futuro sigue fuera de
+la interfaz.
+
 La GUI sigue siendo opcional. Streamlit no se convierte en dependencia
 obligatoria del proyecto.
 

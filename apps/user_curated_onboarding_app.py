@@ -21,8 +21,8 @@ from src.nodos_funcionales.user_curated_validation import validate_user_curated_
 
 APP_TITLE = "Nodos Funcionales - user_curated onboarding"
 APP_SUBTITLE = (
-    "Onboarding seguro user_curated: staging local, prevalidacion de manifest "
-    "e importacion validada asistida sin ejecutar pipeline ni scoring."
+    "Flujo seguro user_curated: staging local, manifest, evidencia, quality gate, "
+    "resumen experto e importacion validada asistida como comando manual."
 )
 SAFETY_NOTICE = (
     "Esta GUI no ejecuta pipeline, no ejecuta scoring, no importa datasets y no "
@@ -50,18 +50,6 @@ MANIFEST_REVIEW_FIELDS = [
     "provenance",
     "input_file",
     "input_schema",
-    "required_for_scoring",
-    "notes",
-]
-SCORING_READINESS_FIELDS = [
-    "organism",
-    "strain",
-    "dataset_id",
-    "source_type",
-    "evidence_status",
-    "evidence_kind",
-    "provenance",
-    "input_file",
     "required_for_scoring",
     "notes",
 ]
@@ -269,43 +257,6 @@ def _review_manifest_rows(rows: list[dict[str, str]]) -> list[str]:
     return warnings
 
 
-def _readiness_status(
-    structural_errors: list[str],
-    visual_warnings: list[str],
-    rows: list[dict[str, str]],
-) -> tuple[str, list[str]]:
-    if structural_errors:
-        return "No listo para scoring", ["El manifest tiene errores estructurales."]
-
-    blockers = [
-        warning
-        for warning in visual_warnings
-        if "placeholder" in warning
-        or "campo critico vacio" in warning
-        or "input_file esta vacio" in warning
-        or "required_for_scoring esta vacio" in warning
-        or "source_type no es user_curated" in warning
-    ]
-    if blockers:
-        return "No listo para scoring", blockers
-
-    review_reasons: list[str] = []
-    for row_index, row in enumerate(rows, start=2):
-        evidence_status = (row.get("evidence_status") or "").strip().lower()
-        provenance = (row.get("provenance") or "").strip().lower()
-        if "pending" in evidence_status:
-            review_reasons.append(f"Fila {row_index}: evidence_status esta pending.")
-        if provenance in WEAK_PROVENANCE_VALUES:
-            review_reasons.append(f"Fila {row_index}: provenance parece debil.")
-
-    if review_reasons:
-        return "Requiere revision experta antes de scoring", review_reasons
-
-    return "Potencialmente listo para una futura corrida controlada", [
-        "Manifest valido, sin placeholders evidentes, source_type=user_curated y procedencia documentada."
-    ]
-
-
 def _render_manifest_visual_review(manifest_input: str) -> None:
     if not manifest_input.strip():
         st.error("Indique la ruta del manifest.csv antes de revisar evidencia.")
@@ -349,61 +300,9 @@ def _render_manifest_visual_review(manifest_input: str) -> None:
     st.info("No interpretar como validacion biologica o clinica.")
 
 
-def _render_scoring_readiness_view(manifest_input: str) -> None:
-    if not manifest_input.strip():
-        st.error("Indique la ruta del manifest.csv antes de revisar preparacion para scoring.")
-        return
-
-    manifest_path = _resolve_manifest_path(manifest_input)
-    structural_errors = validate_user_curated_manifest(manifest_path)
-    rows, read_errors = _load_manifest_rows(manifest_path)
-
-    if read_errors:
-        st.error("No se pudo leer el manifest para preparacion de scoring.")
-        for error in read_errors:
-            st.markdown(f"- `{error}`")
-        return
-    if not rows:
-        st.warning("El manifest no contiene filas para evaluar readiness.")
-        return
-
-    st.subheader("Campos clave para preparacion previa a scoring")
-    st.dataframe(
-        [{field: row.get(field, "") for field in SCORING_READINESS_FIELDS} for row in rows],
-        use_container_width=True,
-    )
-
-    visual_warnings = _review_manifest_rows(rows)
-    status, reasons = _readiness_status(structural_errors, visual_warnings, rows)
-
-    if structural_errors:
-        st.warning("El manifest no valida estructuralmente:")
-        for error in structural_errors:
-            st.markdown(f"- `{error}`")
-
-    if status == "No listo para scoring":
-        st.error(status)
-    elif status == "Requiere revision experta antes de scoring":
-        st.warning(status)
-    else:
-        st.success(status)
-
-    for reason in reasons:
-        st.markdown(f"- {reason}")
-
-    st.info(
-        "Esta vista no ejecuta scoring, no ejecuta pipeline, no genera ranking, "
-        "no calcula therapeutic_priority_score y no calcula evidence_confidence_score."
-    )
-    st.warning(
-        "No valida biologica ni clinicamente. El sistema prioriza candidatos, "
-        "no confirma terapias; se requiere revision experta y validacion experimental."
-    )
-
-
 def _render_preparation_checklist() -> None:
-    st.header("3. Checklist visual de preparacion")
-    st.caption("Use esta lista como control manual antes de pensar en importar.")
+    st.subheader("Checklist visual de archivos locales")
+    st.caption("Use esta lista dentro de la revision local antes de validar el manifest.")
     checklist_items = [
         "README.md revisado",
         "manifest.csv llenado y sin placeholders",
@@ -441,11 +340,11 @@ def _render_interpretation_limits() -> None:
     st.header("Limites interpretativos")
     st.markdown(
         """
-        - prevalidar no es validacion biologica;
-        - importar no significa evidencia suficiente;
-        - score alto no equivale a validacion clinica;
-        - el sistema prioriza candidatos, no confirma terapias;
-        - requiere revision experta y validacion experimental.
+        - un manifest valido no equivale a validacion biologica;
+        - un quality gate favorable no equivale a recomendacion terapeutica;
+        - un scoring futuro no sustituye revision experta;
+        - un score alto no equivale automaticamente a confianza alta;
+        - importar no significa evidencia suficiente ni validacion clinica.
         """
     )
 
@@ -467,27 +366,6 @@ def _render_evidence_review_checklist() -> None:
     ]
     for item in review_items:
         st.checkbox(item, value=False, key=f"evidence_review_{item}")
-
-
-def _render_scoring_readiness_checklist() -> None:
-    st.subheader("Checklist antes de scoring")
-    readiness_items = [
-        "manifest valido sin errores estructurales",
-        "source_type=user_curated",
-        "evidence_status revisado o explicitamente pendiente",
-        "provenance documentado",
-        "input_file declarado",
-        "raw_inputs/ revisado",
-        "provenance/ revisado",
-        "notes/ revisado",
-        "ausencia de placeholders",
-        "ausencia de mezcla demo/proxy/cache",
-        "importacion validada realizada o pendiente claramente identificada",
-        "revision experta pendiente o completada",
-        "aceptacion explicita de limites interpretativos",
-    ]
-    for item in readiness_items:
-        st.checkbox(item, value=False, key=f"scoring_readiness_{item}")
 
 
 def _render_quality_gate_view(manifest_input: str) -> None:
@@ -578,9 +456,11 @@ def _render_streamlit_app() -> None:
 
     st.markdown(
         """
-        Esta primera interfaz ayuda a crear una carpeta local de staging y a
-        prevalidar un `manifest.csv` user_curated. Mantiene el flujo detenido
-        antes de importacion, pipeline y scoring.
+        Esta interfaz guia siete pasos conservadores para `user_curated`:
+        staging local, revision de archivos, validacion de manifest, revision
+        de evidencia, quality gate, resumen para revision experta e importacion
+        validada asistida como comando manual. Mantiene el flujo detenido antes
+        de cualquier pipeline o scoring.
         """
     )
 
@@ -591,7 +471,8 @@ def _render_streamlit_app() -> None:
         - muestra rutas locales esperadas para `README.md`, `manifest.csv`,
           `raw_inputs/`, `notes/` y `provenance/`;
         - prevalida un manifest con `validate_user_curated_manifest()`;
-        - muestra errores de manifest antes de una fase posterior de importacion manual.
+        - revisa evidencia, quality gate y resumen exportable sin ejecutar scoring;
+        - muestra el comando manual de importacion validada sin ejecutarlo.
         """
     )
 
@@ -653,7 +534,7 @@ def _render_streamlit_app() -> None:
 
     _render_preparation_checklist()
 
-    st.header("4. Validar manifest")
+    st.header("3. Validar manifest")
     manifest_input = st.text_input(
         "Ruta a manifest.csv",
         placeholder=r"user_curated_staging\<project_id>\manifest.csv",
@@ -680,7 +561,7 @@ def _render_streamlit_app() -> None:
                     "ni validacion clinica. Detenerse antes de pipeline y scoring."
                 )
 
-    st.header("5. Revision visual de calidad/evidencia del dataset")
+    st.header("4. Revision visual de calidad/evidencia del dataset")
     st.markdown(
         """
         Esta revision visual es orientativa y de solo lectura. Ayuda a revisar
@@ -698,35 +579,13 @@ def _render_streamlit_app() -> None:
         _render_manifest_visual_review(review_manifest_input)
     _render_evidence_review_checklist()
 
-    st.header("6. Preparacion para scoring (sin ejecutar scoring)")
+    st.header("5. Quality gate previo a scoring")
     st.markdown(
         """
-        Esta vista ayuda a estimar si el manifest parece preparado para una
-        futura corrida controlada de scoring/pipeline. No ejecuta scoring, no
-        ejecuta pipeline, no genera ranking y no calcula
-        `therapeutic_priority_score` ni `evidence_confidence_score`.
-        """
-    )
-    readiness_manifest_input = st.text_input(
-        "Ruta a manifest.csv para preparacion previa a scoring",
-        placeholder=r"user_curated_staging\<project_id>\manifest.csv",
-        key="scoring_readiness_manifest_path",
-    )
-    if st.button("Revisar preparacion para scoring"):
-        _render_scoring_readiness_view(readiness_manifest_input)
-    _render_scoring_readiness_checklist()
-    st.warning(
-        "Comandos de pipeline/scoring no estan disponibles en esta GUI. "
-        "Cualquier avance a scoring debe ser una fase futura controlada."
-    )
-
-    st.header("7. Quality gate previo a scoring")
-    st.markdown(
-        """
-        Esta revision conservadora evalua si el manifest parece cumplir
-        requisitos minimos antes de una futura fase controlada. No ejecuta
-        scoring, no ejecuta pipeline, no muestra rankings y no genera outputs
-        cientificos. El estado no equivale a validacion biologica ni clinica.
+        Esta compuerta conservadora concentra la decision previa a cualquier
+        scoring futuro. Evalua el manifest sin ejecutar pipeline, sin generar
+        rankings y sin crear outputs cientificos. Un estado favorable no es una
+        recomendacion terapeutica.
         """
     )
     st.caption(
@@ -744,7 +603,7 @@ def _render_streamlit_app() -> None:
         "La plantilla manual esta en docs/templates/user_curated_pre_scoring_approval_template.md."
     )
 
-    st.header("8. Resumen final exportable para revision experta")
+    st.header("6. Resumen final exportable para revision experta")
     st.markdown(
         """
         Esta vista genera un resumen Markdown copiable o descargable desde
@@ -764,7 +623,7 @@ def _render_streamlit_app() -> None:
     if st.button("Generar resumen final exportable"):
         _render_expert_review_summary(summary_manifest_input)
 
-    st.header("9. Importacion validada asistida")
+    st.header("7. Importacion validada asistida como comando manual")
     st.markdown(
         """
         La importacion validada ocurre despues de que el manifest valida sin
@@ -776,8 +635,8 @@ def _render_streamlit_app() -> None:
     st.markdown("Comando manual sugerido para una fase posterior:")
     st.code(MANUAL_IMPORT_COMMAND, language="powershell")
     st.warning(
-        "Este comando no ejecuta pipeline, no ejecuta scoring, no genera ranking "
-        "terapeutico y no valida biologica ni clinicamente el dataset."
+        "La GUI no ejecuta este comando. Tampoco ejecuta pipeline, scoring ni rankings, "
+        "y no valida biologica ni clinicamente el dataset."
     )
 
     _render_interpretation_limits()
@@ -791,15 +650,8 @@ def _render_streamlit_app() -> None:
         - no outputs cientificos;
         - no validacion clinica;
         - no validacion biologica;
-        - siguiente fase futura: revision de calidad/evidencia antes de cualquier scoring.
+        - cualquier scoring futuro queda fuera de esta GUI.
         """
-    )
-
-    st.header("Siguiente fase futura")
-    st.button("Importar dataset (deshabilitado en esta version)", disabled=True)
-    st.caption(
-        "La importacion con import_dataset.py queda documentada como siguiente fase; "
-        "esta GUI solo prepara staging, valida manifest y muestra el comando manual."
     )
 
 
