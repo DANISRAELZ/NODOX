@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from src.nodos_funcionales.config import load_config
+from src.nodos_funcionales.layer_resolver import resolve_layer_inputs
 from src.nodos_funcionales.user_curated_validation import USER_CURATED_MANIFEST_COLUMNS
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -59,6 +61,26 @@ def _write_manifest(path: Path, row: dict[str, str]) -> None:
         writer = csv.DictWriter(handle, fieldnames=USER_CURATED_MANIFEST_COLUMNS)
         writer.writeheader()
         writer.writerow(row)
+
+
+def _write_minimal_required_user_layers(workspace: Path) -> None:
+    data_user = workspace / "data_user"
+    data_user.mkdir(parents=True, exist_ok=True)
+    (data_user / "virulence.csv").write_text(
+        "protein_id,gene,virulence_score,virulence_factor,database\n"
+        "GENERIC_ESS_001,generic_essential_gene,0.66,1,user_curated_local_export\n",
+        encoding="utf-8",
+    )
+    (data_user / "human_homologs.csv").write_text(
+        "protein_id,gene,human_homolog,evalue,human_gene,database\n"
+        "GENERIC_ESS_001,generic_essential_gene,0,1.0,none,user_curated_local_export\n",
+        encoding="utf-8",
+    )
+    (data_user / "localization.csv").write_text(
+        "protein_id,gene,localization,database\n"
+        "GENERIC_ESS_001,generic_essential_gene,cytoplasm,user_curated_local_export\n",
+        encoding="utf-8",
+    )
 
 
 def _run_import_dataset(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -162,6 +184,53 @@ def test_import_dataset_as_user_layer_writes_data_user_and_source_export(tmp_pat
     assert (workspace / "data_user" / "virulence.csv").exists()
     assert (workspace / "data_user" / "source_exports" / source.name).exists()
     assert not (workspace / "data_raw" / "virulence.csv").exists()
+
+
+def test_import_dataset_as_user_layer_is_resolved_as_user_evidence(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    _write_workspace_config(workspace)
+    source = tmp_path / "source" / "essentiality_minimal.csv"
+    manifest = tmp_path / "manifest" / "user_curated_dataset_manifest.csv"
+    _write_essentiality_template_export_with_free_columns(source)
+    row = _valid_manifest_row()
+    row.update(
+        {
+            "dataset_id": "generic_essentiality_dataset",
+            "input_file": source.name,
+            "input_schema": "data_templates/essentiality_template.csv",
+        }
+    )
+    _write_manifest(manifest, row)
+
+    result = _run_import_dataset(
+        [
+            "--workspace",
+            str(workspace),
+            "--dataset",
+            "essentiality",
+            "--input",
+            str(source),
+            "--validate-user-curated-manifest",
+            str(manifest),
+            "--as-user-layer",
+        ]
+    )
+
+    assert result.returncode == 0
+    assert (workspace / "data_user" / "essentiality.csv").exists()
+    assert (workspace / "data_user" / "source_exports" / source.name).exists()
+    _write_minimal_required_user_layers(workspace)
+
+    config = load_config(workspace / "config" / "params.yaml")
+    config["online_sources"]["source_mode_effective"] = "offline_only"
+    config["online_sources"]["therapeutic_context"]["enabled"] = False
+    config["online_sources"]["therapeutic_context_v2"]["enabled"] = False
+    layer_manifest = resolve_layer_inputs(workspace, config)
+    essentiality = layer_manifest["essentiality"]
+
+    assert essentiality["resolved_from"] == "user"
+    assert essentiality["source_type"] == "user"
+    assert essentiality["is_user_supplied"] is True
 
 
 def test_user_curated_template_columns_reach_internal_layer_and_free_columns_stay_in_source_export(
