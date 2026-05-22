@@ -49,7 +49,9 @@ con procedencia, confianza y limitaciones suficientes.
 
 ## Objetivo
 
-La Fase 2 transforma un ranking lineal en una plataforma modular y auditable.
+La Fase 2 transforma un ranking lineal en una plataforma modular y auditable de
+priorizacion terapeutica basada en evidencia. La plataforma no es un predictor
+clinico definitivo.
 
 ## Principios
 
@@ -70,6 +72,12 @@ La Fase 2 transforma un ranking lineal en una plataforma modular y auditable.
 7. Estimar riesgo de escape evolutivo y su penalizacion moderada auditable.
 8. Analizar sensibilidad con escenarios alternativos.
 8. Exportar ranking, comparación y reporte.
+
+La prioridad terapeutica y la confianza de evidencia se mantienen separadas.
+`therapeutic_priority_score` expresa una lectura relativa de prioridad dentro de
+las reglas actuales, mientras `evidence_confidence_score` expresa cuanto soporte
+trazable existe para interpretar esa lectura. Por eso un score alto no se
+promueve automaticamente a confianza alta.
 
 ## Tratamiento del faltante
 
@@ -134,3 +142,14 @@ variables explicitas suficientes.
 El ranking principal conserva `meta_priority_score` por compatibilidad y agrega
 `evolutionary_adjusted_meta_priority_score` para mostrar el efecto de la
 penalizacion evolutiva configurable.
+
+## Lectura conservadora
+
+La interpretacion conservadora advierte sobre evidencia proxy, confianza baja,
+redundancia alta, `paralog_count` alto, `mobile_context`, `hgt_context`,
+`recombination_context` y `resistance_association`. Esa lectura evita tratar
+faltantes o proxies como bajo riesgo.
+
+La subcapa evolutiva modula robustez y escape, pero no reemplaza los ejes de
+funcionalidad, selectividad, accesibilidad y evidencia que sostienen la Teoria
+de Nodos Funcionales.

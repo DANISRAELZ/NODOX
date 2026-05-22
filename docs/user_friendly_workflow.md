@@ -113,6 +113,15 @@ Un `therapeutic_priority_score` alto prioriza una hipotesis computacional, pero
 no confirma eficacia ni uso clinico. Si `evidence_confidence_score` es bajo, la
 prioridad debe leerse como exploratoria y dependiente de evidencia incompleta.
 
+Leer ambos campos por separado:
+
+| Combinacion | Lectura breve |
+| --- | --- |
+| Prioridad alta / confianza alta | Candidato priorizado con mejor soporte relativo para revision. |
+| Prioridad alta / confianza baja | Candidato exploratorio; revisar proxies, faltantes y procedencia. |
+| Prioridad baja / confianza alta | Baja prioridad relativa bajo las reglas actuales, no descarte biologico automatico. |
+| Prioridad baja / confianza baja | Evidencia insuficiente para concluir por ausencia de score. |
+
 El riesgo evolutivo ayuda a estimar robustez y posible escape, pero no prueba
 que un blanco sea clinicamente seguro o durable. Cualquier conclusion requiere
 validacion experimental, revision microbiologica y evaluacion farmacologica o

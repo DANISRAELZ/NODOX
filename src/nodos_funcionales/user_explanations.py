@@ -44,7 +44,9 @@ def build_simple_candidate_explanations_markdown(explanations: pd.DataFrame) -> 
     lines = [
         "# Explicacion Simple de Candidatos",
         "",
-        "Este reporte usa lenguaje no tecnico. Resume por que el pipeline priorizo cada nodo, que evidencia existe y que falta. No afirma validacion experimental ni clinica.",
+        "Este reporte usa lenguaje no tecnico. Resume por que el pipeline priorizo cada nodo, que evidencia existe y que falta. Nodos Funcionales es una plataforma de priorizacion terapeutica basada en evidencia, no un predictor clinico definitivo.",
+        "",
+        "`therapeutic_priority_score` ordena hipotesis dentro del modelo y `evidence_confidence_score` describe el soporte disponible para interpretarlas. Un score alto no equivale a confianza alta.",
         "",
         "Advertencia: un score alto no equivale a validacion experimental ni validacion clinica, no implica que exista un farmaco disponible y no constituye recomendacion terapeutica. No sustituye evaluacion medica, microbiologica ni farmacologica. La ausencia de evidencia no equivale a evidencia negativa; bajo riesgo evolutivo no significa ausencia de resistencia.",
         "",
@@ -157,7 +159,10 @@ def explain_confidence(row: pd.Series) -> str:
     ceiling = _score(row.get("confidence_ceiling", row.get("optional_data_quality_score", 0.0)))
     modifier = _score(row.get("confidence_modifier"))
     source_class = _clean(row.get("confidence_source_class", "unknown"))
-    return f"confianza={confidence}; cobertura={coverage}; modificador={modifier}; techo={ceiling}; fuente_dominante={source_class}"
+    return (
+        f"confianza={confidence}; cobertura={coverage}; modificador={modifier}; techo={ceiling}; "
+        f"fuente_dominante={source_class}; independiente_de_prioridad=si"
+    )
 
 
 def explain_theory_context(row: pd.Series) -> str:
@@ -202,7 +207,8 @@ def explain_interpretation_warning(row: pd.Series) -> str:
         return warning
     return (
         "Ranking = hipotesis terapeutica priorizada, no validacion experimental ni validacion clinica y no recomendacion terapeutica; "
-        "requiere validacion experimental y clinica antes de cualquier aplicacion; la ausencia de evidencia no equivale a evidencia negativa."
+        "requiere validacion experimental y clinica antes de cualquier aplicacion; score alto no equivale a confianza alta; "
+        "ausencia, proxy o evidencia incompleta no equivalen a evidencia negativa ni a bajo riesgo."
     )
 
 

@@ -49,6 +49,9 @@ de features para scoring.
 - `evidence_coverage_score`
 - `evidence_confidence_score`
 
+`evidence_confidence_score` describe soporte y confianza de evidencia. No es un
+alias de prioridad terapeutica y no debe inferirse desde un score alto.
+
 ## Seguridad del hospedero
 
 - `human_similarity_score`
@@ -107,6 +110,11 @@ Estas columnas pueden acompañarse de banderas `*_is_proxy`.
 - `therapeutic_priority_contribution_summary`
 - `therapeutic_role_rule`
 - `therapeutic_context_missingness`
+
+`therapeutic_priority_score` ordena hipotesis terapeuticas segun las variables
+del modelo y sus contribuciones auditables. Debe leerse junto con
+`evidence_confidence_score`, procedencia, cobertura, faltantes y banderas proxy;
+un valor alto no eleva la confianza por si mismo.
 
 ## Contexto infeccioso empírico opcional
 

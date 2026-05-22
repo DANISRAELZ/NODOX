@@ -316,11 +316,23 @@ Puede declararse que hubo ranking real si se cumplen todos estos puntos:
 
 ## Score alto y confianza baja
 
+`therapeutic_priority_score` y `evidence_confidence_score` se deben revisar por
+separado. El primero prioriza una hipotesis terapeutica dentro de las reglas del
+modelo; el segundo describe el soporte trazable disponible para interpretarla.
 Un score alto no equivale por si solo a evidencia fuerte. Si un candidato tiene
 score alto pero baja confianza, faltantes relevantes, procedencia incompleta,
 proxy marcado o evidencia derivada de cache/demo/referencia controlada, debe
 interpretarse como hipotesis computacional priorizada, no como conclusion
 terapeutica robusta.
+
+| Combinacion | Lectura user-curated |
+| --- | --- |
+| Score alto / confianza alta | Prioridad con mejor soporte relativo dentro del dataset revisado. |
+| Score alto / confianza baja | Hipotesis exploratoria; completar evidencia antes de elevar la conclusion. |
+| Score bajo / confianza alta | Baja prioridad relativa con evidencia trazable; revisar si el modelo omite contexto relevante. |
+| Score bajo / confianza baja | Evidencia insuficiente; no presentar el score bajo como evidencia negativa. |
+| Alto riesgo evolutivo / baja confianza | Advertencia de posible escape que necesita evidencia evolutiva directa o curada. |
+| Bajo riesgo aparente / evidencia insuficiente | Riesgo no resuelto; faltantes y proxies no prueban seguridad ni durabilidad. |
 
 La plataforma prioriza blancos terapeuticos bacterianos para exploracion y
 revision. No sustituye validacion experimental, revision microbiologica,
@@ -348,6 +360,18 @@ Debe declararse `datos insuficientes` si ocurre cualquiera de estos casos:
 Datos insuficientes no equivalen a bajo riesgo, ausencia biologica, evidencia
 negativa ni irrelevancia terapeutica. Solo indican que la evidencia disponible
 no alcanza para interpretar el ranking con confianza.
+
+## Modo conservador para revision
+
+La revision user-curated debe activar una lectura conservadora cuando aparezcan
+evidencia proxy, alta redundancia, `paralog_count` alto, `mobile_context`,
+`hgt_context`, `recombination_context`, `resistance_association` o confianza
+baja. Esa lectura puede penalizar la conclusion o agregar advertencias, pero no
+debe ocultar funcionalidad, selectividad, accesibilidad ni evidencia directa.
+
+La subcapa evolutiva queda como moduladora interpretativa del riesgo de escape.
+No convierte por si sola un nodo en candidato final ni descarta una hipotesis
+cuando el resto de la evidencia todavia es incompleta.
 
 ## Cierre esperado
 

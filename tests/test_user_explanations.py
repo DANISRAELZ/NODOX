@@ -61,6 +61,7 @@ def test_simple_explanations_mark_demo_and_missing_as_limitations() -> None:
     assert "proxy/demo/controlado solo orientan" in row["sources_used"]
     assert "missing/insufficient indican ausencia o insuficiencia, no evidencia negativa ni bajo riesgo" in row["sources_used"]
     assert "confianza=0.420" in row["confidence_level"]
+    assert "independiente_de_prioridad=si" in row["confidence_level"]
     assert "meta_priority_score=0.300" in row["therapeutic_priority_components"]
     assert "functional_node_score=0.680" in row["theory_context"]
     assert "provenance_status=inferred_proxy" in row["provenance_context"]
@@ -135,11 +136,15 @@ def test_simple_explanations_include_non_clinical_use_limits() -> None:
     combined = f"{markdown}\n{explanations.loc[0, 'interpretation_warning']}".lower()
 
     for phrase in [
+        "plataforma de priorizacion terapeutica basada en evidencia",
+        "no un predictor clinico definitivo",
+        "score alto no equivale a confianza alta",
         "no constituye recomendacion terapeutica",
         "validacion experimental",
         "validacion clinica",
         "evaluacion medica",
         "microbiologica",
         "farmacologica",
+        "proxy o evidencia incompleta",
     ]:
         assert phrase in combined

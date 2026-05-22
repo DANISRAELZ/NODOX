@@ -26,6 +26,10 @@ Nodos Funcionales no es una herramienta de diagnostico clinico. Tampoco confirma
 que una terapia funcione, no reemplaza una revision experta y no convierte un
 archivo incompleto en evidencia biologica fuerte.
 
+Cuando se llegue a scoring en una fase posterior, la prioridad terapeutica y la
+confianza de evidencia deberan leerse por separado. Un score alto con baja
+confianza seguira siendo una hipotesis exploratoria, no una prediccion clinica.
+
 En esta fase, tampoco es un dashboard, una API, una aplicacion grafica ni un
 sistema automatico de descubrimiento con datos online obligatorios.
 
@@ -223,6 +227,10 @@ quality gate, advertencias y decision final. Ese resumen no es validacion
 biologica, no es validacion clinica, no implica recomendacion terapeutica y no
 sustituye revision experta. Un score alto, en fases futuras, no equivale
 automaticamente a confianza alta.
+
+De forma conservadora, ausencia de evidencia, datos incompletos y proxies no
+deben leerse como bajo riesgo. El riesgo evolutivo solo modula la interpretacion
+junto con funcionalidad, selectividad, accesibilidad y procedencia.
 
 En GUI Phase 7 el flujo final queda ordenado como staging local, revision de
 archivos, validacion de manifest, revision de evidencia/calidad, quality gate,

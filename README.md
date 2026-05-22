@@ -184,10 +184,17 @@ trazabilidad y cobertura de las capas de evidencia.
 
 ## Como interpretar los scores
 
-Los scores son una priorizacion computacional exploratoria. Un valor alto no
-confirma eficacia terapeutica, seguridad, accesibilidad real ni validez clinica.
-El ranking ayuda a ordenar hipotesis y a decidir que evidencia falta revisar o
-generar experimentalmente.
+Nodos Funcionales es una plataforma de priorizacion terapeutica basada en
+evidencia. Los scores son una priorizacion computacional exploratoria: un valor
+alto no confirma eficacia terapeutica, seguridad, accesibilidad real ni validez
+clinica. El ranking ayuda a ordenar hipotesis y a decidir que evidencia falta
+revisar o generar experimentalmente.
+
+`therapeutic_priority_score` y `evidence_confidence_score` no significan lo
+mismo. El primero resume la prioridad terapeutica dentro de las reglas del
+modelo; el segundo resume cuanta evidencia trazable sostiene la lectura. Un
+score alto puede coexistir con confianza baja si hay proxies, faltantes,
+procedencia debil o evidencia insuficiente.
 
 Los scores deben interpretarse como evidencia de soporte dentro del modelo, no
 como confirmacion definitiva. Cualquier aplicacion requiere validacion externa y
@@ -201,6 +208,9 @@ Antes de concluir que un blanco es prometedor, revisar:
 - localizacion y accesibilidad.
 - soporte funcional de red.
 - procedencia de la evidencia: real, demo, cache, proxy o calculo indirecto.
+- confianza y cobertura de evidencia por separado de la prioridad terapeutica.
+- riesgo evolutivo como modulador interpretativo, no sustituto de funcionalidad,
+  selectividad, accesibilidad ni procedencia.
 
 ## Uso exploratorio
 

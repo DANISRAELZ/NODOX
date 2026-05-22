@@ -157,10 +157,19 @@ No permitidos para aceptar importacion:
 ## 8. Limites interpretativos
 
 - [ ] El dataset no demuestra eficacia terapeutica.
+- [ ] Nodos Funcionales se presenta como plataforma de priorizacion terapeutica
+  basada en evidencia, no como predictor clinico definitivo.
 - [ ] Un score futuro alto no confirmara seguridad, accesibilidad real ni
   validez clinica.
+- [ ] `therapeutic_priority_score` futuro y `evidence_confidence_score` futuro
+  se leeran por separado.
+- [ ] Un score alto futuro no equivaldra automaticamente a confianza alta.
 - [ ] Datos insuficientes no equivalen a evidencia negativa.
+- [ ] Ausencia de evidencia, datos incompletos o proxy no equivalen a bajo
+  riesgo.
 - [ ] Proxy o inferencia no deben presentarse como medicion directa.
+- [ ] Riesgo evolutivo modula la interpretacion sin opacar funcionalidad,
+  selectividad, accesibilidad ni evidencia.
 - [ ] Cache y online pueden ayudar a reproducibilidad o enriquecimiento futuro,
   pero no sustituyen evidencia `user_curated` en esta fase.
 - [ ] `controlled_reference` sirve para contratos y comparacion metodologica,
