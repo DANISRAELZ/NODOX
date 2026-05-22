@@ -10,6 +10,10 @@ pipeline ni Snakemake.
 Para iniciar el primer dataset real paso a paso con el scaffold local, ver
 `docs/first_user_curated_dataset_startup.md`.
 
+Para probar el flujo con el dataset minimo controlado de cuatro capas antes de
+interpretar scoring real, ver
+`docs/user_curated_minimal_real_dataset.md`.
+
 La fase llega solo hasta prevalidacion e importacion controlada con
 `import_dataset.py --validate-user-curated-manifest`. No produce ranking, no
 genera outputs versionados y no convierte evidencia incompleta en evidencia
@@ -324,5 +328,7 @@ fase separada.
   prevalidacion/importacion controlada.
 - `docs/first_user_curated_dataset_startup.md`: arranque operativo del primer
   dataset real en `user_curated_staging/<project_id>/`.
+- `docs/user_curated_minimal_real_dataset.md`: minimo controlado de cuatro
+  capas para distinguir evidencia `user_curated`, incompleta, proxy y faltante.
 - `docs/dataset_import.md`: uso de `import_dataset.py` y la bandera
   `--validate-user-curated-manifest`.

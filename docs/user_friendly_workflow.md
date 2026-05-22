@@ -7,6 +7,10 @@ con datos reales `user_curated`, sin mezclar demo, proxy, cache, online ni
 `controlled_reference`. No cambia la logica cientifica del proyecto ni sustituye
 los protocolos detallados.
 
+Para llenar el dataset minimo controlado de cuatro capas y distinguir evidencia
+real, incompleta, proxy y faltante antes de scoring, ver
+`docs/user_curated_minimal_real_dataset.md`.
+
 ## 1. Crear un nuevo paquete de datos
 
 Elegir un `project_id` local y crear una carpeta ignorada por Git:

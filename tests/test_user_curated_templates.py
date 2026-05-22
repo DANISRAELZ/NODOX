@@ -195,6 +195,48 @@ def test_first_user_curated_dataset_startup_document_contract() -> None:
         assert forbidden_default not in doc_text
 
 
+def test_user_curated_minimal_real_dataset_document_contract() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    doc_path = project_root / "docs" / "user_curated_minimal_real_dataset.md"
+
+    assert doc_path.exists()
+
+    doc_text = doc_path.read_text(encoding="utf-8")
+    normalized_text = " ".join(doc_text.split())
+    required_terms = {
+        "essentiality.csv",
+        "virulence.csv",
+        "human_homologs.csv",
+        "localization.csv",
+        "protein_id",
+        "source_type=user_curated",
+        "provenance",
+        "evidencia incompleta",
+        "proxy",
+        "evidencia faltante",
+        "validate_user_curated_dataset.ps1",
+        "validate_user_curated_manifest.ps1",
+        "--validate-user-curated-manifest",
+        "therapeutic_priority_score",
+        "evidence_confidence_score",
+        "lectura conservadora",
+    }
+    for term in required_terms:
+        assert term in normalized_text
+
+    required_limits = {
+        "No usar `--allow-demo-data`",
+        "No copiar filas demo",
+        "No significa automaticamente bajo riesgo",
+        "score alto con confianza baja sigue siendo exploratorio",
+    }
+    for limit in required_limits:
+        assert limit in normalized_text
+
+    for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
+        assert forbidden_default not in doc_text
+
+
 def test_user_friendly_onboarding_document_contract() -> None:
     project_root = Path(__file__).resolve().parents[1]
     doc_path = project_root / "docs" / "user_friendly_onboarding.md"

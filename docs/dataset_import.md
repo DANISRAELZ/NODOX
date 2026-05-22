@@ -16,6 +16,9 @@ son locales e ignoradas por `.gitignore`. El importador normaliza columnas,
 pero no convierte automaticamente un export en evidencia curada: la procedencia
 y la revision biologica deben quedar declaradas por el usuario.
 
+Para una prueba minima controlada con las cuatro capas obligatorias de entrada,
+ver `docs/user_curated_minimal_real_dataset.md`.
+
 Para dejar trazabilidad por archivo, completar tambien un manifest basado en
 `data_templates/user_curated_dataset_manifest_template.csv`. Ese manifest
 describe el dataset, su version, curador, procedencia, esquema de entrada y si
