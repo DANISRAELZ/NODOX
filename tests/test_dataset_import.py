@@ -25,6 +25,15 @@ def _write_virulence_export(path: Path) -> None:
     )
 
 
+def _write_essentiality_template_export_with_free_columns(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "protein_id,gene,essential,evidence,database,essentiality_score,essentiality_call\n"
+        "GENERIC_ESS_001,generic_essential_gene,1,manual reviewed evidence,user_curated_local_export,0.97,high\n",
+        encoding="utf-8",
+    )
+
+
 def _valid_manifest_row(source_type: str = "user_curated") -> dict[str, str]:
     return {
         "organism": "Generic organism",
@@ -123,6 +132,57 @@ def test_import_dataset_with_valid_user_curated_manifest_continues(tmp_path: Pat
     assert "Manifest user_curated valido" in result.stdout
     assert "[OK] Dataset importado: virulence" in result.stdout
     assert (workspace / "data_raw" / "virulence.csv").exists()
+
+
+def test_user_curated_template_columns_reach_internal_layer_and_free_columns_stay_in_source_export(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    _write_workspace_config(workspace)
+    source = tmp_path / "source" / "essentiality_template_export.csv"
+    manifest = tmp_path / "manifest" / "user_curated_dataset_manifest.csv"
+    _write_essentiality_template_export_with_free_columns(source)
+    row = _valid_manifest_row()
+    row.update(
+        {
+            "dataset_id": "generic_essentiality_dataset",
+            "input_file": source.name,
+            "input_schema": "data_templates/essentiality_template.csv",
+        }
+    )
+    _write_manifest(manifest, row)
+
+    result = _run_import_dataset(
+        [
+            "--workspace",
+            str(workspace),
+            "--dataset",
+            "essentiality",
+            "--input",
+            str(source),
+            "--validate-user-curated-manifest",
+            str(manifest),
+        ]
+    )
+
+    assert result.returncode == 0
+    internal_layer = workspace / "data_raw" / "essentiality.csv"
+    source_export = workspace / "data_raw" / "source_exports" / source.name
+    assert internal_layer.exists()
+    assert source_export.exists()
+
+    with internal_layer.open(newline="", encoding="utf-8") as handle:
+        internal_rows = list(csv.DictReader(handle))
+    with source_export.open(newline="", encoding="utf-8") as handle:
+        source_rows = list(csv.DictReader(handle))
+
+    assert set(internal_rows[0]) == {"protein_id", "gene", "essential", "evidence", "database"}
+    assert internal_rows[0]["evidence"] == "manual reviewed evidence"
+    assert internal_rows[0]["database"] == "user_curated_local_export"
+    assert "essentiality_score" not in internal_rows[0]
+    assert "essentiality_call" not in internal_rows[0]
+    assert source_rows[0]["essentiality_score"] == "0.97"
+    assert source_rows[0]["essentiality_call"] == "high"
 
 
 def test_import_dataset_with_invalid_user_curated_manifest_stops_before_import(tmp_path: Path) -> None:

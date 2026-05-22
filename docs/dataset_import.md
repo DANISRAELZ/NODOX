@@ -96,6 +96,19 @@ depende de un organismo especifico.
 - escribe el archivo normalizado en `workspace/data_raw/<dataset>.csv`
 - conserva una copia del export original en `workspace/data_raw/source_exports/`
 
+## Esquema de salida
+
+Para datos `user_curated`, cada CSV debe seguir el template declarado en
+`manifest.input_schema`. El archivo normalizado en `data_raw/` conserva solo
+columnas contempladas por el dataset interno o mapeadas hacia ese esquema. Una
+columna libre del export puede quedar solo en `data_raw/source_exports/` y no
+aparecer en la capa interna.
+
+En `essentiality.csv`, la trazabilidad que debe viajar dentro de la capa interna
+usa columnas del template como `evidence` y `database`. No usar columnas libres
+como `essentiality_score` o `essentiality_call` esperando que se conserven en
+`data_raw/essentiality.csv`, salvo que el esquema se amplie formalmente.
+
 ## Alias soportados
 
 Ejemplos:

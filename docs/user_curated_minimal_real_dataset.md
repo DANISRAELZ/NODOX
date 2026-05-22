@@ -54,6 +54,26 @@ organism,strain,dataset_id,dataset_version,curator_name,curation_date,source_typ
 Agregar una fila de manifest por cada archivo minimo. En este flujo las cuatro
 filas deben declarar `required_for_scoring=true` solo si el usuario ya acepto
 que esas capas son las entradas controladas que se usaran para la prueba.
+Cada archivo debe seguir el template declarado en `manifest.input_schema`.
+
+## Esquema de importacion y trazabilidad
+
+El importador crea dos rastros distintos:
+
+- la capa interna normalizada en `workspace/data_raw/<dataset>.csv`;
+- una copia del CSV original en `workspace/data_raw/source_exports/`.
+
+La capa interna conserva las columnas contempladas por el dataset y por su
+template. Columnas libres o no mapeadas pueden quedar solo en
+`data_raw/source_exports/` o no aparecer en el CSV interno. Por eso, para
+conservar trazabilidad dentro de `essentiality.csv`, usar las columnas del
+template como `evidence` y `database`.
+
+No usar columnas libres como `essentiality_score` o `essentiality_call`
+esperando que aparezcan en la capa interna `essentiality.csv`, salvo que el
+esquema se amplie formalmente. Si una nota adicional todavia es necesaria,
+mantenerla en el export original, en el manifest, en `notes/` o en una columna
+ya aceptada por el template correspondiente.
 
 ## Variables y reglas de esta prueba
 
@@ -151,6 +171,8 @@ prueba como `user_curated`.
 Antes de scoring revisar:
 
 - que las cuatro capas minimas tienen filas del organismo declarado;
+- que cada archivo importado sigue el template indicado en
+  `manifest.input_schema`;
 - que los `protein_id` que se quieren comparar se alinean entre capas o que la
   falta de alineacion queda documentada;
 - que `source_type=user_curated` no se usa para demo, proxy, cache, online

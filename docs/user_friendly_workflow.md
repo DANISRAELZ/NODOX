@@ -103,6 +103,8 @@ taxonomia y no escribe cache taxonomico.
 
 - Manifest no existe: crear el scaffold o revisar `manifest.csv`.
 - Columnas requeridas faltantes: copiar encabezados desde `data_templates/`.
+- Esquema declarado distinto del CSV: cada archivo debe seguir el template
+  indicado por `manifest.input_schema`.
 - Columnas opcionales ausentes: documentar el faltante si no aplica.
 - Placeholders visibles: reemplazar valores como `<protein_id>` o
   `<source_database>`.
@@ -110,6 +112,11 @@ taxonomia y no escribe cache taxonomico.
   `input_file`.
 - Fuente mezclada: separar demo, proxy, cache, online y `controlled_reference`
   antes de interpretar datos reales.
+- Columna libre no visible tras importar: la capa interna conserva el esquema
+  del dataset; el CSV original queda en `data_raw/source_exports/`. Para
+  `essentiality.csv`, usar `evidence` y `database` para trazabilidad interna,
+  no `essentiality_score` o `essentiality_call` salvo ampliacion formal del
+  esquema.
 
 ## Interpretacion
 
