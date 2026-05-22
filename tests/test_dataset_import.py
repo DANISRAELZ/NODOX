@@ -134,6 +134,36 @@ def test_import_dataset_with_valid_user_curated_manifest_continues(tmp_path: Pat
     assert (workspace / "data_raw" / "virulence.csv").exists()
 
 
+def test_import_dataset_as_user_layer_writes_data_user_and_source_export(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    _write_workspace_config(workspace)
+    source = tmp_path / "source" / "virulence_export.csv"
+    manifest = tmp_path / "manifest" / "user_curated_dataset_manifest.csv"
+    _write_virulence_export(source)
+    _write_manifest(manifest, _valid_manifest_row())
+
+    result = _run_import_dataset(
+        [
+            "--workspace",
+            str(workspace),
+            "--dataset",
+            "virulence",
+            "--input",
+            str(source),
+            "--validate-user-curated-manifest",
+            str(manifest),
+            "--as-user-layer",
+        ]
+    )
+
+    assert result.returncode == 0
+    assert "Manifest user_curated valido" in result.stdout
+    assert "Destino como capa de usuario: data_user" in result.stdout
+    assert (workspace / "data_user" / "virulence.csv").exists()
+    assert (workspace / "data_user" / "source_exports" / source.name).exists()
+    assert not (workspace / "data_raw" / "virulence.csv").exists()
+
+
 def test_user_curated_template_columns_reach_internal_layer_and_free_columns_stay_in_source_export(
     tmp_path: Path,
 ) -> None:
@@ -210,6 +240,34 @@ def test_import_dataset_with_invalid_user_curated_manifest_stops_before_import(t
     assert "Manifest user_curated invalido" in result.stderr
     assert "source_type must be user_curated" in result.stderr
     assert not (workspace / "data_raw" / "virulence.csv").exists()
+
+
+def test_import_dataset_as_user_layer_with_invalid_manifest_stops_before_import(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    _write_workspace_config(workspace)
+    source = tmp_path / "source" / "virulence_export.csv"
+    manifest = tmp_path / "manifest" / "user_curated_dataset_manifest.csv"
+    _write_virulence_export(source)
+    _write_manifest(manifest, _valid_manifest_row(source_type="cache"))
+
+    result = _run_import_dataset(
+        [
+            "--workspace",
+            str(workspace),
+            "--dataset",
+            "virulence",
+            "--input",
+            str(source),
+            "--validate-user-curated-manifest",
+            str(manifest),
+            "--as-user-layer",
+        ]
+    )
+
+    assert result.returncode != 0
+    assert "Manifest user_curated invalido" in result.stderr
+    assert not (workspace / "data_user" / "virulence.csv").exists()
+    assert not (workspace / "data_user" / "source_exports").exists()
 
 
 def test_user_curated_operational_flow_is_prevalidated_and_tmp_only(tmp_path: Path) -> None:

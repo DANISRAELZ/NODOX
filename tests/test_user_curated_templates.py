@@ -221,6 +221,7 @@ def test_user_curated_minimal_real_dataset_document_contract() -> None:
         "validate_user_curated_dataset.ps1",
         "validate_user_curated_manifest.ps1",
         "--validate-user-curated-manifest",
+        "--as-user-layer",
         "therapeutic_priority_score",
         "evidence_confidence_score",
         "lectura conservadora",

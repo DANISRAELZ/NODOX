@@ -63,6 +63,7 @@ def import_user_dataset(
     input_path: Path,
     project_root: Path,
     copy_source_export: bool = True,
+    as_user_layer: bool = False,
 ) -> dict[str, object]:
     config = load_config(workspace / "config" / "params.yaml")
     if dataset_key not in DATASET_FILENAMES:
@@ -77,13 +78,14 @@ def import_user_dataset(
     df = read_csv(source)
     mapped, renamed = map_source_dataframe(df, dataset_key, config)
 
-    target = workspace / "data_raw" / DATASET_FILENAMES[dataset_key]
+    destination_dir = "data_user" if as_user_layer else "data_raw"
+    target = workspace / destination_dir / DATASET_FILENAMES[dataset_key]
     ensure_dir(target.parent)
     write_csv(mapped, target, index=False)
 
     copied_source = None
     if copy_source_export:
-        source_dir = workspace / "data_raw" / "source_exports"
+        source_dir = workspace / destination_dir / "source_exports"
         ensure_dir(source_dir)
         copied_source = source_dir / source.name
         shutil.copy2(source, copied_source)
@@ -95,4 +97,5 @@ def import_user_dataset(
         "mapped_rows": len(mapped),
         "renamed_columns": renamed,
         "copied_source": copied_source,
+        "as_user_layer": as_user_layer,
     }

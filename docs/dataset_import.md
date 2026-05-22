@@ -79,6 +79,24 @@ Si el manifest tiene errores, el importador los imprime y se detiene antes de
 copiar o normalizar datos. Sin esta bandera, el comportamiento de
 `import_dataset.py` permanece igual que antes.
 
+## Importar como capa de usuario
+
+Por defecto, `import_dataset.py` mantiene el comportamiento historico y escribe
+la capa normalizada en `workspace/data_raw/<dataset>.csv`.
+
+Cuando una capa `user_curated` ya fue revisada y debe ser resuelta como evidencia
+aportada por el usuario, agregar `--as-user-layer` junto con la prevalidacion del
+manifest:
+
+```powershell
+.\.venv\Scripts\python.exe import_dataset.py --workspace <workspace_dedicado> --dataset essentiality --input path\to\essentiality.csv --validate-user-curated-manifest path\to\manifest.csv --as-user-layer
+```
+
+Ese modo escribe la capa normalizada en `workspace/data_user/<dataset>.csv` y
+conserva el export original en `workspace/data_user/source_exports/`. La consola
+indica que el destino es capa de usuario. El comando solo importa; no ejecuta
+pipeline ni scoring.
+
 ## Uso
 
 ```bash

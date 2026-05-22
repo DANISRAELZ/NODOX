@@ -161,12 +161,17 @@ Ejemplos conservadores:
    prevalidado:
 
 ```powershell
-.\.venv\Scripts\python.exe import_dataset.py --organism "ORGANISM_NAME" --strain "STRAIN_OR_SCOPE" --workspace <workspace_dedicado> --dataset essentiality --input user_curated_staging\<project_id>\raw_inputs\essentiality.csv --validate-user-curated-manifest user_curated_staging\<project_id>\manifest.csv
+.\.venv\Scripts\python.exe import_dataset.py --organism "ORGANISM_NAME" --strain "STRAIN_OR_SCOPE" --workspace <workspace_dedicado> --dataset essentiality --input user_curated_staging\<project_id>\raw_inputs\essentiality.csv --validate-user-curated-manifest user_curated_staging\<project_id>\manifest.csv --as-user-layer
 ```
 
 Repetir la importacion para `virulence`, `human_homologs` y `localization` en el
 mismo workspace dedicado. No usar `--allow-demo-data` para interpretar esta
 prueba como `user_curated`.
+
+`--as-user-layer` materializa las capas revisadas en `data_user/` para que el
+resolvedor pueda tratarlas como evidencia aportada por el usuario. Si se omite,
+el importador mantiene la ruta compatible en `data_raw/`. En ambos modos el
+comando no ejecuta pipeline ni scoring.
 
 Antes de scoring revisar:
 

@@ -87,6 +87,12 @@ Despues de revision manual:
 El script valida primero el paquete y luego llama a `import_dataset.py` con
 `--validate-user-curated-manifest`.
 
+Para importar manualmente una capa revisada directamente como evidencia de
+usuario, usar `import_dataset.py` con `--validate-user-curated-manifest` y
+`--as-user-layer`. Ese flag escribe en `workspace/data_user/` y conserva el
+export original en `workspace/data_user/source_exports/`; sin el flag se
+mantiene la importacion compatible a `workspace/data_raw/`.
+
 ## 5. Ejecutar analisis
 
 Ejecutar pipeline solo despues de revisar manualmente manifest, archivos,

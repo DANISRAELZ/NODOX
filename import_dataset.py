@@ -32,6 +32,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--validate-user-curated-manifest",
         help="Prevalidar un manifest user_curated antes de importar. Si hay errores, la importacion se detiene.",
     )
+    parser.add_argument(
+        "--as-user-layer",
+        action="store_true",
+        help="Importar el CSV generic_csv como capa de usuario en workspace/data_user/.",
+    )
     return parser
 
 
@@ -56,6 +61,8 @@ def _main(argv: list[str] | None = None) -> int:
         print("[OK] Manifest user_curated valido para revision/importacion.")
 
     if args.input_format == "generic_annotations":
+        if args.as_user_layer:
+            parser.error("--as-user-layer solo aplica a --input-format generic_csv")
         if not args.input_dir:
             parser.error("--input-format generic_annotations requiere --input-dir")
         summaries = write_layer_csvs(
@@ -91,12 +98,15 @@ def _main(argv: list[str] | None = None) -> int:
         dataset_key=args.dataset,
         input_path=input_path,
         project_root=PROJECT_ROOT,
+        as_user_layer=args.as_user_layer,
     )
     if args.organism:
         print(f"[OK] Organismo: {args.organism}")
     if args.strain:
         print(f"[OK] Cepa: {args.strain}")
     print(f"[OK] Dataset importado: {result['dataset_key']}")
+    if result["as_user_layer"]:
+        print("[OK] Destino como capa de usuario: data_user")
     print(f"[OK] Destino: {result['target_path']}")
     print(f"[OK] Filas fuente: {result['source_rows']}; filas mapeadas: {result['mapped_rows']}")
     print(f"[OK] Columnas mapeadas: {result['renamed_columns']}")
