@@ -70,3 +70,14 @@ o igual a 2, solo disparan advertencias. Tambien advierte sobre
 `mutation_tolerance` alta o incierta, redundancia de via, contexto movil,
 transferencia horizontal, recombinacion, asociacion con resistencia y
 procedencia demo/proxy/cache/controlada.
+
+## Matriz final de interpretacion
+
+La matriz final combina prioridad, confianza, riesgo evolutivo, procedencia y
+lectura conservadora sin modificar scores ni ranking. Sus categorias son
+interpretativas: `strong_candidate_for_experimental_validation`,
+`prioritized_hypothesis_limited_evidence`,
+`evidence_supported_but_low_priority`, `insufficient_information`,
+`evolutionary_caution`, `provenance_limited_interpretation` y
+`user_curated_requires_traceability`. Ninguna categoria confirma uso clinico:
+toda aplicacion requiere validacion experimental.

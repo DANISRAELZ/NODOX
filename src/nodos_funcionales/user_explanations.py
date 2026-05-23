@@ -32,6 +32,7 @@ def build_simple_candidate_explanations(ranking: pd.DataFrame, top_n: int = 10) 
                 "confidence_level": explain_confidence(row),
                 "score_confidence_interpretation": explain_score_confidence_interpretation(row),
                 "conservative_interpretation": explain_conservative_interpretation(row),
+                "final_interpretation_matrix": explain_final_interpretation_matrix(row),
                 "theory_context": explain_theory_context(row),
                 "provenance_context": explain_provenance_context(row),
                 "evolutionary_risk": explain_evolutionary_risk(row),
@@ -71,6 +72,7 @@ def build_simple_candidate_explanations_markdown(explanations: pd.DataFrame) -> 
                 f"- Confianza: {row.get('confidence_level', 'not_reported')}",
                 f"- Lectura prioridad/confianza: {row.get('score_confidence_interpretation', 'not_reported')}",
                 f"- Lectura conservadora: {row.get('conservative_interpretation', 'not_reported')}",
+                f"- Matriz final de interpretacion: {row.get('final_interpretation_matrix', 'not_reported')}",
                 f"- Contexto teorico: {row.get('theory_context', 'not_reported')}",
                 f"- Procedencia resumida: {row.get('provenance_context', 'not_reported')}",
                 f"- Riesgo evolutivo: {row.get('evolutionary_risk', 'not_reported')}",
@@ -330,6 +332,71 @@ def explain_conservative_interpretation(row: pd.Series) -> str:
     )
 
 
+def explain_final_interpretation_matrix(row: pd.Series) -> str:
+    priority = _numeric(row.get("therapeutic_priority_score"))
+    confidence = _numeric(row.get("evidence_confidence_score"))
+    escape_risk = _numeric(row.get("evolutionary_escape_risk_score", row.get("evolutionary_escape_risk")))
+    status = _clean(row.get("evolutionary_escape_risk_status", "not_reported")).lower()
+    provenance_text = _provenance_text(row)
+
+    high_priority = priority is not None and priority >= 0.65
+    low_or_missing_priority = priority is None or priority < 0.65
+    high_confidence = confidence is not None and confidence >= 0.65
+    low_or_missing_confidence = confidence is None or confidence < 0.50
+    traceable_provenance = _has_traceable_provenance(provenance_text)
+    provenance_limited = _has_limited_provenance(provenance_text)
+    user_curated_untraced = "user_curated" in provenance_text and not traceable_provenance
+    evolutionary_caution = _has_evolutionary_caution(row, escape_risk, status)
+
+    secondary: list[str] = []
+    if evolutionary_caution:
+        secondary.append("evolutionary_caution")
+    if provenance_limited:
+        secondary.append("provenance_limited_interpretation")
+    if user_curated_untraced:
+        secondary.append("user_curated_requires_traceability")
+    if confidence is None:
+        secondary.append("confidence_not_evaluated")
+
+    if high_priority and high_confidence and traceable_provenance and not evolutionary_caution and not provenance_limited:
+        category = "strong_candidate_for_experimental_validation"
+        interpretation = (
+            "candidato fuerte para validacion experimental por prioridad alta, confianza alta, "
+            "procedencia trazable y riesgo evolutivo bajo o evaluado sin senales criticas"
+        )
+    elif high_priority and (low_or_missing_confidence or provenance_limited or user_curated_untraced):
+        category = "prioritized_hypothesis_limited_evidence"
+        interpretation = "hipotesis priorizada, pero evidencia fragil o procedencia limitada; no es candidato confirmado"
+    elif low_or_missing_priority and high_confidence:
+        category = "evidence_supported_but_low_priority"
+        interpretation = "evidencia relativamente trazable, pero baja prioridad terapeutica bajo el modelo actual"
+    elif low_or_missing_priority and low_or_missing_confidence:
+        category = "insufficient_information"
+        interpretation = "informacion insuficiente; no sobreinterpretar y no tratar como bajo riesgo"
+    else:
+        category = "prioritized_hypothesis_limited_evidence" if high_priority else "insufficient_information"
+        interpretation = "lectura mixta que requiere revisar evidencia, procedencia y cautelas conservadoras"
+
+    secondary_text = ", ".join(dict.fromkeys(secondary)) if secondary else "none"
+    priority_text = _score(row.get("therapeutic_priority_score"))
+    confidence_text = _score(row.get("evidence_confidence_score"))
+    risk_text = _score(row.get("evolutionary_escape_risk_score", row.get("evolutionary_escape_risk")))
+    conservative = explain_conservative_interpretation(row)
+    return (
+        f"final_interpretation_category={category}; secondary_notes={secondary_text}; "
+        f"priority={priority_text}; confidence={confidence_text}; evolutionary_escape_risk={risk_text}; "
+        f"provenance_category={_summarize_provenance_category(provenance_text)}. "
+        f"Interpretacion: {interpretation}. `therapeutic_priority_score`, `evidence_confidence_score`, "
+        "procedencia y riesgo evolutivo son dimensiones separadas; score alto no equivale a confianza alta "
+        "y confianza alta no equivale a prioridad terapeutica alta. Matriz final interpretativa: no modifica "
+        "scores, pesos ni ranking, y no reordena candidatos. No es herramienta clinica ni predictor definitivo; "
+        "cualquier candidato requiere validacion experimental. Evidencia insuficiente no equivale a bajo riesgo; "
+        "riesgo evolutivo incierto no equivale a bajo riesgo evolutivo. user_curated requiere trazabilidad; "
+        "demo/proxy/cache no equivalen a evidencia real; controlled_reference no es evidencia de usuario. "
+        f"Plataforma multiorganismo. Lectura conservadora integrada: {conservative}"
+    )
+
+
 def explain_theory_context(row: pd.Series) -> str:
     return (
         f"functional_node_score={_score(row.get('functional_node_score'))}; "
@@ -427,6 +494,69 @@ def _is_present_or_uncertain(value: object) -> bool:
         token in text
         for token in ["present", "presente", "positive", "positivo", "yes", "true", "uncertain", "incierto", "unknown"]
     )
+
+
+def _provenance_text(row: pd.Series) -> str:
+    return " ".join(
+        _clean(row.get(column, "not_reported")).lower()
+        for column in [
+            "provenance_status",
+            "confidence_source_class",
+            "optional_data_source_summary",
+            "evidence_source",
+            "evidence_source_type",
+            "evidence_kind",
+            "retrieval_mode",
+            "cache_status",
+            "data_realism_flag",
+            "source_name",
+            "source_type",
+        ]
+    )
+
+
+def _has_limited_provenance(provenance_text: str) -> bool:
+    normalized = (
+        provenance_text.replace("not_cached", "")
+        .replace("not cached", "")
+        .replace("cache=not_primary", "")
+        .replace("cache not primary", "")
+    )
+    return any(token in normalized for token in ["demo", "proxy", "cache", "controlled_reference", "controlled"])
+
+
+def _has_traceable_provenance(provenance_text: str) -> bool:
+    return any(
+        token in provenance_text
+        for token in ["provenance", "reference", "reviewed", "trace", "trazable", "external_real", "literature_curated"]
+    )
+
+
+def _has_evolutionary_caution(row: pd.Series, escape_risk: float | None, status: str) -> bool:
+    if escape_risk is None or escape_risk >= 0.65:
+        return True
+    if status in {"not_reported", "missing", "insufficient", "insufficient_evidence", "unknown", "not_assessed"}:
+        return True
+    for column in ["mobile_context", "hgt_context", "recombination_context", "resistance_association"]:
+        if _is_present_or_uncertain(row.get(column)):
+            return True
+    return False
+
+
+def _summarize_provenance_category(provenance_text: str) -> str:
+    if "user_curated" in provenance_text:
+        return "user_curated"
+    if "controlled_reference" in provenance_text or "controlled" in provenance_text:
+        return "controlled_reference"
+    if "demo" in provenance_text:
+        return "demo"
+    if "proxy" in provenance_text:
+        return "proxy"
+    if "cache" in provenance_text:
+        return "cache"
+    if "external" in provenance_text:
+        return "external_or_online"
+    return "not_reported"
 
 
 def _clean(value: object) -> str:

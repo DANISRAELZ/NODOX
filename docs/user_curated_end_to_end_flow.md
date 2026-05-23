@@ -174,6 +174,12 @@ advertencias no modifican scores, pesos ni ranking; solo ayudan a no presentar
 datos `user_curated`, demo, proxy, cache o `controlled_reference` fuera de su
 procedencia real.
 
+La matriz final de interpretacion resume por candidato la prioridad, confianza,
+riesgo evolutivo, procedencia y lectura conservadora. Si `user_curated` aparece
+sin trazabilidad suficiente, la matriz debe pedir procedencia clara. Si hay
+demo/proxy/cache o `controlled_reference`, la lectura queda limitada y no se
+presenta como evidencia real equivalente.
+
 ## Orientacion multiorganismo
 
 El flujo debe funcionar para cualquier organismo bacteriano siempre que el

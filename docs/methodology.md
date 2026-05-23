@@ -58,6 +58,11 @@ recombinacion o asociacion con resistencia. Su proposito es recordar que
 ausencia de evidencia no es bajo riesgo, que riesgo evolutivo incierto no es
 bajo escape y que toda aplicacion requiere validacion experimental.
 
+La matriz final de interpretacion integra esa lectura con prioridad terapeutica,
+confianza de evidencia, procedencia y riesgo evolutivo. Sus categorias son
+campos de reporte para revision humana; no son scoring nuevo, no cambian pesos,
+no reordenan candidatos y no sustituyen validacion experimental.
+
 ## Objetivo
 
 La Fase 2 transforma un ranking lineal en una plataforma modular y auditable de

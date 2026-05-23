@@ -41,3 +41,13 @@ cache como soporte limitado, `controlled_reference`, riesgo evolutivo alto o no
 evaluado, baja restriccion evolutiva, alta tolerancia mutacional, redundancia,
 paralogos, movilidad, HGT, recombinacion o asociacion con resistencia. Estos
 umbrales son de lectura y auditoria, no una recalibracion cientifica.
+
+## Matriz final interpretativa
+
+La matriz final agrega una categoria textual por candidato a partir de
+`therapeutic_priority_score`, `evidence_confidence_score`,
+`evolutionary_escape_risk`, procedencia y lectura conservadora. No recalcula
+scores ni cambia el ranking. Una categoria fuerte significa candidato para
+validacion experimental, no candidato clinico confirmado; una categoria limitada
+por evidencia, procedencia o riesgo evolutivo indica que la hipotesis necesita
+mas soporte antes de interpretarse con confianza.
