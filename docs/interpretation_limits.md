@@ -81,3 +81,7 @@ interpretativas: `strong_candidate_for_experimental_validation`,
 `evolutionary_caution`, `provenance_limited_interpretation` y
 `user_curated_requires_traceability`. Ninguna categoria confirma uso clinico:
 toda aplicacion requiere validacion experimental.
+
+La columna `final_interpretation_matrix` se conserva en las explicaciones de
+candidatos exportables, incluyendo CSV y Markdown, y puede serializarse a JSON
+desde el mismo DataFrame sin recalcular ni reordenar candidatos.

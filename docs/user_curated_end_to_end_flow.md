@@ -180,6 +180,10 @@ sin trazabilidad suficiente, la matriz debe pedir procedencia clara. Si hay
 demo/proxy/cache o `controlled_reference`, la lectura queda limitada y no se
 presenta como evidencia real equivalente.
 
+En las explicaciones de candidatos, esa lectura viaja como
+`final_interpretation_matrix` y queda disponible para exportacion en CSV,
+Markdown o serializacion JSON, sin modificar score, ranking ni pesos.
+
 ## Orientacion multiorganismo
 
 El flujo debe funcionar para cualquier organismo bacteriano siempre que el
