@@ -10,6 +10,8 @@ los protocolos detallados.
 Para llenar el dataset minimo controlado de cuatro capas y distinguir evidencia
 real, incompleta, proxy y faltante antes de scoring, ver
 `docs/user_curated_minimal_real_dataset.md`.
+Para una vista end-to-end del flujo como capa de usuario resoluble, ver
+`docs/user_curated_end_to_end_flow.md`.
 
 ## 1. Crear un nuevo paquete de datos
 

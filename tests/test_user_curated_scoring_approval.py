@@ -1,4 +1,4 @@
-﻿from nodos_funcionales.user_curated_scoring_approval import (
+from src.nodos_funcionales.user_curated_scoring_approval import (
     REQUIRED_ACKNOWLEDGEMENTS,
     approval_allows_controlled_scoring,
     summarize_scoring_approval,

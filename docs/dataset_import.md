@@ -15,6 +15,8 @@ en staging local antes de importarlo, ver
 son locales e ignoradas por `.gitignore`. El importador normaliza columnas,
 pero no convierte automaticamente un export en evidencia curada: la procedencia
 y la revision biologica deben quedar declaradas por el usuario.
+El cierre end-to-end del flujo como capa de usuario resoluble esta en
+`docs/user_curated_end_to_end_flow.md`.
 
 Para una prueba minima controlada con las cuatro capas obligatorias de entrada,
 ver `docs/user_curated_minimal_real_dataset.md`.
