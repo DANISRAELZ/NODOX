@@ -30,6 +30,7 @@ def build_simple_candidate_explanations(ranking: pd.DataFrame, top_n: int = 10) 
                 "missing_evidence": explain_missing_evidence(row),
                 "sources_used": explain_sources_used(row),
                 "confidence_level": explain_confidence(row),
+                "score_confidence_interpretation": explain_score_confidence_interpretation(row),
                 "theory_context": explain_theory_context(row),
                 "provenance_context": explain_provenance_context(row),
                 "evolutionary_risk": explain_evolutionary_risk(row),
@@ -67,6 +68,7 @@ def build_simple_candidate_explanations_markdown(explanations: pd.DataFrame) -> 
                 f"- Evidencia que falta: {row.get('missing_evidence', 'not_reported')}",
                 f"- Fuentes usadas: {row.get('sources_used', 'not_reported')}",
                 f"- Confianza: {row.get('confidence_level', 'not_reported')}",
+                f"- Lectura prioridad/confianza: {row.get('score_confidence_interpretation', 'not_reported')}",
                 f"- Contexto teorico: {row.get('theory_context', 'not_reported')}",
                 f"- Procedencia resumida: {row.get('provenance_context', 'not_reported')}",
                 f"- Riesgo evolutivo: {row.get('evolutionary_risk', 'not_reported')}",
@@ -147,8 +149,10 @@ def explain_sources_used(row: pd.Series) -> str:
     ) else ""
     provenance_note = (
         " Interpretacion de procedencia: usuario/externa_trazable/snapshot_controlado pueden sostener evidencia "
-        "trazable; cache conserva reproducibilidad; proxy/demo/controlado solo orientan; missing/insufficient "
-        "indican ausencia o insuficiencia, no evidencia negativa ni bajo riesgo."
+        "trazable segun su alcance; user_curated/externa_trazable pueden sostener evidencia trazable si estan "
+        "documentadas; controlled_reference es referencia controlada, no evidencia de usuario; cache conserva "
+        "reproducibilidad; proxy/demo/controlado solo orientan; missing/insufficient indican ausencia o "
+        "insuficiencia, no evidencia negativa ni bajo riesgo."
     )
     return f"clase={source_class}; procedencia={provenance}; retrieval={retrieval}; cache={cache}; realismo={realism}; resumen={source_summary}.{warning}{provenance_note}"
 
@@ -163,6 +167,72 @@ def explain_confidence(row: pd.Series) -> str:
         f"confianza={confidence}; cobertura={coverage}; modificador={modifier}; techo={ceiling}; "
         f"fuente_dominante={source_class}; independiente_de_prioridad=si"
     )
+
+
+def explain_score_confidence_interpretation(row: pd.Series) -> str:
+    priority_value = _numeric(row.get("therapeutic_priority_score"))
+    confidence_value = _numeric(row.get("evidence_confidence_score"))
+    priority = _score(row.get("therapeutic_priority_score"))
+    confidence = _score(row.get("evidence_confidence_score"))
+    provenance = _clean(
+        row.get(
+            "provenance_status",
+            row.get("confidence_source_class", row.get("evidence_source_type", "not_reported")),
+        )
+    )
+    base = (
+        "`therapeutic_priority_score` y `evidence_confidence_score` son dimensiones distintas: "
+        "prioridad terapeutica dentro del modelo y soporte trazable de evidencia. "
+        "Un score terapeutico alto no equivale automaticamente a confianza alta; "
+        "confianza alta no equivale automaticamente a prioridad terapeutica alta. "
+    )
+    provenance_note = (
+        f"Procedencia={provenance}; las capas user_curated deben interpretarse segun su procedencia; "
+        "demo/proxy/cache no deben presentarse como evidencia real equivalente y controlled_reference "
+        "es referencia controlada, no evidencia de usuario. "
+    )
+    non_clinical = (
+        "Nodos Funcionales es una plataforma multiorganismo de priorizacion terapeutica, "
+        "no una herramienta clinica ni predictor definitivo; los candidatos priorizados requieren "
+        "validacion experimental."
+    )
+    if confidence_value is None:
+        return (
+            f"{base}Prioridad={priority}; confianza=not_evaluated. La ausencia de "
+            "`evidence_confidence_score` no debe interpretarse como confianza alta ni baja; "
+            "evidencia insuficiente no equivale a bajo riesgo. "
+            f"{provenance_note}{non_clinical}"
+        )
+    if priority_value is None:
+        return (
+            f"{base}Prioridad=not_evaluated; confianza={confidence}. No hay prioridad terapeutica "
+            "interpretable en esta ruta; no convertir evidencia disponible en recomendacion terapeutica. "
+            f"{provenance_note}{non_clinical}"
+        )
+
+    high_priority = priority_value >= 0.65
+    high_confidence = confidence_value >= 0.65
+    if high_priority and high_confidence:
+        reading = (
+            "Prioridad alta/confianza alta: candidato priorizado con respaldo relativamente fuerte, "
+            "pero sigue siendo hipotesis computacional y requiere validacion experimental. "
+        )
+    elif high_priority and not high_confidence:
+        reading = (
+            "Prioridad alta/confianza baja: hipotesis potencialmente interesante pero fragil por "
+            "evidencia limitada; no debe presentarse como candidato confirmado. "
+        )
+    elif not high_priority and high_confidence:
+        reading = (
+            "Prioridad baja/confianza alta: hay evidencia relativamente trazable, pero no respalda "
+            "automaticamente una prioridad terapeutica alta bajo las reglas actuales. "
+        )
+    else:
+        reading = (
+            "Prioridad baja/confianza baja: prioridad e informacion insuficientes; no debe "
+            "sobreinterpretarse ni usarse como evidencia negativa. "
+        )
+    return f"{base}Prioridad={priority}; confianza={confidence}. {reading}{provenance_note}{non_clinical}"
 
 
 def explain_theory_context(row: pd.Series) -> str:
@@ -192,7 +262,15 @@ def explain_evolutionary_risk(row: pd.Series) -> str:
     constraint = _score(row.get("evolutionary_constraint_score", row.get("evolutionary_constraint")))
     status = _clean(row.get("evolutionary_escape_risk_status", "not_reported"))
     interpretation = _clean(row.get("evolutionary_escape_risk_interpretation", "not_reported"))
-    return f"escape={risk}; robustez={robustness}; restriccion={constraint}; estado={status}; interpretacion={interpretation}"
+    uncertain = (
+        " Riesgo evolutivo incierto: ausencia o insuficiencia de evidencia evolutiva no equivale "
+        "a bajo riesgo ni a bajo escape evolutivo; la subcapa evolutiva modula la interpretacion, "
+        "pero no sustituye funcionalidad, selectividad, accesibilidad, confianza, evidencia ni "
+        "validacion experimental."
+        if risk == "not_reported" or status in {"not_reported", "missing", "insufficient", "unknown", "not_assessed"}
+        else ""
+    )
+    return f"escape={risk}; robustez={robustness}; restriccion={constraint}; estado={status}; interpretacion={interpretation}.{uncertain}"
 
 
 def explain_theory_v3_assessment_note(row: pd.Series) -> str:
@@ -217,6 +295,16 @@ def _score(value: object) -> str:
         return f"{float(value):.3f}"
     except (TypeError, ValueError):
         return "not_reported"
+
+
+def _numeric(value: object) -> float | None:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    if pd.isna(numeric):
+        return None
+    return numeric
 
 
 def _clean(value: object) -> str:

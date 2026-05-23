@@ -44,8 +44,10 @@ Los scores deben leerse junto con:
 | Score alto / confianza baja | Hipotesis exploratoria priorizada por las reglas actuales; revisar proxies, faltantes y procedencia antes de confiar en ella. |
 | Score bajo / confianza alta | La evidencia trazable sostiene baja prioridad relativa bajo el modelo actual; no equivale por si sola a irrelevancia biologica. |
 | Score bajo / confianza baja | Lectura debil; no usar ausencia de prioridad como evidencia negativa. |
+| Confianza no evaluada | No debe interpretarse como confianza alta ni baja; pedir procedencia y evidencia antes de concluir. |
 | Alto riesgo evolutivo / baja confianza | Advertencia de escape posible con soporte insuficiente; pedir evidencia evolutiva directa o curada. |
 | Bajo riesgo aparente / evidencia insuficiente | Riesgo no resuelto; faltantes y proxies no prueban durabilidad ni seguridad. |
+| Riesgo evolutivo ausente o incierto | No equivale a bajo escape evolutivo; la subcapa evolutiva modula la interpretacion, pero no sustituye funcionalidad, selectividad, accesibilidad, confianza ni validacion experimental. |
 
 ## Modo conservador
 

@@ -17,3 +17,17 @@
 
 Las columnas historicas se conservan. Los nuevos nombres teoricos funcionan como
 alias o vistas interpretativas para evitar romper outputs existentes.
+
+## Lectura prioridad/confianza
+
+`therapeutic_priority_score` y `evidence_confidence_score` no son sustituibles.
+El primero prioriza hipotesis dentro del modelo; el segundo indica soporte
+trazable. Un score alto con confianza baja es una hipotesis fragil, no un
+candidato confirmado. Una confianza alta con score bajo indica evidencia
+disponible, pero no prioridad terapeutica alta bajo las reglas actuales. Si la
+confianza no fue evaluada, no debe asumirse alta ni baja.
+
+La evidencia insuficiente no equivale a bajo riesgo. El riesgo evolutivo
+ausente o incierto tampoco equivale a bajo escape: la subcapa evolutiva modula
+la interpretacion, pero no sustituye funcionalidad, selectividad, accesibilidad,
+confianza ni validacion experimental.

@@ -138,6 +138,12 @@ Un candidato con `therapeutic_priority_score` alto y
 que requiere validacion experimental, revision microbiologica y evaluacion
 farmacologica antes de elevar cualquier conclusion.
 
+La lectura combinada debe distinguir cuatro escenarios: prioridad alta/confianza
+alta como hipotesis con mejor respaldo relativo; prioridad alta/confianza baja
+como hipotesis fragil por evidencia limitada; prioridad baja/confianza alta como
+evidencia trazable que no respalda prioridad alta; y prioridad baja/confianza
+baja como informacion insuficiente que no debe sobreinterpretarse.
+
 Nodos Funcionales es una plataforma de priorizacion terapeutica computacional.
 No es una herramienta clinica, no predice eficacia definitiva, no recomienda uso
 terapeutico directo y no sustituye validacion experimental ni revision experta.
