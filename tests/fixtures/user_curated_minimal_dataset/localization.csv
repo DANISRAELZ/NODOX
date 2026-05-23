@@ -1,0 +1,3 @@
+protein_id,gene,localization,database
+EXAMPLE_A,geneA,periplasm,user_curated_fixture
+EXAMPLE_B,geneB,cytoplasm,user_curated_fixture

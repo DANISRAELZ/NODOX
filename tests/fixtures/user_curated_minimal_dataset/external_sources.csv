@@ -1,0 +1,3 @@
+organism,strain,protein_id,gene,source_database,source_record_id,source_version,export_date,evidence_type,evidence_status,source_url_or_reference,curator_notes
+Example organism,Example strain,EXAMPLE_A,geneA,ReviewedLocalExport,REC_A,v1,2026-05-23,reviewed_export,reviewed,user_curated_fixture_reference,external source reviewed by user before inclusion
+Example organism,Example strain,EXAMPLE_B,geneB,ReviewedLocalExport,REC_B,v1,2026-05-23,reviewed_export,reviewed,user_curated_fixture_reference,external source reviewed by user before inclusion

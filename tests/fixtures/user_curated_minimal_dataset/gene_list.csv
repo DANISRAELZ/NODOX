@@ -1,0 +1,3 @@
+organism,strain,protein_id,gene,locus_tag,gene_description,source_database,evidence_status,curator_notes
+Example organism,Example strain,EXAMPLE_A,geneA,LOC_A,Example functional node A,user_curated_fixture,reviewed,local user curated inventory
+Example organism,Example strain,EXAMPLE_B,geneB,LOC_B,Example functional node B,user_curated_fixture,reviewed,local user curated inventory

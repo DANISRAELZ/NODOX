@@ -1,0 +1,3 @@
+candidate_id,gene,protein_id,organism,strain,mutation_tolerance_score,functional_redundancy_escape_score,compensatory_pathway_score,fitness_cost_of_escape,evolutionary_constraint_score,resistance_emergence_risk,multi_node_dependency_score,evidence_source,source_type,confidence,notes
+EXAMPLE_A,geneA,EXAMPLE_A,Example organism,Example strain,0.20,0.25,0.30,0.70,0.80,0.20,0.75,user_curated_fixture,user_curated,0.70,user curated evolutionary_escape_risk and evolutionary_constraint review
+EXAMPLE_B,geneB,EXAMPLE_B,Example organism,Example strain,0.55,0.60,0.50,0.35,0.40,0.55,0.45,user_curated_fixture,user_curated,0.60,user curated mutation_tolerance and pathway_redundancy review

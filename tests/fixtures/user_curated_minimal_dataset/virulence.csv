@@ -1,0 +1,3 @@
+protein_id,gene,virulence_score,virulence_factor,database
+EXAMPLE_A,geneA,0.72,1,user_curated_fixture
+EXAMPLE_B,geneB,0.20,0,user_curated_fixture

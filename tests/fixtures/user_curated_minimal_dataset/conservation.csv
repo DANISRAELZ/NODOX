@@ -1,0 +1,3 @@
+organism,strain,protein_id,gene,conservation_scope,core_genome_presence,strain_coverage_score,allelic_conservation,variant_burden,source_database,evidence_status,curator_notes
+Example organism,Example strain,EXAMPLE_A,geneA,Example strain panel,1,0.90,0.88,0.05,user_curated_fixture,reviewed,conservation reviewed by user
+Example organism,Example strain,EXAMPLE_B,geneB,Example strain panel,0,0.55,0.60,0.20,user_curated_fixture,reviewed,conservation reviewed by user

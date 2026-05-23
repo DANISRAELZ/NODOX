@@ -1,0 +1,3 @@
+organism,strain,protein_id,gene,curator_name,curation_date,curation_decision,evidence_summary,evidence_status,source_database,reference_or_note,curator_notes
+Example organism,Example strain,EXAMPLE_A,geneA,Example curator,2026-05-23,include_as_user_curated_fixture,Reviewed functional and evolutionary context,reviewed,user_curated_fixture,user_curated_fixture_reference,score requires evidence confidence review
+Example organism,Example strain,EXAMPLE_B,geneB,Example curator,2026-05-23,include_as_user_curated_fixture,Reviewed functional and evolutionary context,reviewed,user_curated_fixture,user_curated_fixture_reference,score requires evidence confidence review

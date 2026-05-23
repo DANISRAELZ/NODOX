@@ -1,0 +1,3 @@
+protein_id,gene,essential,evidence,database
+EXAMPLE_A,geneA,1,user_curated reviewed essentiality,user_curated_fixture
+EXAMPLE_B,geneB,0,user_curated reviewed nonessential call,user_curated_fixture

@@ -94,6 +94,10 @@ capas obligatorias descritas en `docs/user_curated_validation_protocol.md` y las
 plantillas internas de `essentiality`, `virulence`, `human_homologs` y
 `localization`.
 
+El fixture `tests/fixtures/user_curated_minimal_dataset/` valida este flujo con
+datos genericos, multiorganismo y compatibles con plantillas, sin usar demo,
+proxy, cache, `controlled_reference` ni fuentes online como evidencia real.
+
 ## Procedencia/provenance
 
 La procedencia se conserva en dos niveles. Primero, el paquete local documenta
