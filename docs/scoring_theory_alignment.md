@@ -31,3 +31,13 @@ La evidencia insuficiente no equivale a bajo riesgo. El riesgo evolutivo
 ausente o incierto tampoco equivale a bajo escape: la subcapa evolutiva modula
 la interpretacion, pero no sustituye funcionalidad, selectividad, accesibilidad,
 confianza ni validacion experimental.
+
+## Modo conservador interpretativo
+
+El modo conservador agregado a explicaciones y reportes no cambia formulas,
+pesos, scores ni ordenamiento. Solo etiqueta factores de cautela cuando existen
+campos disponibles: baja confianza, score alto con baja confianza, demo/proxy o
+cache como soporte limitado, `controlled_reference`, riesgo evolutivo alto o no
+evaluado, baja restriccion evolutiva, alta tolerancia mutacional, redundancia,
+paralogos, movilidad, HGT, recombinacion o asociacion con resistencia. Estos
+umbrales son de lectura y auditoria, no una recalibracion cientifica.

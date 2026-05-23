@@ -31,6 +31,7 @@ def build_simple_candidate_explanations(ranking: pd.DataFrame, top_n: int = 10) 
                 "sources_used": explain_sources_used(row),
                 "confidence_level": explain_confidence(row),
                 "score_confidence_interpretation": explain_score_confidence_interpretation(row),
+                "conservative_interpretation": explain_conservative_interpretation(row),
                 "theory_context": explain_theory_context(row),
                 "provenance_context": explain_provenance_context(row),
                 "evolutionary_risk": explain_evolutionary_risk(row),
@@ -69,6 +70,7 @@ def build_simple_candidate_explanations_markdown(explanations: pd.DataFrame) -> 
                 f"- Fuentes usadas: {row.get('sources_used', 'not_reported')}",
                 f"- Confianza: {row.get('confidence_level', 'not_reported')}",
                 f"- Lectura prioridad/confianza: {row.get('score_confidence_interpretation', 'not_reported')}",
+                f"- Lectura conservadora: {row.get('conservative_interpretation', 'not_reported')}",
                 f"- Contexto teorico: {row.get('theory_context', 'not_reported')}",
                 f"- Procedencia resumida: {row.get('provenance_context', 'not_reported')}",
                 f"- Riesgo evolutivo: {row.get('evolutionary_risk', 'not_reported')}",
@@ -235,6 +237,99 @@ def explain_score_confidence_interpretation(row: pd.Series) -> str:
     return f"{base}Prioridad={priority}; confianza={confidence}. {reading}{provenance_note}{non_clinical}"
 
 
+def explain_conservative_interpretation(row: pd.Series) -> str:
+    priority = _numeric(row.get("therapeutic_priority_score"))
+    confidence = _numeric(row.get("evidence_confidence_score"))
+    escape_risk = _numeric(row.get("evolutionary_escape_risk_score", row.get("evolutionary_escape_risk")))
+    evolutionary_constraint = _numeric(row.get("evolutionary_constraint_score", row.get("evolutionary_constraint")))
+    mutation_tolerance = _numeric(row.get("mutation_tolerance_score", row.get("mutation_tolerance")))
+    pathway_redundancy = _first_present(
+        row,
+        [
+            "pathway_redundancy",
+            "pathway_redundancy_score",
+            "functional_redundancy_escape_score",
+            "redundancy_penalty",
+            "pathway_redundancy_evidence",
+        ],
+    )
+    paralog_count = _numeric(row.get("paralog_count"))
+    status = _clean(row.get("evolutionary_escape_risk_status", "not_reported")).lower()
+    provenance_text = " ".join(
+        _clean(row.get(column, "not_reported")).lower()
+        for column in [
+            "provenance_status",
+            "confidence_source_class",
+            "optional_data_source_summary",
+            "evidence_source",
+            "evidence_source_type",
+            "evidence_kind",
+            "retrieval_mode",
+            "cache_status",
+            "data_realism_flag",
+        ]
+    )
+
+    cautions: list[str] = []
+    if confidence is None:
+        cautions.append("evidence_confidence_score no evaluado")
+    elif confidence < 0.50:
+        cautions.append("evidence_confidence_score bajo")
+    if priority is not None and priority >= 0.65 and (confidence is None or confidence < 0.50):
+        cautions.append("score alto con confianza baja o no evaluada")
+    if any(token in provenance_text for token in ["demo", "proxy", "cache"]):
+        cautions.append("procedencia demo/proxy/cache limitada")
+    if "controlled_reference" in provenance_text or "controlled" in provenance_text:
+        cautions.append("controlled_reference es referencia controlada, no evidencia de usuario")
+    if "user_curated" in provenance_text and not any(token in provenance_text for token in ["provenance", "reference", "reviewed", "trace", "trazable"]):
+        cautions.append("user_curated requiere procedencia trazable")
+    if escape_risk is None:
+        cautions.append("evolutionary_escape_risk no evaluado")
+    elif escape_risk >= 0.65:
+        cautions.append("evolutionary_escape_risk alto")
+    if status in {"not_reported", "missing", "insufficient", "insufficient_evidence", "unknown", "not_assessed"}:
+        cautions.append("riesgo evolutivo ausente, insuficiente o incierto")
+    if evolutionary_constraint is None:
+        cautions.append("evolutionary_constraint no evaluado")
+    elif evolutionary_constraint < 0.35:
+        cautions.append("evolutionary_constraint bajo")
+    if mutation_tolerance is None:
+        cautions.append("mutation_tolerance incierta")
+    elif mutation_tolerance >= 0.65:
+        cautions.append("mutation_tolerance alta")
+    if _is_high_or_present(pathway_redundancy):
+        cautions.append("pathway_redundancy alta")
+    if paralog_count is not None and paralog_count >= 2:
+        cautions.append("paralog_count alto")
+    for label, column in [
+        ("mobile_context", "mobile_context"),
+        ("hgt_context", "hgt_context"),
+        ("recombination_context", "recombination_context"),
+        ("resistance_association", "resistance_association"),
+    ]:
+        if _is_present_or_uncertain(row.get(column)):
+            cautions.append(f"{label} presente o incierto")
+    if _clean(row.get("evolutionary_escape_risk_missing_variables", "not_reported")) != "not_reported":
+        cautions.append("evidencia evolutiva insuficiente")
+
+    unique_cautions = list(dict.fromkeys(cautions))
+    caution_text = "; ".join(unique_cautions) if unique_cautions else "sin factores de cautela dominantes reportados"
+    action = (
+        "recomienda validacion experimental y revision experta antes de elevar conclusiones"
+        if unique_cautions
+        else "mantiene lectura prudente y requiere validacion experimental para cualquier aplicacion"
+    )
+    return (
+        "Modo conservador interpretativo: no modifica therapeutic_priority_score, evidence_confidence_score, "
+        "pesos ni ranking; no reordena candidatos. Factores de cautela detectados: "
+        f"{caution_text}. Ausencia o insuficiencia de evidencia no equivale a bajo riesgo; riesgo evolutivo "
+        "incierto no equivale a bajo riesgo evolutivo. Demo/proxy/cache no son evidencia real equivalente; "
+        "controlled_reference no es evidencia de usuario; user_curated debe leerse segun procedencia trazable. "
+        "La subcapa evolutiva modula la interpretacion, pero no sustituye funcionalidad, selectividad, "
+        f"accesibilidad, evidencia, confianza ni validacion experimental. Plataforma multiorganismo; {action}."
+    )
+
+
 def explain_theory_context(row: pd.Series) -> str:
     return (
         f"functional_node_score={_score(row.get('functional_node_score'))}; "
@@ -305,6 +400,33 @@ def _numeric(value: object) -> float | None:
     if pd.isna(numeric):
         return None
     return numeric
+
+
+def _first_present(row: pd.Series, columns: list[str]) -> object:
+    for column in columns:
+        value = row.get(column)
+        if _clean(value) != "not_reported":
+            return value
+    return None
+
+
+def _is_high_or_present(value: object) -> bool:
+    numeric = _numeric(value)
+    if numeric is not None:
+        return numeric >= 0.65
+    text = _clean(value).lower()
+    return any(token in text for token in ["high", "alta", "present", "presente", "yes", "true", "1"])
+
+
+def _is_present_or_uncertain(value: object) -> bool:
+    numeric = _numeric(value)
+    if numeric is not None:
+        return numeric > 0
+    text = _clean(value).lower()
+    return any(
+        token in text
+        for token in ["present", "presente", "positive", "positivo", "yes", "true", "uncertain", "incierto", "unknown"]
+    )
 
 
 def _clean(value: object) -> str:

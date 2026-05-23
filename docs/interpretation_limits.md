@@ -60,3 +60,13 @@ depende de evidencia proxy, alta redundancia, alto `paralog_count`,
 La subcapa evolutiva modula esa lectura de robustez y escape. No debe opacar la
 funcionalidad del nodo, la selectividad frente al hospedero, la accesibilidad en
 el sitio de infeccion ni la evidencia trazable que sostiene el ranking.
+
+En reportes, el modo conservador es interpretativo: no modifica
+`therapeutic_priority_score`, `evidence_confidence_score`, pesos ni ranking. Sus
+umbrales simples, como confianza baja menor a 0.50, prioridad alta mayor o igual
+a 0.65, riesgo evolutivo alto mayor o igual a 0.65 o `paralog_count` alto mayor
+o igual a 2, solo disparan advertencias. Tambien advierte sobre
+`evolutionary_escape_risk` ausente o incierto, `evolutionary_constraint` bajo,
+`mutation_tolerance` alta o incierta, redundancia de via, contexto movil,
+transferencia horizontal, recombinacion, asociacion con resistencia y
+procedencia demo/proxy/cache/controlada.

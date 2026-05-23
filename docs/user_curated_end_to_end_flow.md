@@ -165,6 +165,15 @@ escape o durabilidad esperada, pero no sustituye funcionalidad, selectividad
 frente al hospedero, accesibilidad en el sitio de infeccion, confianza de
 evidencia ni validacion experimental.
 
+El modo conservador interpretativo en reportes puede advertir sobre baja
+confianza, procedencia incompleta, score alto con confianza baja,
+`evolutionary_escape_risk` alto o incierto, `evolutionary_constraint` bajo,
+`mutation_tolerance`, `pathway_redundancy`, `paralog_count`, `mobile_context`,
+`hgt_context`, `recombination_context` y `resistance_association`. Estas
+advertencias no modifican scores, pesos ni ranking; solo ayudan a no presentar
+datos `user_curated`, demo, proxy, cache o `controlled_reference` fuera de su
+procedencia real.
+
 ## Orientacion multiorganismo
 
 El flujo debe funcionar para cualquier organismo bacteriano siempre que el

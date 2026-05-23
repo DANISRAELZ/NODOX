@@ -47,6 +47,17 @@ El enfoque sigue siendo multiorganismo: cualquier usuario debe poder ingresar
 informacion de cualquier organismo bacteriano, siempre que las capas se declaren
 con procedencia, confianza y limitaciones suficientes.
 
+## Modo conservador interpretativo
+
+Los reportes pueden agregar una lectura conservadora por candidato. Esta lectura
+no modifica scoring, pesos ni ordenamiento; solo enumera factores de cautela
+como baja confianza, evidencia demo/proxy/cache, `controlled_reference`, score
+alto con confianza baja, riesgo evolutivo alto o incierto, baja restriccion,
+alta tolerancia mutacional, redundancia, paralogos, movilidad, HGT,
+recombinacion o asociacion con resistencia. Su proposito es recordar que
+ausencia de evidencia no es bajo riesgo, que riesgo evolutivo incierto no es
+bajo escape y que toda aplicacion requiere validacion experimental.
+
 ## Objetivo
 
 La Fase 2 transforma un ranking lineal en una plataforma modular y auditable de
