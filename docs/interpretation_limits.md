@@ -85,3 +85,6 @@ toda aplicacion requiere validacion experimental.
 La columna `final_interpretation_matrix` se conserva en las explicaciones de
 candidatos exportables, incluyendo CSV y Markdown, y puede serializarse a JSON
 desde el mismo DataFrame sin recalcular ni reordenar candidatos.
+
+El cierre documental de estas garantias esta en
+`docs/user_curated_interpretation_closure_audit.md`.
