@@ -236,6 +236,15 @@ La capa `src/nodos_funcionales/evidence_quality.py` calcula estos campos sin ree
 
 Si el score bruto supera el techo, se agrega `confidence_capped` en `audit_flags`.
 
+Cuando `evidence_quality.csv` proviene de una transformacion
+`manual_curation -> evidence_quality`, sus valores se interpretan como soporte
+aportado por el usuario y techo conservador de confianza. Estados como
+`pending_review`, notas locales, `curator_notes` o
+`include_for_structure_check` preservan trazabilidad, pero no son DOI,
+literatura verificada, validacion experimental ni evidencia de bajo riesgo.
+Tampoco deben elevar por si mismos `evidence_confidence_score` ni mezclarse con
+`therapeutic_priority_score`.
+
 ### Campos terapeuticos
 
 | Campo | Tipo | Rango | Clase | Fuente esperada | Interpretacion |

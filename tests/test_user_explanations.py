@@ -148,3 +148,59 @@ def test_simple_explanations_include_non_clinical_use_limits() -> None:
         "proxy o evidencia incompleta",
     ]:
         assert phrase in combined
+
+
+def test_manual_curation_evidence_quality_is_explained_as_user_supplied_not_verified_external() -> None:
+    ranking = pd.DataFrame(
+        {
+            "protein_id": ["A"],
+            "gene": ["geneA"],
+            "therapeutic_role": ["bactericidal_candidate"],
+            "therapeutic_priority_score": [0.84],
+            "evidence_confidence_score": [0.31],
+            "evidence_quality_score": [0.20],
+            "confidence_ceiling": [0.20],
+            "evidence_source_type": ["user_curated_manual_curation"],
+            "evidence_notes": [
+                "evidence_status=pending_review; "
+                "curation_decision=include_for_structure_check; "
+                "reference_or_note=Local validation note only; "
+                "curator_notes=Preserved local context"
+            ],
+            "audit_flags": [
+                "user_curated;manual_curation;interpretive_only;"
+                "limited_confidence;not_experimental_validation;"
+                "local_note_not_verified_literature"
+            ],
+            "phase3_notes": ["manual_curation_interpretive_only; no_clinical_recommendation"],
+            "database": [
+                "source_database=user_curated_local_note; source_type=user_curated; "
+                "organism=Example bacterium; strain=minimal_validation_scope"
+            ],
+            "provenance_status": ["user_curated"],
+            "confidence_source_class": ["user_curated"],
+            "optional_data_source_summary": ["user_curated manual_curation"],
+            "retrieval_mode": ["local_user_layer"],
+            "cache_status": ["not_cached"],
+            "data_realism_flag": ["user_curated"],
+        }
+    )
+
+    explanations = build_simple_candidate_explanations(ranking)
+    context = explanations.loc[0, "user_curated_evidence_quality_context"].lower()
+    markdown = build_simple_candidate_explanations_markdown(explanations).lower()
+    combined = f"{context}\n{markdown}"
+
+    assert "evidencia de usuario o derivada de usuario" in context
+    assert "no evidencia externa verificada automaticamente" in context
+    assert "`evidence_quality` refleja nivel de evidencia" in context
+    assert "no demuestra verdad experimental" in context
+    assert "no demuestra verdad experimental, bajo riesgo ni prioridad terapeutica" in context
+    assert "pending_review no eleva confianza por si mismo" in context
+    assert "include_for_structure_check no es validacion experimental" in context
+    assert "local_note no es doi ni literatura verificada" in context
+    assert "curator_notes preserva contexto, no prueba externa" in context
+    assert "evidence_quality_score=0.200" in context
+    assert "confidence_ceiling=0.200" in context
+    assert "`therapeutic_priority_score` y `evidence_confidence_score` siguen separados" in context
+    assert "contexto user_curated/evidence_quality" in combined

@@ -29,6 +29,7 @@ def build_simple_candidate_explanations(ranking: pd.DataFrame, top_n: int = 10) 
                 "supporting_evidence": explain_supporting_evidence(row),
                 "missing_evidence": explain_missing_evidence(row),
                 "sources_used": explain_sources_used(row),
+                "user_curated_evidence_quality_context": explain_user_curated_evidence_quality_context(row),
                 "confidence_level": explain_confidence(row),
                 "score_confidence_interpretation": explain_score_confidence_interpretation(row),
                 "conservative_interpretation": explain_conservative_interpretation(row),
@@ -69,6 +70,7 @@ def build_simple_candidate_explanations_markdown(explanations: pd.DataFrame) -> 
                 f"- Evidencia que lo sostiene: {row.get('supporting_evidence', 'not_reported')}",
                 f"- Evidencia que falta: {row.get('missing_evidence', 'not_reported')}",
                 f"- Fuentes usadas: {row.get('sources_used', 'not_reported')}",
+                f"- Contexto user_curated/evidence_quality: {row.get('user_curated_evidence_quality_context', 'not_reported')}",
                 f"- Confianza: {row.get('confidence_level', 'not_reported')}",
                 f"- Lectura prioridad/confianza: {row.get('score_confidence_interpretation', 'not_reported')}",
                 f"- Lectura conservadora: {row.get('conservative_interpretation', 'not_reported')}",
@@ -159,6 +161,54 @@ def explain_sources_used(row: pd.Series) -> str:
         "insuficiencia, no evidencia negativa ni bajo riesgo."
     )
     return f"clase={source_class}; procedencia={provenance}; retrieval={retrieval}; cache={cache}; realismo={realism}; resumen={source_summary}.{warning}{provenance_note}"
+
+
+def explain_user_curated_evidence_quality_context(row: pd.Series) -> str:
+    """Explain user-curated evidence quality without upgrading it scientifically."""
+    evidence_source_type = _clean(row.get("evidence_source_type", "not_reported"))
+    evidence_notes = _clean(row.get("evidence_notes", "not_reported"))
+    audit_flags = _clean(row.get("audit_flags", "not_reported"))
+    source_text = " ".join(
+        [
+            evidence_source_type,
+            evidence_notes,
+            audit_flags,
+            _clean(row.get("database", "not_reported")),
+            _clean(row.get("phase3_notes", "not_reported")),
+            _provenance_text(row),
+        ]
+    ).lower()
+
+    if "user_curated" not in source_text and "manual_curation" not in source_text:
+        return (
+            "not_reported; revisar procedencia de evidence_quality antes de interpretar confianza. "
+            "`evidence_quality` describe soporte y procedencia, no verdad experimental."
+        )
+
+    cautions: list[str] = []
+    if "manual_curation" in source_text:
+        cautions.append("manual_curation es evidencia aportada o revisada por el usuario")
+    if "pending_review" in source_text:
+        cautions.append("pending_review no eleva confianza por si mismo")
+    if "include_for_structure_check" in source_text:
+        cautions.append("include_for_structure_check no es validacion experimental")
+    if "local_note" in source_text or "local validation note" in source_text:
+        cautions.append("local_note no es DOI ni literatura verificada")
+    if "curator_notes" in source_text:
+        cautions.append("curator_notes preserva contexto, no prueba externa")
+    if "limited_confidence" in source_text:
+        cautions.append("confianza limitada declarada")
+
+    caution_text = "; ".join(dict.fromkeys(cautions)) if cautions else "requiere procedencia trazable por fila o manifest"
+    quality = _score(row.get("evidence_quality_score"))
+    ceiling = _score(row.get("confidence_ceiling"))
+    return (
+        "user_curated/evidence_quality: evidencia de usuario o derivada de usuario, no evidencia externa "
+        "verificada automaticamente. `evidence_quality` refleja nivel de evidencia, techo de confianza y "
+        "procedencia; no demuestra verdad experimental, bajo riesgo ni prioridad terapeutica. "
+        f"evidence_quality_score={quality}; confidence_ceiling={ceiling}; cautelas={caution_text}. "
+        "`therapeutic_priority_score` y `evidence_confidence_score` siguen separados."
+    )
 
 
 def explain_confidence(row: pd.Series) -> str:

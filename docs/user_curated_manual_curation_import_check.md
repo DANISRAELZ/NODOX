@@ -130,6 +130,10 @@ La capa `evidence_quality` importada sigue siendo `user_curated` o derivada de
 
 `manual_curation` no equivale automaticamente a prioridad terapeutica.
 `evidence_quality` apoya interpretacion de evidencia, no ranking terapeutico.
+En reportes y explicaciones, `evidence_quality` debe leerse como nivel de
+evidencia, techo de confianza y procedencia. No representa "verdad
+experimental", validacion externa automatica, bajo riesgo ni recomendacion
+terapeutica.
 
 `pending_review` no equivale a alta confianza. En esta comprobacion,
 `evidence_quality_score` y `confidence_ceiling` quedaron como valores
