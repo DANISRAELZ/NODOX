@@ -1587,6 +1587,13 @@ def _build_evidence_strength_audit(phase2_ranking: pd.DataFrame) -> pd.DataFrame
                 "therapeutic_priority_score": row.get("therapeutic_priority_score", 0.0),
                 "evidence_strength": strength,
                 "evidence_strength_reason": reason,
+                "evidence_strength_scope_note": (
+                    "Fuerza interpretativa de evidencia: no modifica therapeutic_priority_score ni "
+                    "evidence_confidence_score. user_curated significa evidencia aportada o revisada por "
+                    "el usuario, no evidencia externa verificada automaticamente. pending_review, local_note "
+                    "y curator_notes no son validacion experimental. Evidencia insuficiente no equivale a "
+                    "bajo riesgo. No constituye recomendacion clinica."
+                ),
                 "evidence_coverage_summary": coverage_summary,
                 "weak_evidence_flags": weak_flags,
                 "strong_evidence_flags": strong_flags,
@@ -1935,6 +1942,9 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
                 "# Evidence Strength Audit",
                 "",
                 "Este reporte clasifica la fuerza interpretativa de la evidencia sin modificar scores ni ranking.",
+                "La etiqueta `strong` indica mejor soporte relativo dentro del dataset; no equivale a validacion experimental, uso clinico ni evidencia externa verificada automaticamente.",
+                "`user_curated` significa evidencia aportada o revisada por el usuario. `pending_review`, `local_note` y `curator_notes` preservan trazabilidad, pero no elevan confianza por si mismos.",
+                "Evidencia insuficiente, faltante o proxy no equivale a bajo riesgo.",
                 "",
                 _markdown_table(evidence_strength_audit.head(top_n)),
             ]
@@ -2288,6 +2298,8 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "- Un hub no es automaticamente drogable.",
         "- La ausencia de evidencia no equivale a evidencia negativa.",
         "- La ausencia o insuficiencia de evidencia no equivale a bajo riesgo.",
+        "- `user_curated` indica evidencia aportada o revisada por el usuario; no equivale automaticamente a evidencia externa verificada.",
+        "- `pending_review`, `local_note`, `curator_notes` o notas manuales no equivalen a validacion experimental ni elevan confianza por si mismas.",
         "- La informacion online general no sustituye datos especificos del usuario.",
         "- Bajo riesgo evolutivo no significa ausencia de resistencia.",
         "- El ranking representa hipotesis terapeuticas priorizadas, no recomendaciones clinicas.",

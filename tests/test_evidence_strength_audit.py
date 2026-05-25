@@ -44,11 +44,21 @@ class EvidenceStrengthAuditTests(unittest.TestCase):
         export_results(workspace, config)
 
         audit = pd.read_csv(workspace / "results" / "evidence_strength_audit.csv")
+        audit_md = (workspace / "results" / "evidence_strength_audit.md").read_text(encoding="utf-8")
         self.assertIn("evidence_strength", audit.columns)
         self.assertIn("evidence_strength_reason", audit.columns)
+        self.assertIn("evidence_strength_scope_note", audit.columns)
         self.assertIn("weak_evidence_flags", audit.columns)
         self.assertTrue(set(audit["evidence_strength"]).issubset(ALLOWED_STRENGTH))
         self.assertTrue(audit["weak_evidence_flags"].str.contains("demo|proxy", regex=True).any())
+        self.assertTrue(audit["evidence_strength_scope_note"].str.contains("no modifica therapeutic_priority_score").all())
+        self.assertTrue(audit["evidence_strength_scope_note"].str.contains("user_curated significa evidencia aportada").all())
+        self.assertTrue(audit["evidence_strength_scope_note"].str.contains("no evidencia externa verificada automaticamente").all())
+        self.assertTrue(audit["evidence_strength_scope_note"].str.contains("pending_review, local_note").all())
+        self.assertTrue(audit["evidence_strength_scope_note"].str.contains("Evidencia insuficiente no equivale a bajo riesgo").all())
+        self.assertTrue(audit["evidence_strength_scope_note"].str.contains("No constituye recomendacion clinica").all())
+        self.assertIn("no equivale a validacion experimental", audit_md)
+        self.assertIn("no equivale a bajo riesgo", audit_md)
 
         scored_after = pd.read_csv(workspace / "data_processed" / "scored_nodes.csv")[
             ["protein_id", "meta_priority_score", "therapeutic_priority_score"]

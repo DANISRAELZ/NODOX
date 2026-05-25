@@ -15,6 +15,11 @@ Estas advertencias aplican a todos los rankings y reportes:
 - La ausencia de evidencia no equivale a evidencia negativa.
 - Evidencia faltante, incompleta o proxy no equivale a bajo riesgo.
 - La informacion online general no sustituye datos especificos del usuario.
+- `user_curated` indica evidencia aportada o revisada por el usuario; no
+  equivale automaticamente a evidencia externa verificada.
+- `pending_review`, `local_note`, `curator_notes` o notas manuales preservan
+  trazabilidad, pero no equivalen a validacion experimental ni elevan confianza
+  por si mismas.
 - Bajo riesgo evolutivo no significa ausencia de resistencia.
 - El ranking representa hipotesis terapeuticas priorizadas, no recomendaciones
   clinicas.
