@@ -6,6 +6,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pandas as pd
+
+from src.nodos_funcionales.user_explanations import build_simple_candidate_explanations
 from src.nodos_funcionales.user_curated_validation import validate_user_curated_manifest
 
 
@@ -92,6 +95,8 @@ def test_real_user_curated_minimal_dataset_has_required_layers_and_columns() -> 
             "confidence_ceiling",
             "evidence_source_type",
             "evidence_notes",
+            "evidence_strength",
+            "evidence_strength_scope_note",
             "audit_flags",
             "phase3_notes",
             "database",
@@ -145,6 +150,8 @@ def test_evidence_quality_is_interpretive_not_experimental_or_clinical_validatio
 
     assert "not experimental validation" in quality_text
     assert "not clinical recommendation" in quality_text
+    assert "evidence_strength" in quality_text
+    assert "strong is an interpretive audit label only" in quality_text
     assert "evidence_quality" in notes_text
     assert "not automatic experimental validation" in notes_text
     assert "insufficient evidence does not imply low risk" in notes_text
@@ -193,6 +200,71 @@ def test_imported_user_layers_preserve_interpretive_quality_and_traceability() -
     )
     assert pending_homolog["evidence_source_type"] == "user_curated_manual_review"
     assert "pending_review does not imply low host risk" in pending_homolog["curator_notes"]
+
+
+def test_user_curated_evidence_strength_is_not_experimental_validation() -> None:
+    quality_rows = _rows(RAW_INPUTS / "evidence_quality.csv")
+    strong_row = next(row for row in quality_rows if row["evidence_strength"] == "strong")
+    insufficient_row = next(row for row in quality_rows if row["evidence_strength"] == "insufficient")
+
+    assert strong_row["evidence_source_type"] == "user_curated_manual_curation"
+    assert float(strong_row["evidence_quality_score"]) == 0.4
+    assert float(strong_row["confidence_ceiling"]) == 0.4
+    assert "interpretive audit label only" in strong_row["evidence_strength_scope_note"]
+    assert "not automatic experimental validation" in strong_row["evidence_strength_scope_note"]
+    assert "experimental_support" not in strong_row
+    assert "external_verified" not in " ".join(strong_row.values()).lower()
+
+    assert insufficient_row["evidence_strength"] == "insufficient"
+    assert "insufficient evidence is not low risk" in insufficient_row["evidence_strength_scope_note"]
+    assert "limited_confidence" in insufficient_row["audit_flags"]
+    assert float(insufficient_row["evidence_quality_score"]) < 0.5
+    assert float(insufficient_row["confidence_ceiling"]) < 0.5
+
+
+def test_user_curated_evidence_quality_explanation_keeps_conservative_limits() -> None:
+    pending_quality = next(
+        row for row in _rows(RAW_INPUTS / "evidence_quality.csv") if row["protein_id"] == "VBALPHA_0002"
+    )
+    row = {
+        "protein_id": pending_quality["protein_id"],
+        "gene": "vbaB",
+        "therapeutic_role": "low_priority_candidate",
+        "functional_node_types": "minimal_validation_fixture",
+        "therapeutic_priority_score": 0.20,
+        "evidence_confidence_score": 0.20,
+        "evidence_quality_score": float(pending_quality["evidence_quality_score"]),
+        "confidence_ceiling": float(pending_quality["confidence_ceiling"]),
+        "evidence_source_type": pending_quality["evidence_source_type"],
+        "evidence_notes": (
+            "evidence_status=pending_review; "
+            "curation_decision=include_for_structure_check; "
+            "reference_or_note=local_note_no_external_verification; "
+            "curator_notes=pending_review is not strong evidence and not low risk"
+        ),
+        "audit_flags": pending_quality["audit_flags"],
+        "phase3_notes": pending_quality["phase3_notes"],
+        "database": pending_quality["database"],
+        "provenance_status": "user_curated",
+        "confidence_source_class": "user_curated",
+        "optional_data_source_summary": "user_curated=minimal_validation; demo=absent; proxy=absent; cache=absent; online=absent; controlled_reference=absent",
+        "retrieval_mode": "local_user_layer",
+        "cache_status": "not_cached",
+        "data_realism_flag": "user_curated",
+    }
+
+    explanations = build_simple_candidate_explanations(pd.DataFrame([row]))
+    combined = " ".join(str(value) for value in explanations.iloc[0].to_dict().values()).lower()
+
+    assert "evidencia de usuario o derivada de usuario" in combined
+    assert "no evidencia externa verificada automaticamente" in combined
+    assert "no demuestra verdad experimental" in combined
+    assert "pending_review no eleva confianza por si mismo" in combined
+    assert "include_for_structure_check no es validacion experimental" in combined
+    assert "local_note no es doi ni literatura verificada" in combined
+    assert "curator_notes preserva contexto, no prueba externa" in combined
+    assert "no una herramienta clinica ni predictor definitivo" in combined
+    assert "evidencia insuficiente no equivale a bajo riesgo" in combined or "no equivalen a evidencia negativa ni a bajo riesgo" in combined
 
 
 def test_fixture_imports_as_user_layer_in_temporary_workspace_only(tmp_path: Path) -> None:
@@ -246,7 +318,13 @@ def test_fixture_imports_as_user_layer_in_temporary_workspace_only(tmp_path: Pat
             assert marker not in combined_text
 
     quality_rows = _rows(workspace / "data_user" / "evidence_quality.csv")
+    quality_source_exports = _rows(workspace / "data_user" / "source_exports" / "evidence_quality.csv")
     pending_quality = next(row for row in quality_rows if row["protein_id"] == "VBALPHA_0002")
+    source_export_strong = next(row for row in quality_source_exports if row["protein_id"] == "VBALPHA_0001")
+
+    assert "evidence_strength" not in pending_quality
+    assert source_export_strong["evidence_strength"] == "strong"
+    assert "not automatic experimental validation" in source_export_strong["evidence_strength_scope_note"]
     assert float(pending_quality["evidence_quality_score"]) == 0.2
     assert float(pending_quality["confidence_ceiling"]) == 0.2
     assert "limited_confidence" in pending_quality["audit_flags"]

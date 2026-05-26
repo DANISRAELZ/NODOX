@@ -224,3 +224,18 @@ solo en `data_sessions/real_user_curated_minimal_validation_01/data_user/` y
 conservo los CSV originales en `data_user/source_exports/`. No se ejecuto
 `run_pipeline.py`, no se genero ranking y no se escribieron `results/` ni
 `data_processed/` dentro del workspace.
+
+## Interpretacion conservadora de evidencia
+
+En el fixture portable, `evidence_quality` y `evidence_strength` se usan como
+lecturas interpretativas de soporte y trazabilidad. Aunque una fila pueda llevar
+`evidence_strength=strong`, esa etiqueta no significa validacion experimental
+automatica, validacion clinica ni evidencia externa verificada automaticamente.
+El CSV importado como capa interna conserva los campos soportados por el esquema
+`evidence_quality`, mientras que el export original queda disponible en
+`source_exports/` para auditar etiquetas adicionales como `evidence_strength`.
+
+Los estados `pending_review`, `local_note`, `curator_notes` e
+`include_for_structure_check` deben seguir leyendo como cautelas. No elevan
+confianza por si solos, no sustituyen referencias verificadas y no convierten
+`insufficient_evidence` en bajo riesgo.
