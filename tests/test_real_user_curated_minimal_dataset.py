@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import csv
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 from src.nodos_funcionales.user_curated_validation import validate_user_curated_manifest
@@ -11,11 +14,38 @@ DATASET_DIR = PROJECT_ROOT / "tests" / "fixtures" / "real_user_curated_minimal_v
 RAW_INPUTS = DATASET_DIR / "raw_inputs"
 DATA_USER = DATASET_DIR / "data_user"
 MANIFEST_PATH = DATASET_DIR / "manifest.csv"
+IMPORTABLE_USER_LAYERS = [
+    "essentiality",
+    "virulence",
+    "human_homologs",
+    "localization",
+    "evidence_quality",
+]
 
 
 def _rows(path: Path) -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
+
+
+def _project_files_under(*directory_names: str) -> set[Path]:
+    files: set[Path] = set()
+    for directory_name in directory_names:
+        directory = PROJECT_ROOT / directory_name
+        if directory.exists():
+            files.update(path.relative_to(PROJECT_ROOT) for path in directory.rglob("*") if path.is_file())
+    return files
+
+
+def _run_import_dataset(args: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(PROJECT_ROOT / "import_dataset.py"), *args],
+        cwd=PROJECT_ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
 
 
 def test_real_user_curated_minimal_dataset_exists_and_manifest_is_valid() -> None:
@@ -86,6 +116,7 @@ def test_manifest_preserves_user_curated_minimal_validation_separation() -> None
         assert row["strain"] == "minimal_validation_scope_01"
         assert row["source_type"] == "user_curated"
         assert row["source_type"] not in forbidden_source_types
+        assert row["provenance"].startswith("fictional")
         assert "minimal" in row["dataset_version"]
         assert "external_verified" not in row["source_type"]
         assert row["input_file"]
@@ -157,6 +188,71 @@ def test_imported_user_layers_preserve_interpretive_quality_and_traceability() -
     assert float(pending_quality["confidence_ceiling"]) == 0.2
     assert "limited_confidence" in pending_quality["audit_flags"]
     assert "insufficient_evidence is not low risk" in pending_quality["phase3_notes"]
-    assert pending_homolog["source_database"] == "user_curated_minimal_validation"
+    assert pending_homolog["source_database"] == (
+        "user_curated_minimal_validation;dataset_id=real_user_curated_minimal_validation_01"
+    )
     assert pending_homolog["evidence_source_type"] == "user_curated_manual_review"
+    assert "pending_review does not imply low host risk" in pending_homolog["curator_notes"]
+
+
+def test_fixture_imports_as_user_layer_in_temporary_workspace_only(tmp_path: Path) -> None:
+    before_project_outputs = _project_files_under("results", "data_processed", "data_sessions")
+    staged_fixture = tmp_path / "fixture_copy"
+    workspace = tmp_path / "import_workspace"
+    shutil.copytree(DATASET_DIR, staged_fixture)
+    (workspace / "config").mkdir(parents=True)
+    (workspace / "config" / "params.yaml").write_text("", encoding="utf-8")
+
+    manifest = staged_fixture / "manifest.csv"
+    for dataset_key in IMPORTABLE_USER_LAYERS:
+        result = _run_import_dataset(
+            [
+                "--organism",
+                "Validation bacterium alpha",
+                "--strain",
+                "minimal_validation_scope_01",
+                "--workspace",
+                str(workspace),
+                "--dataset",
+                dataset_key,
+                "--input",
+                str(staged_fixture / "raw_inputs" / f"{dataset_key}.csv"),
+                "--validate-user-curated-manifest",
+                str(manifest),
+                "--as-user-layer",
+            ]
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "Manifest user_curated valido" in result.stdout
+        assert "Destino como capa de usuario: data_user" in result.stdout
+        assert f"Dataset importado: {dataset_key}" in result.stdout
+        assert (workspace / "data_user" / f"{dataset_key}.csv").exists()
+        assert (workspace / "data_user" / "source_exports" / f"{dataset_key}.csv").exists()
+
+    assert not (workspace / "data_raw").exists()
+    assert not (workspace / "results").exists()
+    assert not (workspace / "data_processed").exists()
+    assert _project_files_under("results", "data_processed", "data_sessions") == before_project_outputs
+
+    forbidden_markers = ["demo", "proxy", "cache", "online", "controlled_reference", "external_verified"]
+    for dataset_key in IMPORTABLE_USER_LAYERS:
+        rows = _rows(workspace / "data_user" / f"{dataset_key}.csv")
+        assert rows
+        combined_text = " ".join(" ".join(row.values()) for row in rows).lower()
+        assert "user_curated" in combined_text
+        assert "dataset_id=real_user_curated_minimal_validation_01" in combined_text
+        for marker in forbidden_markers:
+            assert marker not in combined_text
+
+    quality_rows = _rows(workspace / "data_user" / "evidence_quality.csv")
+    pending_quality = next(row for row in quality_rows if row["protein_id"] == "VBALPHA_0002")
+    assert float(pending_quality["evidence_quality_score"]) == 0.2
+    assert float(pending_quality["confidence_ceiling"]) == 0.2
+    assert "limited_confidence" in pending_quality["audit_flags"]
+    assert "not_experimental_validation" in pending_quality["audit_flags"]
+
+    homolog_rows = _rows(workspace / "data_user" / "human_homologs.csv")
+    pending_homolog = next(row for row in homolog_rows if row["protein_id"] == "VBALPHA_0002")
+    assert "dataset_id=real_user_curated_minimal_validation_01" in pending_homolog["source_database"]
     assert "pending_review does not imply low host risk" in pending_homolog["curator_notes"]
