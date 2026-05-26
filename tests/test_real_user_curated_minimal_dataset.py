@@ -167,6 +167,58 @@ def test_insufficient_evidence_is_preserved_as_uncertain_not_low_risk() -> None:
     assert "pending_review does not imply low host risk" in uncertain["curator_notes"]
 
 
+def test_negative_user_curated_cases_do_not_become_accepted_or_favorable_evidence() -> None:
+    manual_rows = _rows(RAW_INPUTS / "manual_curation.csv")
+    essentiality_rows = _rows(RAW_INPUTS / "essentiality.csv")
+    quality_rows = _rows(RAW_INPUTS / "evidence_quality.csv")
+    human_rows = _rows(RAW_INPUTS / "human_homologs.csv")
+
+    pending_manual = next(row for row in manual_rows if row["protein_id"] == "VBALPHA_0002")
+    missing_manual = next(row for row in manual_rows if row["protein_id"] == "VBALPHA_0003")
+    missing_essentiality = next(row for row in essentiality_rows if row["protein_id"] == "VBALPHA_0003")
+    missing_quality = next(row for row in quality_rows if row["protein_id"] == "VBALPHA_0003")
+    missing_homolog = next(row for row in human_rows if row["protein_id"] == "VBALPHA_0003")
+
+    assert pending_manual["evidence_status"] == "pending_review"
+    assert pending_manual["curation_decision"] == "include_for_structure_check"
+    assert pending_manual["curation_decision"] != "accepted_for_test"
+    assert "not strong evidence" in pending_manual["curator_notes"]
+
+    assert missing_manual["evidence_status"] == "insufficient_evidence"
+    assert missing_manual["curation_decision"] == "requires_additional_curation"
+    assert missing_manual["curation_decision"] != "accepted_for_test"
+    assert missing_essentiality["evidence"] == ""
+    assert "missing_evidence=unresolved_risk" in missing_essentiality["database"]
+    assert "missing_evidence_unresolved" in missing_quality["audit_flags"]
+    assert float(missing_quality["evidence_quality_score"]) == 0.10
+    assert float(missing_quality["confidence_ceiling"]) == 0.10
+    assert "unresolved host risk" in missing_homolog["orthology_evidence_note"]
+
+    negative_text = " ".join(
+        value
+        for row in [pending_manual, missing_manual, missing_essentiality, missing_quality, missing_homolog]
+        for value in row.values()
+    ).lower()
+    for forbidden in [
+        "accepted_for_test",
+        "accepted_evidence",
+        "low_risk",
+        "safe_target",
+        "clinically_valid",
+        "validated_experimentally",
+        "is_experimental_validation",
+        "external_validation",
+        "external_verified",
+    ]:
+        assert forbidden not in negative_text
+
+    assert "source_type=user_curated" in missing_quality["database"]
+    assert all(
+        marker not in negative_text
+        for marker in ["source_type=demo", "source_type=proxy", "source_type=cache", "source_type=online", "controlled_reference"]
+    )
+
+
 def test_fixture_includes_minimal_user_layers_without_results_or_processed_outputs() -> None:
     imported_layers = {
         "essentiality.csv",
@@ -200,6 +252,12 @@ def test_imported_user_layers_preserve_interpretive_quality_and_traceability() -
     )
     assert pending_homolog["evidence_source_type"] == "user_curated_manual_review"
     assert "pending_review does not imply low host risk" in pending_homolog["curator_notes"]
+
+    missing_quality = next(row for row in quality_rows if row["protein_id"] == "VBALPHA_0003")
+    assert float(missing_quality["evidence_quality_score"]) == 0.1
+    assert float(missing_quality["confidence_ceiling"]) == 0.1
+    assert "missing_evidence_unresolved" in missing_quality["audit_flags"]
+    assert "safe_target" not in " ".join(missing_quality.values()).lower()
 
 
 def test_user_curated_evidence_strength_is_not_experimental_validation() -> None:
@@ -320,6 +378,7 @@ def test_fixture_imports_as_user_layer_in_temporary_workspace_only(tmp_path: Pat
     quality_rows = _rows(workspace / "data_user" / "evidence_quality.csv")
     quality_source_exports = _rows(workspace / "data_user" / "source_exports" / "evidence_quality.csv")
     pending_quality = next(row for row in quality_rows if row["protein_id"] == "VBALPHA_0002")
+    missing_quality = next(row for row in quality_rows if row["protein_id"] == "VBALPHA_0003")
     source_export_strong = next(row for row in quality_source_exports if row["protein_id"] == "VBALPHA_0001")
 
     assert "evidence_strength" not in pending_quality
@@ -329,8 +388,14 @@ def test_fixture_imports_as_user_layer_in_temporary_workspace_only(tmp_path: Pat
     assert float(pending_quality["confidence_ceiling"]) == 0.2
     assert "limited_confidence" in pending_quality["audit_flags"]
     assert "not_experimental_validation" in pending_quality["audit_flags"]
+    assert float(missing_quality["evidence_quality_score"]) == 0.1
+    assert float(missing_quality["confidence_ceiling"]) == 0.1
+    assert "missing_evidence_unresolved" in missing_quality["audit_flags"]
+    assert "safe_target" not in " ".join(missing_quality.values()).lower()
 
     homolog_rows = _rows(workspace / "data_user" / "human_homologs.csv")
     pending_homolog = next(row for row in homolog_rows if row["protein_id"] == "VBALPHA_0002")
+    missing_homolog = next(row for row in homolog_rows if row["protein_id"] == "VBALPHA_0003")
     assert "dataset_id=real_user_curated_minimal_validation_01" in pending_homolog["source_database"]
     assert "pending_review does not imply low host risk" in pending_homolog["curator_notes"]
+    assert "unresolved host risk" in missing_homolog["orthology_evidence_note"]

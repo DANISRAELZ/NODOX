@@ -239,3 +239,8 @@ Los estados `pending_review`, `local_note`, `curator_notes` e
 `include_for_structure_check` deben seguir leyendo como cautelas. No elevan
 confianza por si solos, no sustituyen referencias verificadas y no convierten
 `insufficient_evidence` en bajo riesgo.
+
+Los casos negativos del fixture incluyen evidencia pendiente, insuficiente y
+ausente. Esos registros deben conservarse como riesgo no resuelto o evidencia
+incompleta: no son evidencia aceptada, no son `safe_target`, no demuestran bajo
+riesgo y no deben presentarse como validacion biologica, experimental o clinica.
