@@ -1,0 +1,3 @@
+protein_id,gene,essential,evidence,database
+VBALPHA_0001,vbaA,1,user_curated_minimal_validation reviewed local structure check,user_curated_minimal_validation;source_type=user_curated;evidence_status=minimal_validation
+VBALPHA_0002,vbaB,0,pending_review local note insufficient_evidence for structure check,user_curated_minimal_validation;source_type=user_curated;evidence_status=pending_review

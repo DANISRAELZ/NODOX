@@ -161,3 +161,66 @@ La fase debe producir:
 
 Esta fase prepara la validacion real. No declara utilidad clinica, no valida un
 tratamiento y no convierte la plataforma en predictor definitivo.
+
+## Dataset minimo controlado 2026-05-26
+
+Para avanzar la validacion estructural sin tocar scoring ni logica cientifica se
+preparo un paquete local aislado en
+`data_sessions/real_user_curated_minimal_validation_01/`.
+Esa ruta es un workspace local de ejecucion y sigue ignorada por Git.
+
+Para que las pruebas sean reproducibles en cualquier clon del repositorio,
+tambien existe una copia minima versionable en
+`tests/fixtures/real_user_curated_minimal_validation_01/`. El fixture conserva
+solo los CSVs y notas necesarios para validar estructura, procedencia y limites
+interpretativos; no es un workspace operativo y no incluye outputs pesados.
+
+Este paquete representa:
+
+- un dataset ficticio `user_curated` para `minimal_validation`;
+- cuatro capas obligatorias: `essentiality`, `virulence`, `human_homologs` y
+  `localization`;
+- notas locales de curacion en `manual_curation.csv`;
+- una capa `evidence_quality.csv` conservadora para preservar limites
+  interpretativos;
+- ausencia declarada de demo, proxy, cache, online y `controlled_reference`.
+
+Este paquete no representa:
+
+- validacion experimental;
+- validacion clinica;
+- evidencia externa verificada automaticamente;
+- bajo riesgo del hospedero;
+- utilidad terapeutica demostrada;
+- ranking real o recomendacion clinica.
+
+La copia en `tests/fixtures/` tampoco representa validacion experimental o
+clinica. Sirve solo para que los tests no dependan de `data_sessions/`, que es
+una carpeta local de ejecucion.
+
+La validacion esperada usa los comandos actuales del repositorio:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\validate_user_curated_manifest.ps1 -ManifestPath data_sessions\real_user_curated_minimal_validation_01\manifest.csv
+powershell -ExecutionPolicy Bypass -File .\scripts\validate_user_curated_dataset.ps1 -ProjectPath data_sessions\real_user_curated_minimal_validation_01
+```
+
+La importacion controlada, cuando se ejecute, debe usar `--as-user-layer` y
+escribir solo dentro del mismo workspace, por ejemplo:
+
+```powershell
+.\.venv\Scripts\python.exe import_dataset.py --organism "Validation bacterium alpha" --strain "minimal_validation_scope_01" --workspace data_sessions\real_user_curated_minimal_validation_01 --dataset essentiality --input data_sessions\real_user_curated_minimal_validation_01\raw_inputs\essentiality.csv --validate-user-curated-manifest data_sessions\real_user_curated_minimal_validation_01\manifest.csv --as-user-layer
+```
+
+`pending_review`, `local_note`, `curator_notes` e
+`include_for_structure_check` se conservan como trazabilidad. No elevan por si
+solos `evidence_quality`, no equivalen a evidencia fuerte y no convierten
+evidencia insuficiente en bajo riesgo.
+
+En esta validacion local se importaron como capas de usuario las capas
+soportadas por `import_dataset.py`: `essentiality`, `virulence`,
+`human_homologs`, `localization` y `evidence_quality`. La importacion escribio
+solo en `data_sessions/real_user_curated_minimal_validation_01/data_user/` y
+conservo los CSV originales en `data_user/source_exports/`. No se ejecuto
+`run_pipeline.py`, no se genero ranking y no se escribieron `results/` ni
+`data_processed/` dentro del workspace.
