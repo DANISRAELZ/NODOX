@@ -7,7 +7,10 @@ from pathlib import Path
 
 from src.nodos_funcionales.config import load_config
 from src.nodos_funcionales.layer_resolver import resolve_layer_inputs
-from src.nodos_funcionales.user_curated_validation import USER_CURATED_MANIFEST_COLUMNS
+from src.nodos_funcionales.user_curated_validation import (
+    USER_CURATED_MANIFEST_COLUMNS,
+    validate_user_curated_manifest,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -61,6 +64,30 @@ def _write_manifest(path: Path, row: dict[str, str]) -> None:
         writer = csv.DictWriter(handle, fieldnames=USER_CURATED_MANIFEST_COLUMNS)
         writer.writeheader()
         writer.writerow(row)
+
+
+def _write_manifest_rows(path: Path, rows: list[dict[str, str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=USER_CURATED_MANIFEST_COLUMNS)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({column: row.get(column, "") for column in USER_CURATED_MANIFEST_COLUMNS})
+
+
+def _template_header(template_name: str) -> list[str]:
+    with (PROJECT_ROOT / "data_templates" / template_name).open(newline="", encoding="utf-8") as handle:
+        return next(csv.reader(handle))
+
+
+def _write_rows_from_template(path: Path, template_name: str, rows: list[dict[str, str]]) -> None:
+    header = _template_header(template_name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=header)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({column: row.get(column, "") for column in header})
 
 
 def _write_minimal_required_user_layers(workspace: Path) -> None:
@@ -282,6 +309,204 @@ def test_user_curated_template_columns_reach_internal_layer_and_free_columns_sta
     assert "essentiality_call" not in internal_rows[0]
     assert source_rows[0]["essentiality_score"] == "0.97"
     assert source_rows[0]["essentiality_call"] == "high"
+
+
+def test_import_from_filled_user_curated_templates_preserves_user_layer_provenance(
+    tmp_path: Path,
+) -> None:
+    before_outputs = _versioned_output_files()
+    staging = tmp_path / "user_curated_staging" / "filled_template_validation"
+    raw_inputs = staging / "raw_inputs"
+    workspace = tmp_path / "workspace"
+    _write_workspace_config(workspace)
+
+    manual_rows = [
+        {
+            "organism": "Template validation bacterium",
+            "strain": "filled_template_scope",
+            "protein_id": "TEMPLATE_0001",
+            "gene": "tplA",
+            "curator_name": "Template curator",
+            "curation_date": "2026-05-27",
+            "curation_decision": "include_for_structure_check",
+            "evidence_summary": "local_note preserves context only",
+            "evidence_status": "pending_review",
+            "source_database": "user_curated_local_note",
+            "reference_or_note": "local_note_no_external_verification",
+            "curator_notes": "pending_review is context only and remains unresolved",
+        },
+        {
+            "organism": "Template validation bacterium",
+            "strain": "filled_template_scope",
+            "protein_id": "TEMPLATE_0002",
+            "gene": "tplB",
+            "curator_name": "Template curator",
+            "curation_date": "2026-05-27",
+            "curation_decision": "needs_more_evidence",
+            "evidence_summary": "",
+            "evidence_status": "insufficient_evidence",
+            "source_database": "user_curated_missing_evidence",
+            "reference_or_note": "",
+            "curator_notes": "missing_evidence=unresolved_risk; favorable safety cannot be inferred",
+        },
+    ]
+    _write_rows_from_template(raw_inputs / "manual_curation.csv", "manual_curation_template.csv", manual_rows)
+
+    evidence_quality_rows = [
+        {
+            "protein_id": "TEMPLATE_0001",
+            "gene": "tplA",
+            "evidence_quality_score": "0.20",
+            "confidence_ceiling": "0.20",
+            "evidence_source_type": "user_curated_manual_curation",
+            "evidence_notes": (
+                "evidence_status=pending_review; "
+                "curation_decision=include_for_structure_check; "
+                "reference_or_note=local_note_no_external_verification; "
+                "curator_notes=context only; no verified source"
+            ),
+            "audit_flags": (
+                "user_curated;manual_curation;interpretive_only;limited_confidence;"
+                "not_experimental_validation"
+            ),
+            "phase3_notes": "pending_review remains unresolved and interpretive",
+            "database": "source_type=user_curated; provenance=user_curated_template_fill",
+        },
+        {
+            "protein_id": "TEMPLATE_0002",
+            "gene": "tplB",
+            "evidence_quality_score": "0.10",
+            "confidence_ceiling": "0.10",
+            "evidence_source_type": "user_curated_manual_curation",
+            "evidence_notes": "evidence_status=insufficient_evidence; missing_evidence=unresolved_risk",
+            "audit_flags": "user_curated;manual_curation;insufficient_evidence;unresolved_risk",
+            "phase3_notes": "insufficient_evidence remains unresolved risk",
+            "database": "source_type=user_curated; provenance=user_curated_template_fill",
+        },
+    ]
+    _write_rows_from_template(
+        raw_inputs / "evidence_quality.csv",
+        "evidence_quality_template.csv",
+        evidence_quality_rows,
+    )
+
+    essentiality_rows = [
+        {
+            "protein_id": "TEMPLATE_0001",
+            "gene": "tplA",
+            "essential": "0",
+            "evidence": "pending_review; include_for_structure_check; local_note_context_only",
+            "database": "source_type=user_curated; provenance=user_curated_template_fill",
+        },
+        {
+            "protein_id": "TEMPLATE_0002",
+            "gene": "tplB",
+            "essential": "0",
+            "evidence": "insufficient_evidence; missing_evidence=unresolved_risk",
+            "database": "source_type=user_curated; provenance=user_curated_template_fill",
+        },
+    ]
+    _write_rows_from_template(raw_inputs / "essentiality.csv", "essentiality_template.csv", essentiality_rows)
+
+    manifest_rows = []
+    for input_file, schema, required in [
+        ("manual_curation.csv", "data_templates/manual_curation_template.csv", "false"),
+        ("evidence_quality.csv", "data_templates/evidence_quality_template.csv", "false"),
+        ("essentiality.csv", "data_templates/essentiality_template.csv", "true"),
+    ]:
+        manifest_rows.append(
+            {
+                "organism": "Template validation bacterium",
+                "strain": "filled_template_scope",
+                "dataset_id": input_file.removesuffix(".csv"),
+                "dataset_version": "v1",
+                "curator_name": "Template curator",
+                "curation_date": "2026-05-27",
+                "source_type": "user_curated",
+                "evidence_status": "pending_or_insufficient_reviewed",
+                "evidence_kind": "local_template_fill",
+                "provenance": "user_curated_template_fill",
+                "input_file": input_file,
+                "input_schema": schema,
+                "required_for_scoring": required,
+                "notes": "filled template import validation; insufficient evidence remains unresolved risk",
+            }
+        )
+    manifest = staging / "user_curated_dataset_manifest.csv"
+    _write_manifest_rows(manifest, manifest_rows)
+
+    assert validate_user_curated_manifest(manifest) == []
+
+    for dataset in ["essentiality", "evidence_quality"]:
+        result = _run_import_dataset(
+            [
+                "--organism",
+                "Template validation bacterium",
+                "--strain",
+                "filled_template_scope",
+                "--workspace",
+                str(workspace),
+                "--dataset",
+                dataset,
+                "--input",
+                str(raw_inputs / f"{dataset}.csv"),
+                "--validate-user-curated-manifest",
+                str(manifest),
+                "--as-user-layer",
+            ]
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "Manifest user_curated valido" in result.stdout
+        assert "Destino como capa de usuario: data_user" in result.stdout
+        assert (workspace / "data_user" / f"{dataset}.csv").exists()
+        assert (workspace / "data_user" / "source_exports" / f"{dataset}.csv").exists()
+
+    _write_minimal_required_user_layers(workspace)
+    config = load_config(workspace / "config" / "params.yaml")
+    config["online_sources"]["source_mode_effective"] = "offline_only"
+    config["online_sources"]["therapeutic_context"]["enabled"] = False
+    config["online_sources"]["therapeutic_context_v2"]["enabled"] = False
+    layer_manifest = resolve_layer_inputs(workspace, config)
+    essentiality = layer_manifest["essentiality"]
+
+    assert essentiality["resolved_from"] == "user"
+    assert essentiality["source_type"] == "user"
+    assert essentiality["is_user_supplied"] is True
+    assert essentiality["is_cached"] is False
+    assert essentiality["is_proxy"] is False
+    assert essentiality["is_external"] is False
+
+    manual_text = (raw_inputs / "manual_curation.csv").read_text(encoding="utf-8").casefold()
+    imported_text = "\n".join(
+        [
+            (workspace / "data_user" / "essentiality.csv").read_text(encoding="utf-8"),
+            (workspace / "data_user" / "evidence_quality.csv").read_text(encoding="utf-8"),
+            (workspace / "data_user" / "source_exports" / "evidence_quality.csv").read_text(encoding="utf-8"),
+        ]
+    ).casefold()
+    combined_text = f"{manual_text}\n{imported_text}"
+
+    for forbidden_source in ["demo", "proxy", "cache", "online", "controlled_reference"]:
+        assert forbidden_source not in combined_text
+
+    assert "source_type=user_curated" in combined_text
+    assert "provenance=user_curated_template_fill" in combined_text
+    assert "pending_review" in combined_text
+    assert "accepted_for_test" not in combined_text
+    assert "insufficient_evidence" in combined_text
+    assert "missing_evidence=unresolved_risk" in combined_text
+    assert "safe_target" not in combined_text
+    assert "low_risk" not in combined_text
+    assert "curator_notes=context only" in combined_text
+    assert "local_note_no_external_verification" in combined_text
+    assert "external_verified" not in combined_text
+    assert "include_for_structure_check" in combined_text
+    assert "not_experimental_validation" in combined_text
+    assert "clinically_valid" not in combined_text
+    assert "validated_experimentally" not in combined_text
+    assert "automatic experimental validation" not in combined_text
+    assert _versioned_output_files() == before_outputs
 
 
 def test_import_dataset_with_invalid_user_curated_manifest_stops_before_import(tmp_path: Path) -> None:
