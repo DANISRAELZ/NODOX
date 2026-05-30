@@ -1,0 +1,5 @@
+gene,protein_id,curation_decision,curation_summary,curator,curation_date,review_status,local_note,curator_notes,include_for_structure_check
+oprF,PAO1_OPRF_PLACEHOLDER,include_for_controlled_structure_test,Included only to verify package structure,local_curator,2026-05-30,accepted_for_test,Local structural note only,Does not imply experimental validation,true
+mexA,PAO1_MEXA_PLACEHOLDER,revise_before_test,Needs additional evidence review,local_curator,2026-05-30,needs_revision,Local uncertainty note,Do not elevate evidence_confidence_score from curator_notes alone,false
+lasR,PAO1_LASR_PLACEHOLDER,pending_expert_review,Pending expert review before import,local_curator,2026-05-30,pending_review,Pending local note,pending_review is not accepted_for_test,false
+unknown_candidate,PAO1_UNKNOWN_PLACEHOLDER,exclude_until_evidence_available,Insufficient evidence; unresolved risk,local_curator,2026-05-30,insufficient_evidence,No sufficient evidence,insufficient_evidence is unresolved risk and not low_risk,false

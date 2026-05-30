@@ -1,0 +1,16 @@
+dataset_id: first_real_user_curated_pseudomonas_aeruginosa_package
+dataset_name: First real user-curated Pseudomonas aeruginosa package fixture
+organism_name: Pseudomonas aeruginosa
+taxon_id: "287"
+strain_or_isolate: "not_specified"
+dataset_version: "0.1-structural-fixture"
+created_by: "user_curated_fixture"
+curator: "local_curator"
+created_at: "2026-05-30"
+updated_at: "2026-05-30"
+provenance_type: user_curated
+intended_use: "structural package validation only"
+not_for_clinical_use: true
+not_clinically_validated: true
+not_experimentally_validated: true
+notes: "Fixture for structural validation of a user_curated Pseudomonas aeruginosa package. Not a biological validation dataset."

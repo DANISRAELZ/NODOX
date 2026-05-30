@@ -1,0 +1,11 @@
+provenance_type: user_curated
+source_scope: "local structural fixture"
+curation_method: "manual placeholder curation for package validation"
+external_literature_used: false
+online_lookup_used: false
+controlled_reference_used: false
+demo_data_used: false
+proxy_data_used: false
+cache_data_used: false
+review_status: pending_review
+limitations: "This fixture validates package structure only. It does not provide clinical, experimental, or controlled reference evidence."
