@@ -1,0 +1,5 @@
+gene,protein_id,locus_tag,organism_name,taxon_id,product,candidate_label,review_status,curator,curator_notes
+oprF,PAO1_OPRF_PLACEHOLDER,PAO1_LOCUS_OPRF_PLACEHOLDER,Pseudomonas aeruginosa,287,Outer membrane porin F placeholder,structural_candidate,accepted_for_test,local_curator,Reviewed only for structural package test
+mexA,PAO1_MEXA_PLACEHOLDER,PAO1_LOCUS_MEXA_PLACEHOLDER,Pseudomonas aeruginosa,287,Efflux system component placeholder,review_candidate,needs_revision,local_curator,Requires evidence review before any controlled test
+lasR,PAO1_LASR_PLACEHOLDER,PAO1_LOCUS_LASR_PLACEHOLDER,Pseudomonas aeruginosa,287,Transcriptional regulator placeholder,pending_candidate,pending_review,local_curator,Pending expert review
+unknown_candidate,PAO1_UNKNOWN_PLACEHOLDER,PAO1_LOCUS_UNKNOWN_PLACEHOLDER,Pseudomonas aeruginosa,287,Unknown function placeholder,negative_control,insufficient_evidence,local_curator,Risk remains unresolved and candidate must not be treated as low_risk

@@ -1,0 +1,5 @@
+gene,protein_id,evidence_strength,evidence_quality,evidence_confidence_score,evidence_source,review_status,limitations,curator_notes
+oprF,PAO1_OPRF_PLACEHOLDER,limited,structural_placeholder,0.40,user_curated,accepted_for_test,For package validation only; not clinical or experimental validation,therapeutic_priority_score must remain separate from evidence_confidence_score
+mexA,PAO1_MEXA_PLACEHOLDER,limited,needs_review,0.25,user_curated,needs_revision,Requires additional review before any controlled interpretation,Do not present as validated target
+lasR,PAO1_LASR_PLACEHOLDER,insufficient,pending_review,0.10,user_curated,pending_review,Pending expert review,Pending review does not elevate confidence
+unknown_candidate,PAO1_UNKNOWN_PLACEHOLDER,insufficient,insufficient_evidence,0.00,user_curated,insufficient_evidence,Risk remains unresolved; not low_risk,Do not include in scoring
