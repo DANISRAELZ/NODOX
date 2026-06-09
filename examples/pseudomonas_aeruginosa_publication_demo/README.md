@@ -122,3 +122,9 @@ The publication-oriented Phase 2 results note is documented in
 `docs/pseudomonas_aeruginosa_publication_demo_phase2_results.md`. It summarizes
 the reproducible flow, expected manuscript columns, conservative interpretation,
 and limits of the demo without changing the scoring logic.
+
+## Phase 3 Manuscript Material
+
+Reusable manuscript text, proposed figure/table descriptions, and publication
+checklist are documented in
+`docs/pseudomonas_aeruginosa_publication_demo_phase3_manuscript_material.md`.

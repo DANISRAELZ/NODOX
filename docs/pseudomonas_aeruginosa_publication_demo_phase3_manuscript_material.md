@@ -1,0 +1,175 @@
+# Pseudomonas aeruginosa publication demo - Phase 3 manuscript material
+
+## Proposito
+
+Esta fase convierte el demo reproducible y la plantilla de resultados de
+`Pseudomonas aeruginosa` en material preliminar reutilizable para manuscrito.
+El objetivo es reunir texto metodologico, narrativa de resultados, discusion,
+limitaciones, propuesta de figura y propuesta de tabla sin modificar la logica
+cientifica central ni el scoring del pipeline.
+
+El material se apoya en el publication demo ubicado en:
+
+```text
+examples/pseudomonas_aeruginosa_publication_demo
+```
+
+Tambien se apoya en la tabla plantilla:
+
+```text
+examples/pseudomonas_aeruginosa_publication_demo/expected_outputs/publication_candidate_summary.csv
+```
+
+## Alcance
+
+Este material describe una demostracion reproducible de priorizacion
+terapeutica. No es validacion clinica. No es validacion experimental. No es una
+afirmacion de eficacia terapeutica y no sustituye curacion experta ni
+validacion externa.
+
+El demo mantiene enfoque multi-organismo: `Pseudomonas aeruginosa` funciona
+como caso publicable de demostracion, no como organismo obligatorio ni como
+limite conceptual del proyecto Nodos Funcionales.
+
+La interpretacion conservadora se mantiene como criterio central:
+
+- un score alto no significa validacion experimental;
+- un score alto no equivale a confianza alta;
+- evidencia insuficiente no equivale a bajo riesgo;
+- `user_curated` no significa evidencia externa automaticamente verificada;
+- user_curated no significa evidencia externa automaticamente verificada;
+- `candidate_for_review` no significa candidato terapeutico confirmado.
+
+## Methods
+
+We prepared a reproducible publication demo for `Pseudomonas aeruginosa` using
+the directory `examples/pseudomonas_aeruginosa_publication_demo`. The input
+package is organized as `user_curated` material and includes a gene list,
+manual curation file, evidence quality table, manifest, provenance file, and
+curator notes. The package is intended to be inspectable offline and to remain
+scoped to the demo workspace, avoiding writes to global `results/`,
+`data_processed/`, or `data_sessions/` directories.
+
+The analysis framework preserves an explicit distinction between
+`therapeutic_priority_score` and `evidence_confidence_score`.
+`therapeutic_priority_score` is treated as a prioritization variable within the
+model, whereas `evidence_confidence_score` describes the available support for
+interpreting that priority. The manuscript table also retains
+`evidence_strength`, `provenance`, functional descriptors, and evolutionary
+variables including `evolutionary_escape_risk`, `evolutionary_constraint`, and
+`resistance_association`.
+
+Candidate interpretation is conservative. The demo is used to demonstrate a
+reproducible prioritization workflow and manuscript-ready output structure, not
+to infer clinical efficacy or experimental activity. Incomplete evidence is
+reported as unresolved rather than converted into low-risk language.
+
+## Results
+
+The publication demo provides a reusable candidate-table structure for reporting
+prioritized bacterial functional nodes. The table is designed for review and
+manuscript preparation and does not represent clinical validation or
+experimental validation. Candidate labels should be read as candidates for
+review within a transparent prioritization model.
+
+The expected output table keeps priority, confidence, evidence strength,
+evolutionary risk, evolutionary constraint, resistance association, and
+provenance in separate columns. This structure makes it possible to identify
+candidates whose model priority is high while evidence confidence remains
+limited. Evidence insufficiency is reported as unresolved risk, and provenance
+is retained explicitly so reviewers can distinguish `user_curated` material,
+demo templates, unresolved values, and future generated pipeline outputs.
+
+## Discussion
+
+The value of this phase is not a new scoring claim, but a clearer manuscript
+interface for the Nodos Funcionales platform. The same reporting logic can be
+used across organisms, supporting the multi-organism design while keeping each
+organism-specific workspace auditable.
+
+Separating therapeutic priority from evidence confidence is important because a
+candidate may be biologically interesting within the model while still being
+supported by incomplete, preliminary, or curator-provided evidence. The
+evolutionary sublayer adds another interpretive dimension by keeping
+`evolutionary_escape_risk`, `evolutionary_constraint`, and
+`resistance_association` visible during review. This helps avoid treating
+incomplete evolutionary information as evidence of low risk.
+
+The current demo remains limited by its demonstrative dataset and by the quality
+and completeness of the `user_curated` inputs. Future work should compare the
+output structure against external reviewed evidence, additional organisms, and
+organism-specific layers generated by the existing reproducible pipeline.
+
+## Limitations
+
+- The dataset is demonstrative and should be read as manuscript material for a
+  reproducible demo.
+- The demo is not validacion experimental.
+- The demo is not validacion clinica.
+- The interpretation depends on the quality, completeness, and documentation of
+  the `user_curated` input.
+- Incomplete evidence can leave risk unresolved and must not be interpreted as
+  low risk.
+- External comparison remains pending.
+- Validation with additional organisms remains pending.
+- The final figure and integrated manuscript text remain pending.
+
+## Tabla tipo manuscrito
+
+The table below mirrors
+`examples/pseudomonas_aeruginosa_publication_demo/expected_outputs/publication_candidate_summary.csv`.
+Values are template/demo values and must not be read as experimental evidence.
+
+| gene | protein_id | functional_role | therapeutic_priority_score | evidence_confidence_score | evidence_strength | evolutionary_escape_risk | evolutionary_constraint | resistance_association | provenance | interpretation |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| template_gene | template_protein_id | template_functional_role | pending_pipeline_output | pending_evidence_review | insufficient | unresolved_risk | not_assessed | not_assessed | demo_publication_template | candidate_for_reproducible_demo_only |
+
+## Proposed manuscript figure
+
+The proposed figure is a conceptual workflow panel for the publication demo.
+It should show:
+
+1. `user_curated` input package.
+2. Prevalidation of structure, manifest, provenance, and notes.
+3. Integration of functional evidence layers.
+4. Evolutionary sublayer with escape risk, constraint, and resistance context.
+5. Explicit separation between `therapeutic_priority_score` and
+   `evidence_confidence_score`.
+6. Candidate prioritization table.
+7. Conservative interpretation for expert review.
+
+Preliminary figure caption:
+
+```text
+Figure X. Reproducible publication demo workflow for Pseudomonas aeruginosa.
+User-curated inputs are prevalidated, integrated with functional and
+evolutionary evidence layers, and reported as a candidate prioritization table.
+Therapeutic priority is kept separate from evidence confidence, and incomplete
+evidence is retained as unresolved risk for expert review.
+```
+
+## Proposed manuscript table
+
+The proposed main table is a candidate prioritization table derived from the
+publication demo output structure. Its purpose is to report each candidate with
+functional role, priority score, evidence confidence, evidence strength,
+evolutionary risk, evolutionary constraint, resistance association, provenance,
+and conservative interpretation.
+
+The table should be used to support transparent review of candidate hypotheses.
+It should not be used as a claim of clinical or experimental validation. Rows
+should be generated by the pipeline or by reviewed curation before inclusion in
+the final manuscript.
+
+## Checklist de publicacion
+
+- [x] Demo reproducible.
+- [x] Tabla de candidatos.
+- [x] Separacion score/confianza.
+- [x] Procedencia explicita.
+- [x] Variables evolutivas incluidas.
+- [x] Limitaciones conservadoras.
+- [ ] Pendiente comparacion externa.
+- [ ] Pendiente validacion con mas organismos.
+- [ ] Pendiente figura final.
+- [ ] Pendiente manuscrito integrado.
