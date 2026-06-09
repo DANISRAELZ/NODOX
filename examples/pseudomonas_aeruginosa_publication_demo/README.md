@@ -115,3 +115,10 @@ complete run:
 Current templates document expected columns and limitations only. They should be
 filled by the pipeline or by reviewed user-curated evidence, never by invented
 results.
+
+## Phase 2 Results Note
+
+The publication-oriented Phase 2 results note is documented in
+`docs/pseudomonas_aeruginosa_publication_demo_phase2_results.md`. It summarizes
+the reproducible flow, expected manuscript columns, conservative interpretation,
+and limits of the demo without changing the scoring logic.
