@@ -34,6 +34,14 @@ from src.nodos_funcionales.publication_gui_readers import (
     load_publication_table,
     summarize_publication_package,
 )
+from src.nodos_funcionales.pipeline_runner import (
+    get_default_gui_runs_dir,
+    list_gui_runs,
+    make_run_id,
+    read_gui_run_manifest,
+    run_pipeline_controlled,
+    run_pipeline_preflight,
+)
 
 
 APP_TITLE = "Nodos Funcionales - user_curated onboarding"
@@ -627,6 +635,107 @@ def _render_manual_approval_review() -> None:
         )
 
 
+def _render_controlled_pipeline_execution() -> None:
+    st.header("9. Ejecutar pipeline controlado")
+    st.subheader("Pipeline execution overview")
+    st.markdown(
+        """
+        This panel can run a controlled computational workflow only through
+        `pipeline_runner`. It does not accept free-form shell commands, does not
+        run Snakemake, and writes only to a new isolated `results/gui_runs/<run_id>/`
+        directory. It must not overwrite `results/publication_package/`.
+        """
+    )
+    st.warning(
+        "Any generated outputs are computationally prioritized hypotheses requiring independent validation. "
+        "They do not represent experimental validation or clinical validation."
+    )
+
+    st.subheader("Input selection")
+    proposed_run_id = st.session_state.get("controlled_pipeline_run_id")
+    if not proposed_run_id:
+        proposed_run_id = make_run_id()
+        st.session_state["controlled_pipeline_run_id"] = proposed_run_id
+    organism = st.text_input("Organism for controlled pipeline run", key="controlled_pipeline_organism")
+    strain = st.text_input("Strain or isolate (optional)", key="controlled_pipeline_strain")
+    mode = st.selectbox("Pipeline mode", ["compare", "phase2", "phase3", "default", "legacy"], key="controlled_pipeline_mode")
+    acquisition_mode = st.selectbox("Acquisition mode", ["semi_auto", "manual", "auto"], key="controlled_pipeline_acquisition_mode")
+    allow_demo_data = st.checkbox("Allow packaged demo data when explicitly compatible", value=False)
+    run_id = st.text_input("run_id", value=proposed_run_id, key="controlled_pipeline_run_id_input")
+    runs_dir = get_default_gui_runs_dir()
+    st.markdown(f"Proposed isolated output directory: `{runs_dir / run_id}`")
+
+    st.subheader("Preflight / dry-run")
+    if st.button("Run preflight / dry-run"):
+        preflight = run_pipeline_preflight(
+            organism=organism,
+            strain=strain or None,
+            mode=mode,
+            acquisition_mode=acquisition_mode,
+            run_id=run_id,
+            allow_demo_data=allow_demo_data,
+        )
+        st.session_state["controlled_pipeline_preflight"] = preflight
+    preflight = st.session_state.get("controlled_pipeline_preflight")
+    if preflight:
+        st.json(preflight)
+        st.code("\n".join(str(part) for part in preflight.get("command", [])), language="text")
+
+    st.subheader("Controlled execution")
+    st.markdown("No free-form shell command input is available in this GUI.")
+    allow_execution = st.checkbox(
+        "I understand this will run a computational workflow and write outputs to a new isolated directory.",
+        value=False,
+    )
+    if st.button("Run controlled pipeline"):
+        result = run_pipeline_controlled(
+            organism=organism,
+            strain=strain or None,
+            mode=mode,
+            acquisition_mode=acquisition_mode,
+            run_id=run_id,
+            allow_demo_data=allow_demo_data,
+            allow_execution=allow_execution,
+        )
+        st.session_state["controlled_pipeline_result"] = result
+    result = st.session_state.get("controlled_pipeline_result")
+    if result:
+        status = result.get("status", "not_reported")
+        if status == "completed":
+            st.success(status)
+        elif status in {"failed", "preflight_failed"}:
+            st.error(status)
+        else:
+            st.warning(status)
+        st.json(result)
+
+    st.subheader("Logs and run manifest")
+    previous_runs = list_gui_runs()
+    st.dataframe(previous_runs, use_container_width=True)
+    if previous_runs:
+        selected_run = st.selectbox("Previous run manifest", [run["run_dir"] for run in previous_runs])
+        manifest, error = read_gui_run_manifest(selected_run)
+        if error:
+            st.warning(error)
+        else:
+            st.json(manifest)
+        for log_name in ["pipeline_stdout.log", "pipeline_stderr.log"]:
+            log_path = Path(selected_run) / log_name
+            if log_path.is_file():
+                st.code(log_path.read_text(encoding="utf-8"), language="text")
+
+    st.subheader("Conservative interpretation")
+    st.markdown(
+        """
+        - Controlled execution is computational and local.
+        - The GUI does not accept arbitrary shell commands.
+        - The GUI does not execute Snakemake directly.
+        - Output must remain isolated under `results/gui_runs`.
+        - Existing `results/publication_package/` files are not overwritten by this panel.
+        """
+    )
+
+
 def _render_streamlit_app() -> None:
     st.set_page_config(page_title=APP_TITLE, layout="centered")
     st.title(APP_TITLE)
@@ -820,6 +929,7 @@ def _render_streamlit_app() -> None:
 
     _render_publication_results_review()
     _render_manual_approval_review()
+    _render_controlled_pipeline_execution()
     _render_interpretation_limits()
 
     st.header("La GUI se detiene aqui")
