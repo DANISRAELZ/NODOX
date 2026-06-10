@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
+import ast
 
 from apps.user_curated_onboarding_app import _build_expert_review_summary
 
@@ -85,6 +86,21 @@ def test_user_curated_onboarding_gui_app_text_contract() -> None:
         "un quality gate favorable no equivale a recomendacion terapeutica",
         "un scoring futuro no sustituye revision experta",
         "un score alto no equivale automaticamente a confianza alta",
+        "8. Revisar resultados publicables",
+        "publication_package",
+        "figure_1_top_candidates_meta_priority.png",
+        "figure_2_priority_vs_confidence.png",
+        "figure_3_score_decomposition.png",
+        "figure_4_evolutionary_risk_vs_priority.png",
+        "figure_5_ranking_stability.png",
+        "figure_6_therapeutic_role_distribution.png",
+        "_render_manual_approval_review",
+        "_render_publication_results_review",
+        "These results are computationally prioritized hypotheses.",
+        "They do not represent experimental validation.",
+        "They do not represent clinical validation.",
+        "A high therapeutic_priority_score does not imply high evidence_confidence_score.",
+        "demo_only, preliminary, proxy, missing, not_assessed or insufficient_evidence",
     }
     for term in required_terms:
         assert term in app_text
@@ -101,6 +117,50 @@ def test_user_curated_onboarding_gui_app_text_contract() -> None:
 
     for forbidden_default in FORBIDDEN_ORGANISM_DEFAULTS:
         assert forbidden_default not in app_text
+
+
+def test_user_curated_onboarding_gui_has_no_streamlit_global_calls() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    app_path = project_root / "apps" / "user_curated_onboarding_app.py"
+    tree = ast.parse(app_path.read_text(encoding="utf-8-sig"))
+
+    function_depth = 0
+    global_streamlit_calls: list[str] = []
+
+    class Visitor(ast.NodeVisitor):
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
+            nonlocal function_depth
+            function_depth += 1
+            self.generic_visit(node)
+            function_depth -= 1
+
+        def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
+            if function_depth == 0 and isinstance(node.func, ast.Attribute):
+                value = node.func.value
+                if isinstance(value, ast.Name) and value.id == "st":
+                    global_streamlit_calls.append(node.func.attr)
+            self.generic_visit(node)
+
+    Visitor().visit(tree)
+    assert global_streamlit_calls == []
+
+
+def test_user_curated_gui_publication_review_is_read_only_contract() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    app_text = (project_root / "apps" / "user_curated_onboarding_app.py").read_text(encoding="utf-8")
+    assert "run_pipeline.py" not in app_text
+    assert "subprocess" not in app_text
+    assert "import snakemake" not in app_text.lower()
+    assert "Snakemake" in app_text
+    assert "no modifica `results/`, `data_processed/` ni `data_sessions/`" in app_text
+    for phrase in [
+        "clinically validated",
+        "experimentally validated",
+        "safe target",
+        "confirmed therapeutic target",
+        "validated therapeutic target",
+    ]:
+        assert phrase not in app_text.lower()
 
 
 def test_user_curated_onboarding_gui_document_text_contract() -> None:
@@ -279,9 +339,12 @@ def test_user_curated_onboarding_gui_final_flow_order() -> None:
         'st.header("5. Quality gate previo a scoring")',
         'st.header("6. Resumen final exportable para revision experta")',
         'st.header("7. Importacion validada asistida como comando manual")',
+        'st.header("8. Revisar resultados publicables")',
     ]
 
-    positions = [app_text.index(header) for header in expected_headers]
+    streamlit_body = app_text[app_text.index("def _render_streamlit_app") :]
+    positions = [streamlit_body.index(header) for header in expected_headers[:7]]
+    positions.append(streamlit_body.index("_render_publication_results_review()"))
     assert positions == sorted(positions)
     assert "Revisar preparacion para scoring" not in app_text
     assert "Importar dataset (deshabilitado en esta version)" not in app_text

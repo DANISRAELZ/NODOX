@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 try:
     from nodos_funcionales.user_curated_scoring_approval import (
         summarize_scoring_approval,
@@ -25,6 +25,12 @@ except ModuleNotFoundError:  # pragma: no cover - optional GUI dependency
 from scripts.create_user_curated_staging import create_staging, validate_project_id
 from src.nodos_funcionales.user_curated_quality_gate import assess_pre_scoring_readiness
 from src.nodos_funcionales.user_curated_validation import validate_user_curated_manifest
+from src.nodos_funcionales.publication_gui_readers import (
+    PUBLICATION_FIGURES,
+    PUBLICATION_TABLES,
+    load_publication_table,
+    summarize_publication_package,
+)
 
 
 APP_TITLE = "Nodos Funcionales - user_curated onboarding"
@@ -46,6 +52,22 @@ EXPERT_REVIEW_REMINDERS = [
     "No implica recomendacion terapeutica.",
     "No sustituye revision experta.",
     "Un score alto, en fases futuras, no equivale automaticamente a confianza alta.",
+]
+PUBLICATION_PACKAGE_DIR = PROJECT_ROOT / "results" / "publication_package"
+EXPECTED_PUBLICATION_FIGURES_FOR_REVIEW = [
+    "figure_1_top_candidates_meta_priority.png",
+    "figure_2_priority_vs_confidence.png",
+    "figure_3_score_decomposition.png",
+    "figure_4_evolutionary_risk_vs_priority.png",
+    "figure_5_ranking_stability.png",
+    "figure_6_therapeutic_role_distribution.png",
+]
+PUBLICATION_RESULTS_WARNINGS = [
+    "These results are computationally prioritized hypotheses.",
+    "They do not represent experimental validation.",
+    "They do not represent clinical validation.",
+    "A high therapeutic_priority_score does not imply high evidence_confidence_score.",
+    "demo_only, preliminary, proxy, missing, not_assessed or insufficient_evidence labels must remain visible.",
 ]
 MANIFEST_REVIEW_FIELDS = [
     "organism",
@@ -456,6 +478,104 @@ def _render_expert_review_summary(manifest_input: str) -> None:
     )
 
 
+def _render_publication_results_review() -> None:
+    st.header("8. Revisar resultados publicables")
+    st.markdown(
+        """
+        Panel de solo lectura para revisar `results/publication_package/`.
+        No regenera el paquete, no ejecuta pipeline, no ejecuta scoring, no ejecuta
+        Snakemake y no modifica `results/`, `data_processed/` ni `data_sessions/`.
+        """
+    )
+    for warning in PUBLICATION_RESULTS_WARNINGS:
+        st.warning(warning)
+
+    package_dir_text = st.text_input(
+        "Publication package directory",
+        value=str(PUBLICATION_PACKAGE_DIR),
+        key="publication_package_dir",
+    )
+    package_dir = Path(package_dir_text)
+    summary = summarize_publication_package(package_dir)
+    if not summary["exists"]:
+        st.info(f"No publication_package directory found at: {package_dir}")
+        return
+
+    st.subheader("Publication package tables")
+    st.dataframe(summary["tables"], use_container_width=True)
+    for table_name in PUBLICATION_TABLES:
+        table_path = package_dir / table_name
+        table, error = load_publication_table(table_path)
+        if error:
+            st.warning(error)
+            continue
+        st.markdown(f"**{table_name}**")
+        st.caption(f"Source: {table_path}")
+        st.dataframe(table.head(20), use_container_width=True)
+
+    st.subheader("Publication package figures")
+    figures_dir = package_dir / "figures"
+    st.dataframe(summary["figures"], use_container_width=True)
+    for figure_name in EXPECTED_PUBLICATION_FIGURES_FOR_REVIEW:
+        figure_path = figures_dir / figure_name
+        st.markdown(f"- `{figure_name}`: `{figure_path}`")
+        if figure_path.is_file():
+            st.image(str(figure_path), caption=figure_name)
+
+
+def _render_manual_approval_review() -> None:
+    st.header("Manual approval for future controlled scoring")
+
+    st.warning(
+        "This section does not run scoring, does not run the pipeline, and does not "
+        "generate rankings. It only reviews whether a manual expert approval record "
+        "could allow a future controlled scoring step."
+    )
+
+    approval_file = st.file_uploader(
+        "Upload manual approval JSON for review only",
+        type=["json"],
+        key="manual_approval_json",
+    )
+
+    if approval_file is not None:
+        if validate_scoring_approval is None or summarize_scoring_approval is None:
+            st.error("Approval validation module is not available.")
+        else:
+            import json
+
+            try:
+                approval_record = json.load(approval_file)
+                approval_validation = validate_scoring_approval(approval_record)
+
+                st.subheader("Approval validation result")
+                st.json(approval_validation)
+
+                st.subheader("Conservative approval summary")
+                st.text(summarize_scoring_approval(approval_record))
+
+                if approval_validation["allows_controlled_scoring"]:
+                    st.success(
+                        "This approval record may allow a future controlled scoring step, "
+                        "but scoring is not executed from this GUI."
+                    )
+                else:
+                    st.error("This approval record does not allow controlled scoring.")
+
+                st.info(
+                    "Even with approval, future scoring would not represent biological "
+                    "validation, clinical validation, or a therapeutic recommendation."
+                )
+
+            except Exception as exc:
+                st.error(f"Could not read approval JSON: {exc}")
+    else:
+        st.info(
+            "No approval file uploaded. Future controlled scoring remains unavailable "
+            "without explicit expert approval."
+        )
+
+
 def _render_streamlit_app() -> None:
     st.set_page_config(page_title=APP_TITLE, layout="centered")
     st.title(APP_TITLE)
@@ -647,6 +767,8 @@ def _render_streamlit_app() -> None:
         "y no valida biologica ni clinicamente el dataset."
     )
 
+    _render_publication_results_review()
+    _render_manual_approval_review()
     _render_interpretation_limits()
 
     st.header("La GUI se detiene aqui")
@@ -677,59 +799,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-# ---------------------------------------------------------------------------
-# Manual approval review for future controlled scoring
-# ---------------------------------------------------------------------------
-st.header("Manual approval for future controlled scoring")
-
-st.warning(
-    "This section does not run scoring, does not run the pipeline, and does not "
-    "generate rankings. It only reviews whether a manual expert approval record "
-    "could allow a future controlled scoring step."
-)
-
-approval_file = st.file_uploader(
-    "Upload manual approval JSON for review only",
-    type=["json"],
-    key="manual_approval_json",
-)
-
-if approval_file is not None:
-    if validate_scoring_approval is None or summarize_scoring_approval is None:
-        st.error("Approval validation module is not available.")
-    else:
-        import json
-
-        try:
-            approval_record = json.load(approval_file)
-            approval_validation = validate_scoring_approval(approval_record)
-
-            st.subheader("Approval validation result")
-            st.json(approval_validation)
-
-            st.subheader("Conservative approval summary")
-            st.text(summarize_scoring_approval(approval_record))
-
-            if approval_validation["allows_controlled_scoring"]:
-                st.success(
-                    "This approval record may allow a future controlled scoring step, "
-                    "but scoring is not executed from this GUI."
-                )
-            else:
-                st.error("This approval record does not allow controlled scoring.")
-
-            st.info(
-                "Even with approval, future scoring would not represent biological "
-                "validation, clinical validation, or a therapeutic recommendation."
-            )
-
-        except Exception as exc:
-            st.error(f"Could not read approval JSON: {exc}")
-else:
-    st.info(
-        "No approval file uploaded. Future controlled scoring remains unavailable "
-        "without explicit expert approval."
-    )
 
