@@ -42,6 +42,16 @@ from src.nodos_funcionales.pipeline_runner import (
     run_pipeline_controlled,
     run_pipeline_preflight,
 )
+from src.nodos_funcionales.gui_run_review import (
+    build_run_publication_package,
+    compare_publication_packages,
+    detect_run_outputs,
+    detect_run_publication_package,
+    get_gui_run_paths,
+    read_run_logs,
+    summarize_gui_run,
+    write_run_summary,
+)
 
 
 APP_TITLE = "Nodos Funcionales - user_curated onboarding"
@@ -710,19 +720,68 @@ def _render_controlled_pipeline_execution() -> None:
         st.json(result)
 
     st.subheader("Logs and run manifest")
+    st.subheader("Previous GUI runs")
     previous_runs = list_gui_runs()
     st.dataframe(previous_runs, use_container_width=True)
     if previous_runs:
-        selected_run = st.selectbox("Previous run manifest", [run["run_dir"] for run in previous_runs])
+        selected_run = st.selectbox("Selected run summary", [run["run_dir"] for run in previous_runs])
+        st.subheader("Selected run summary")
+        st.json(summarize_gui_run(selected_run))
         manifest, error = read_gui_run_manifest(selected_run)
         if error:
             st.warning(error)
         else:
             st.json(manifest)
-        for log_name in ["pipeline_stdout.log", "pipeline_stderr.log"]:
-            log_path = Path(selected_run) / log_name
-            if log_path.is_file():
-                st.code(log_path.read_text(encoding="utf-8"), language="text")
+
+        st.subheader("Logs")
+        logs = read_run_logs(selected_run)
+        for log_name, payload in logs.items():
+            st.markdown(f"**{log_name}**")
+            if payload["exists"]:
+                st.code(payload["text"], language="text")
+                if payload["truncated"]:
+                    st.warning(f"{log_name} log truncated for display.")
+            else:
+                st.info(f"No {log_name} log available.")
+
+        st.subheader("Run outputs")
+        st.dataframe(detect_run_outputs(selected_run), use_container_width=True)
+        if st.button("Write run summary"):
+            st.json(write_run_summary(selected_run))
+
+        st.subheader("Run publication package")
+        run_package_summary = detect_run_publication_package(selected_run)
+        st.json(run_package_summary)
+        allow_package_build = st.checkbox(
+            "I understand this will build a publication package only inside the selected isolated run directory.",
+            value=False,
+        )
+        if st.button("Build isolated run publication_package"):
+            if allow_package_build:
+                st.json(build_run_publication_package(selected_run))
+            else:
+                st.warning("Confirm isolated package generation before running this action.")
+
+        st.subheader("Compare against base publication package")
+        paths = get_gui_run_paths(selected_run)
+        base_package_dir = st.text_input(
+            "Base publication package for comparison",
+            value=str(PUBLICATION_PACKAGE_DIR),
+            key="controlled_pipeline_base_package_compare",
+        )
+        if st.button("Compare selected run package against base"):
+            comparison = compare_publication_packages(
+                base_package_dir=base_package_dir,
+                run_package_dir=paths["publication_package"],
+                output_dir=paths["review"],
+            )
+            st.json(comparison)
+        comparison_summary = paths["comparison_summary"]
+        run_status_path = paths["run_status"]
+        if comparison_summary.is_file():
+            st.code(comparison_summary.read_text(encoding="utf-8"), language="markdown")
+        if run_status_path.is_file():
+            st.json(run_status_path.read_text(encoding="utf-8"))
 
     st.subheader("Conservative interpretation")
     st.markdown(

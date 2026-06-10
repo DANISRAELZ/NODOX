@@ -93,6 +93,12 @@ def test_run_pipeline_controlled_is_protected_by_default(tmp_path: Path) -> None
     assert (run_dir / "run_manifest.json").is_file()
     manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
     assert "computationally prioritized hypotheses requiring independent validation" in manifest["conservative_interpretation"]
+    assert "outputs_dir" in manifest
+    assert "publication_package_dir" in manifest
+    assert manifest["execution_mode"] == "controlled_gui"
+    assert manifest["allow_execution"] is False
+    assert manifest["package_generated"] is False
+    assert manifest["comparison_generated"] is False
     assert not (tmp_path / "publication_package").exists()
 
 
@@ -116,6 +122,9 @@ def test_run_pipeline_controlled_uses_shell_false_when_enabled(tmp_path: Path, m
     assert calls["shell"] is False
     assert isinstance(calls["command"], list)
     assert (tmp_path / "gui_runs" / "gui_run_exec" / "pipeline_stdout.log").read_text(encoding="utf-8") == "ok"
+    manifest = json.loads((tmp_path / "gui_runs" / "gui_run_exec" / "run_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["allow_execution"] is True
+    assert manifest["completed_at"] is not None
 
 
 def test_list_and_read_gui_runs(tmp_path: Path) -> None:
@@ -137,3 +146,5 @@ def test_list_and_read_gui_runs(tmp_path: Path) -> None:
     assert runs[0]["status"] == "completed"
     assert error is None
     assert manifest["status"] == "completed"
+    assert manifest["outputs_dir"].endswith("outputs")
+    assert manifest["publication_package_dir"].endswith("publication_package")

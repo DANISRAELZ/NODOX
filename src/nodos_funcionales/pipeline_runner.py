@@ -229,6 +229,8 @@ def run_pipeline_controlled(
         return_code=completed.returncode,
         warnings=list(preflight["warnings"]),
         errors=[],
+        allow_execution=True,
+        completed_at=datetime.now(timezone.utc).isoformat(),
     )
     return {
         "status": status,
@@ -251,19 +253,37 @@ def write_run_manifest(
     return_code: int | None,
     warnings: list[str] | None = None,
     errors: list[str] | None = None,
+    execution_mode: str = "controlled_gui",
+    allow_execution: bool = False,
+    package_generated: bool = False,
+    comparison_generated: bool = False,
+    completed_at: str | None = None,
 ) -> dict[str, object]:
     run_path = Path(run_dir)
+    outputs_dir = Path(output_dir)
+    publication_package_dir = run_path / "publication_package"
     manifest = {
         "run_id": run_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "completed_at": completed_at,
         "command": command,
         "input_paths": input_paths,
         "output_dir": str(output_dir),
+        "outputs_dir": str(outputs_dir),
+        "publication_package_dir": str(publication_package_dir),
+        "logs": {
+            "stdout": str(run_path / "pipeline_stdout.log"),
+            "stderr": str(run_path / "pipeline_stderr.log"),
+        },
         "status": status,
         "return_code": return_code,
         "conservative_interpretation": CONSERVATIVE_INTERPRETATION,
         "warnings": warnings or [],
         "errors": errors or [],
+        "execution_mode": execution_mode,
+        "allow_execution": allow_execution,
+        "package_generated": package_generated,
+        "comparison_generated": comparison_generated,
     }
     run_path.mkdir(parents=True, exist_ok=True)
     (run_path / "run_manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=True), encoding="utf-8")
@@ -310,6 +330,8 @@ def _finalize_without_process(preflight: dict[str, object], status: str) -> dict
         return_code=None,
         warnings=list(preflight.get("warnings", [])),
         errors=list(preflight.get("errors", [])),
+        allow_execution=False,
+        completed_at=datetime.now(timezone.utc).isoformat(),
     )
     return {
         **preflight,

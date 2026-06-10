@@ -28,6 +28,11 @@ def test_controlled_pipeline_gui_text_contract() -> None:
         "Preflight / dry-run",
         "Controlled execution",
         "Logs and run manifest",
+        "Previous GUI runs",
+        "Selected run summary",
+        "Run outputs",
+        "Run publication package",
+        "Compare against base publication package",
         "Conservative interpretation",
         "results/gui_runs",
         "pipeline_runner",
@@ -42,6 +47,8 @@ def test_controlled_pipeline_gui_imports_runner_but_not_direct_entrypoints() -> 
     text = _app_text()
     assert "run_pipeline_controlled" in text
     assert "run_pipeline_preflight" in text
+    assert "gui_run_review" in text
+    assert "compare_publication_packages" in text
     assert "run_pipeline.py" not in text
     assert "import snakemake" not in text.lower()
     assert "subprocess" not in text

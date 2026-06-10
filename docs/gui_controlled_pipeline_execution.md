@@ -38,6 +38,16 @@ run_manifest.json
 pipeline_stdout.log
 pipeline_stderr.log
 outputs/
+publication_package/
+review/
+```
+
+The `review/` folder may contain:
+
+```text
+run_summary.md
+run_comparison_summary.md
+run_status.json
 ```
 
 The `outputs/` directory is passed as the pipeline workspace so generated files remain isolated from the main publication package.
@@ -53,6 +63,38 @@ Controlled execution calls `subprocess.run(..., shell=False)` from `pipeline_run
 ## Conservative Interpretation
 
 Generated outputs, if any, are computationally prioritized hypotheses requiring independent validation. They do not represent experimental, pharmacological or clinical confirmation.
+
+## Run Review
+
+Run review logic lives in `src/nodos_funcionales/gui_run_review.py` and does not depend on Streamlit. It can:
+
+- summarize incomplete or complete GUI runs;
+- read stdout and stderr logs with truncation;
+- list detected files under the isolated `outputs/` directory;
+- detect a run-local `publication_package/`;
+- write `review/run_summary.md`;
+- compare a run-local package against the base `results/publication_package/`;
+- write `review/run_comparison_summary.md` and `review/run_status.json`.
+
+## Isolated Publication Package Generation
+
+If the isolated workspace contains:
+
+```text
+results/gui_runs/<run_id>/outputs/results/ranking_nodos.csv
+```
+
+the GUI can call the controlled helper to generate:
+
+```text
+results/gui_runs/<run_id>/publication_package/
+```
+
+This action requires explicit confirmation in the GUI and does not write to `results/publication_package/`.
+
+## Comparison Against Base Package
+
+The comparison is intentionally lightweight. It checks table presence, figure presence, candidate counts, top genes, critical columns and manifest availability. It does not claim model superiority and does not perform external biological validation.
 
 ## Current Limitations
 
