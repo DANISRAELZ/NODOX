@@ -899,3 +899,22 @@ python -m unittest discover -s tests -v
 ### User-curated approval JSON templates
 
 Manual approval JSON examples for future controlled scoring review are available in docs/templates/scoring_approval/. These files can be uploaded in the GUI approval-review section to verify approved, rejected and additional-curation outcomes without running scoring, pipeline execution or ranking generation.
+
+## Publication package
+
+Nodos Funcionales can generate a reproducible publication package from local consolidated results. The package is intended for academic review of computationally prioritized hypotheses, not for clinical recommendation or experimental, pharmacological or clinical confirmation.
+
+Run:
+
+```powershell
+.venv\Scripts\python.exe -m src.nodos_funcionales.publication_package_builder --results-dir results --output-dir results/publication_package
+```
+
+Main outputs:
+
+- `results/publication_package/`: tables, reports, manifest and manuscript-facing summaries.
+- `results/publication_package/figures/`: PNG and SVG interpretative figures.
+- `docs/software_paper_draft.md`: draft manuscript text.
+- `docs/manuscript_tables.md` and `docs/manuscript_figures.md`: table and figure descriptions for manuscript preparation.
+
+The model keeps `therapeutic_priority_score` separate from `evidence_confidence_score` and reports `evolutionary_escape_risk_score` explicitly. Labels such as `demo_only`, `preliminary`, `proxy`, `missing`, `not_assessed` and `insufficient_evidence` must remain visible during interpretation.
