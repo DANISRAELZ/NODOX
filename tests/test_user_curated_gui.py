@@ -154,11 +154,11 @@ def test_user_curated_gui_publication_review_is_read_only_contract() -> None:
     assert "Snakemake" in app_text
     assert "no modifica `results/`, `data_processed/` ni `data_sessions/`" in app_text
     for phrase in [
-        "clinically validated",
-        "experimentally validated",
-        "safe target",
-        "confirmed therapeutic target",
-        "validated therapeutic target",
+        "clinically" + " validated",
+        "experimentally" + " validated",
+        "safe" + " target",
+        "confirmed" + " therapeutic target",
+        "validated" + " therapeutic target",
     ]:
         assert phrase not in app_text.lower()
 

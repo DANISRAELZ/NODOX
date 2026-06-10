@@ -28,6 +28,9 @@ from src.nodos_funcionales.user_curated_validation import validate_user_curated_
 from src.nodos_funcionales.publication_gui_readers import (
     PUBLICATION_FIGURES,
     PUBLICATION_TABLES,
+    build_candidate_index,
+    get_candidate_details,
+    get_conservative_gui_warning,
     load_publication_table,
     summarize_publication_package,
 )
@@ -64,6 +67,7 @@ EXPECTED_PUBLICATION_FIGURES_FOR_REVIEW = [
 ]
 PUBLICATION_RESULTS_WARNINGS = [
     "These results are computationally prioritized hypotheses.",
+    "Each candidate is a computationally prioritized hypothesis requiring independent validation.",
     "They do not represent experimental validation.",
     "They do not represent clinical validation.",
     "A high therapeutic_priority_score does not imply high evidence_confidence_score.",
@@ -501,7 +505,20 @@ def _render_publication_results_review() -> None:
         st.info(f"No publication_package directory found at: {package_dir}")
         return
 
-    st.subheader("Publication package tables")
+    st.subheader("Publication package overview")
+    st.markdown(f"- `publication_package`: `{package_dir}`")
+    st.markdown(f"- tables found: `{summary['tables_found']}` / `{len(PUBLICATION_TABLES)}`")
+    st.markdown(f"- figures found: `{summary['figures_found']}` / `{len(PUBLICATION_FIGURES)}`")
+    st.markdown(f"- publication_results_manifest.json: `{summary['manifest_exists']}`")
+    st.markdown(f"- README_publication_package.md: `{summary['readme_exists']}`")
+    if summary["manifest_error"]:
+        st.warning(summary["manifest_error"])
+    elif summary["manifest"]:
+        st.json(summary["manifest"])
+    if summary["readme_exists"]:
+        st.caption(f"README_publication_package.md: {summary['readme_path']}")
+
+    st.subheader("Tables")
     st.dataframe(summary["tables"], use_container_width=True)
     for table_name in PUBLICATION_TABLES:
         table_path = package_dir / table_name
@@ -513,7 +530,7 @@ def _render_publication_results_review() -> None:
         st.caption(f"Source: {table_path}")
         st.dataframe(table.head(20), use_container_width=True)
 
-    st.subheader("Publication package figures")
+    st.subheader("Figures")
     figures_dir = package_dir / "figures"
     st.dataframe(summary["figures"], use_container_width=True)
     for figure_name in EXPECTED_PUBLICATION_FIGURES_FOR_REVIEW:
@@ -521,6 +538,40 @@ def _render_publication_results_review() -> None:
         st.markdown(f"- `{figure_name}`: `{figure_path}`")
         if figure_path.is_file():
             st.image(str(figure_path), caption=figure_name)
+        else:
+            st.warning(f"Missing expected figure: {figure_name}")
+
+    st.subheader("Candidate explorer")
+    candidates = build_candidate_index(package_dir)
+    if not candidates:
+        st.warning("No candidates found in publication_table_1_top_candidates.csv.")
+    else:
+        labels = [str(candidate["label"]) for candidate in candidates]
+        selected_label = st.selectbox("Select candidate by gene / protein_id", labels)
+        selected = candidates[labels.index(selected_label)]
+        candidate_id = str(selected["candidate_id"])
+        details = get_candidate_details(package_dir, candidate_id)
+        for warning in details.get("warnings", []):
+            st.warning(warning)
+        st.markdown("Identification")
+        st.json(details.get("identification", {}))
+        st.markdown("Scores")
+        st.json(details.get("scores", {}))
+        st.markdown("Interpretation")
+        st.json(details.get("interpretation", {}))
+        st.warning(get_conservative_gui_warning())
+
+    st.subheader("Conservative interpretation")
+    st.markdown(
+        """
+        - `therapeutic_priority_score` and `evidence_confidence_score` are separate.
+        - `evolutionary_escape_risk_score` must remain visible during review.
+        - `demo_only`, `preliminary`, `proxy`, `missing`, `not_assessed` and
+          `insufficient_evidence` labels must remain visible.
+        - The GUI only reviews existing publication_package files and does not
+          modify `results/`, `data_processed/` or `data_sessions/`.
+        """
+    )
 
 
 def _render_manual_approval_review() -> None:
