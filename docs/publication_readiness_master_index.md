@@ -12,14 +12,22 @@ This master index links the closure documents for the minimum publication-ready 
 - Software release readiness checklist: `docs/software_release_readiness_checklist.md`
 - Manuscript artifact map: `docs/manuscript_artifact_map.md`
 - GUI run-review publication validation: `docs/gui_run_review_publication_validation.md`
+- Final demo execution validation: `docs/final_demo_execution_validation.md`
+- Demo expected outputs manifest: `docs/demo_expected_outputs_manifest.md`
+- Manuscript figure/table specifications: `docs/manuscript_figure_table_specifications.md`
+- v0.1.0 publication release decision: `docs/v0_1_0_publication_release_decision.md`
 
 ## Remaining Path To Final Demo
 
 The final demo should use the existing Pseudomonas aeruginosa publication demo, verify expected inputs and outputs, and report `ranking_nodos.csv`, `report_phase2.md` and publication package expectations with conservative interpretation.
 
+The final demo execution validation and demo expected outputs manifest define the lightweight, offline checks needed before using the demo as manuscript-support evidence.
+
 ## Remaining Path To Manuscript
 
 The manuscript can use the artifact map to assemble conceptual figures, workflow figures, model-variable tables, provenance tables, test-boundary tables and demo-output tables.
+
+The manuscript figure/table specifications define concrete content requirements for Figures 1-4 and Tables 1-4 without generating new image files.
 
 ## Remaining Path To Release Tag
 
@@ -36,6 +44,8 @@ publication-readiness-closure-2026-06-11
 ```
 
 Do not create tags until explicitly instructed.
+
+The release decision document records that the project is ready for final human approval review, with license decision, optional final manual demo run and optional manuscript figure generation still pending.
 
 ## Remaining Path To Software Citation
 

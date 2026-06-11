@@ -968,6 +968,8 @@ Release-readiness documentation map:
 - [Manuscript artifact map](docs/manuscript_artifact_map.md)
 - [Publication readiness master index](docs/publication_readiness_master_index.md)
 - [GUI run-review publication validation](docs/gui_run_review_publication_validation.md)
+- [Pre-publication repository audit](docs/pre_publication_repository_audit.md)
+- [AI-use transparency statement](docs/ai_use_transparency_statement.md)
 
 Release limitations:
 
@@ -980,3 +982,5 @@ Release limitations:
 Citation metadata is available in `CITATION.cff`.
 
 License pending review before public distribution. No `LICENSE` file is present in this repository snapshot.
+
+Before any public release or final tag, the pre-publication repository audit must be reviewed. The audit is a publication-safety requirement and does not imply additional biological, clinical or experimental validation.

@@ -20,6 +20,8 @@ def test_readme_publication_release_readiness_terms() -> None:
         "publication_package",
         "pseudomonas aeruginosa",
         "citation.cff",
+        "pre-publication repository audit",
+        "ai-use transparency statement",
         "limitations",
         "no clinical validation",
         "no experimental validation",

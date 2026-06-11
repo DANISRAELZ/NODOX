@@ -15,11 +15,15 @@ Do not create the final tag until manually approved.
 ## Documentation Readiness
 
 - [ ] Demo readiness documented.
+- [ ] Final demo execution validation documented at `docs/final_demo_execution_validation.md`.
+- [ ] Demo expected outputs manifest documented at `docs/demo_expected_outputs_manifest.md`.
 - [ ] Publication evidence indexed.
 - [ ] GUI module closure documented.
 - [ ] Conservative interpretation documented.
 - [ ] Manuscript artifact map documented.
+- [ ] Manuscript figure/table specifications documented at `docs/manuscript_figure_table_specifications.md`.
 - [ ] Software release readiness checklist documented.
+- [ ] Release decision documented at `docs/v0_1_0_publication_release_decision.md`.
 
 ## Validation Readiness
 
@@ -27,6 +31,22 @@ Do not create the final tag until manually approved.
 - [ ] `config/taxon_resolution_cache.json` clean or reverted after tests.
 - [ ] No unexpected changes in `results/`, `data_processed/` or `data_sessions/`.
 - [ ] Final tag not yet created unless manual approval has been given.
+
+## Pre-publication Repository Audit Requirements
+
+- [ ] Pre-publication repository audit documented at `docs/pre_publication_repository_audit.md`.
+- [ ] Public release exclusion policy documented at `docs/public_release_exclusion_policy.md`.
+- [ ] AI-use transparency statement documented at `docs/ai_use_transparency_statement.md`.
+- [ ] Repository hygiene checklist documented at `docs/repository_hygiene_checklist.md`.
+
+Final public release is blocked until:
+
+- license decision is complete;
+- dependency review is complete;
+- sensitive data review is complete;
+- internal prompts/logs are removed or excluded;
+- AI-use transparency statement is reviewed;
+- human approval is given.
 
 ## Interpretation Boundaries
 
