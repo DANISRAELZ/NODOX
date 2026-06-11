@@ -12,6 +12,12 @@ dependencies = [
     "pandas>=2.0.0",
     "Pillow>=10.0.0",
     "pytest>=8.0.0",
+]
+
+[project.optional-dependencies]
+# Optional workflow execution dependencies. These require separate
+# transitive license/security review before public workflow distribution.
+workflow = [
     "snakemake>=7.32.0",
 ]
 

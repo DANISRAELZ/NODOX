@@ -26,6 +26,7 @@ The project is ready for final human approval review as a minimum publication-re
 ## Pending Components
 
 - License decision before public distribution.
+- Optional workflow dependency review for Snakemake and its transitive dependencies before public workflow distribution.
 - Optional final manual demo run using `examples/pseudomonas_aeruginosa_publication_demo`.
 - Optional manuscript figure generation from the figure/table specifications.
 - Final human approval before tag creation.
@@ -33,6 +34,8 @@ The project is ready for final human approval review as a minimum publication-re
 ## Release Boundary
 
 This release is a minimum publication-ready software package. It is not a clinically validated platform, not an experimentally validated platform and not a biological validation package. It does not validate therapeutic targets or confirm therapeutic validity for ranked candidates.
+
+The core release does not require Snakemake by default. Snakemake remains available as an optional workflow dependency through `requirements-workflow.txt` and the `workflow` optional dependency group. UNKNOWN Snakemake transitive dependency metadata does not block the core release when Snakemake is not installed as core, but public workflow distribution remains blocked until optional workflow dependency review is completed.
 
 ## Tagging Instruction After Approval
 

@@ -946,6 +946,14 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
+The core install does not require Snakemake. Snakemake is an optional workflow dependency for users who intentionally want workflow-engine execution:
+
+```powershell
+python -m pip install -r requirements-workflow.txt
+```
+
+Optional workflow dependencies have separate transitive license/security review requirements. UNKNOWN Snakemake transitive dependency metadata does not block the core release if Snakemake is not installed as a core dependency. Public workflow distribution remains blocked until optional workflow dependency review is completed.
+
 Minimal offline validation:
 
 ```powershell

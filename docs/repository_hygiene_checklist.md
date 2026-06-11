@@ -19,6 +19,8 @@
 - [ ] LICENSE decision complete.
 - [ ] Dependency licenses reviewed.
 - [ ] Dependency security reviewed.
+- [ ] Core install does not require Snakemake.
+- [ ] Optional workflow dependencies reviewed before public workflow distribution.
 - [ ] README limitations present.
 - [ ] CITATION metadata reviewed.
 - [ ] AI-use transparency statement present.

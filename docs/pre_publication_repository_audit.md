@@ -28,6 +28,8 @@ Dependencies must be reviewed before public release. The review should include:
 
 Dependency audit is a release-readiness requirement, not scientific validation.
 
+For `v0.1.0-publication`, Snakemake is an optional workflow dependency, not a core dependency. UNKNOWN Snakemake transitive dependency metadata does not block the core release if Snakemake is not installed as core. Public workflow distribution remains blocked until optional workflow dependency review is completed.
+
 ## 3. Similarity And Third-Party Code Provenance
 
 Before public release, review code and documentation for fragments copied from third-party sources. Generated or AI-assisted text/code should also be reviewed.

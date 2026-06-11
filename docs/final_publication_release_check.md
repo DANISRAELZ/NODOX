@@ -11,6 +11,7 @@ Do not create the final tag until manually approved.
 - [ ] `CHANGELOG.md` present.
 - [ ] Release notes present at `docs/release_notes_v0_1_0_publication.md`.
 - [ ] `LICENSE` present, or license pending review before public distribution is stated clearly.
+- [ ] Snakemake remains outside core dependencies and is documented as an optional workflow dependency.
 
 ## Documentation Readiness
 
@@ -38,11 +39,15 @@ Do not create the final tag until manually approved.
 - [ ] Public release exclusion policy documented at `docs/public_release_exclusion_policy.md`.
 - [ ] AI-use transparency statement documented at `docs/ai_use_transparency_statement.md`.
 - [ ] Repository hygiene checklist documented at `docs/repository_hygiene_checklist.md`.
+- [ ] License and dependency audit documented at `docs/license_and_dependency_audit.md`.
+- [ ] Dependency security review documented at `docs/dependency_security_review.md`.
+- [ ] Optional workflow transitive license/security review remains pending before public workflow distribution.
 
 Final public release is blocked until:
 
 - license decision is complete;
 - dependency review is complete;
+- optional workflow dependency review is complete before public workflow distribution;
 - sensitive data review is complete;
 - internal prompts/logs are removed or excluded;
 - AI-use transparency statement is reviewed;

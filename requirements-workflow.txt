@@ -1,0 +1,3 @@
+# Optional workflow dependencies.
+# Review transitive licenses and security posture before public workflow distribution.
+snakemake>=7.32.0
