@@ -49,7 +49,7 @@ This release is not intended for clinical decision-making, diagnosis, antimicrob
 - `user_curated` evidence is curator-provided and not automatically external validation.
 - Scoring requires downstream biological and experimental validation before biological or therapeutic claims.
 - Ranked candidates remain computationally prioritized hypotheses and do not confirm therapeutic validity.
-- License pending review before public distribution.
+- Project code is licensed under Apache License 2.0. Dependency license and security review remain release requirements.
 
 ## Known Next Steps After Release
 

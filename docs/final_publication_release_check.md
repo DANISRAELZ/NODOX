@@ -10,7 +10,8 @@ Do not create the final tag until manually approved.
 - [ ] `CITATION.cff` present.
 - [ ] `CHANGELOG.md` present.
 - [ ] Release notes present at `docs/release_notes_v0_1_0_publication.md`.
-- [ ] `LICENSE` present, or license pending review before public distribution is stated clearly.
+- [ ] `LICENSE` present with Apache License 2.0 for project code.
+- [ ] Project code is licensed under Apache License 2.0. Dependency license and security review remain release requirements.
 - [ ] Snakemake remains outside core dependencies and is documented as an optional workflow dependency.
 
 ## Documentation Readiness
@@ -45,7 +46,7 @@ Do not create the final tag until manually approved.
 
 Final public release is blocked until:
 
-- license decision is complete;
+- project code license is Apache License 2.0;
 - dependency review is complete;
 - optional workflow dependency review is complete before public workflow distribution;
 - sensitive data review is complete;

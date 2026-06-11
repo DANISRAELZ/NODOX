@@ -12,7 +12,7 @@ def test_v0_1_0_publication_release_decision_content() -> None:
     required_terms = [
         "v0.1.0-publication",
         "final human approval",
-        "license decision",
+        "dependency license and security review",
         "demo",
         "final git tag should not be created automatically",
         "no automatic",

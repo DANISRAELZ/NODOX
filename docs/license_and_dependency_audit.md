@@ -4,6 +4,8 @@
 
 This document records the dependency boundary for the minimum `v0.1.0-publication` core release. It does not complete the legal review and does not provide scientific, clinical or experimental validation.
 
+Project code is licensed under Apache License 2.0. Dependency license and security review remain release requirements.
+
 ## Core Dependency Boundary
 
 The core publication release installs from:

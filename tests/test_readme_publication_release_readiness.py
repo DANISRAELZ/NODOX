@@ -20,6 +20,8 @@ def test_readme_publication_release_readiness_terms() -> None:
         "publication_package",
         "pseudomonas aeruginosa",
         "citation.cff",
+        "project code is licensed under apache license 2.0",
+        "dependency license and security review remain release requirements",
         "pre-publication repository audit",
         "ai-use transparency statement",
         "limitations",

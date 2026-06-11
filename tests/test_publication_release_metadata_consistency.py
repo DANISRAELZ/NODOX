@@ -41,9 +41,8 @@ def test_license_status_is_explicit() -> None:
     license_path = PROJECT_ROOT / "LICENSE"
     readme = _text(PROJECT_ROOT / "README.md")
     final_check = _text(PROJECT_ROOT / "docs" / "final_publication_release_check.md")
-    if license_path.exists():
-        assert "license" in readme
-        assert "license" in final_check
-    else:
-        assert "license pending review before public distribution" in readme
-        assert "license pending review before public distribution" in final_check
+    assert license_path.exists()
+    assert "apache license" in _text(license_path)
+    assert "project code is licensed under apache license 2.0" in readme
+    assert "dependency license and security review remain release requirements" in readme
+    assert "project code is licensed under apache license 2.0" in final_check

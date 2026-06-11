@@ -16,7 +16,8 @@
 - [ ] No uncontrolled data_sessions.
 - [ ] No uncontrolled data_processed.
 - [ ] No cache metadata changes.
-- [ ] LICENSE decision complete.
+- [ ] `LICENSE` present with Apache License 2.0 for project code.
+- [ ] Project code is licensed under Apache License 2.0. Dependency license and security review remain release requirements.
 - [ ] Dependency licenses reviewed.
 - [ ] Dependency security reviewed.
 - [ ] Core install does not require Snakemake.

@@ -8,11 +8,11 @@ The final tag is blocked until the audit items below are reviewed and approved b
 
 ## 1. Licensing
 
-`LICENSE` is currently pending unless a `LICENSE` file exists at release time. Public release should not proceed without a license decision.
+Project code is licensed under Apache License 2.0. Dependency license and security review remain release requirements.
 
 Before public release:
 
-- decide the project license;
+- confirm the Apache License 2.0 project-code license is present in `LICENSE`;
 - confirm whether documentation, data templates, examples and code share the same license;
 - review third-party dependencies for license obligations;
 - document any license constraints that affect redistribution.

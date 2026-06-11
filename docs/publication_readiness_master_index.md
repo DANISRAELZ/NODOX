@@ -45,8 +45,8 @@ publication-readiness-closure-2026-06-11
 
 Do not create tags until explicitly instructed.
 
-The release decision document records that the project is ready for final human approval review, with license decision, optional final manual demo run and optional manuscript figure generation still pending.
+The release decision document records that the project is ready for final human approval review, with dependency license/security review, optional final manual demo run and optional manuscript figure generation still pending.
 
 ## Remaining Path To Software Citation
 
-Confirm `CITATION.cff`, release notes, license status and version tag before final publication release. The citation should describe Nodos Funcionales as prioritization software and must not imply clinical, biological or experimental validation.
+Confirm `CITATION.cff`, release notes, Apache License 2.0 project-code status, dependency license/security review and version tag before final publication release. The citation should describe Nodos Funcionales as prioritization software and must not imply clinical, biological or experimental validation.

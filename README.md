@@ -989,6 +989,6 @@ Release limitations:
 
 Citation metadata is available in `CITATION.cff`.
 
-License pending review before public distribution. No `LICENSE` file is present in this repository snapshot.
+Project code is licensed under Apache License 2.0. Dependency license and security review remain release requirements.
 
 Before any public release or final tag, the pre-publication repository audit must be reviewed. The audit is a publication-safety requirement and does not imply additional biological, clinical or experimental validation.

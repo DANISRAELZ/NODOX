@@ -64,7 +64,8 @@ Do not create the release tag until the final release review explicitly approves
 ## Citation And Release Metadata
 
 - [ ] `CITATION.cff` exists and is current.
-- [ ] `LICENSE` exists or the release notes explicitly identify the licensing gap before tagging.
+- [ ] `LICENSE` exists with Apache License 2.0 for project code.
+- [ ] Project code is licensed under Apache License 2.0. Dependency license and security review remain release requirements.
 - [ ] `CHANGELOG` or release notes exist.
 - [ ] Version tag plan is recorded.
 - [ ] Proposed version tag is `v0.1.0-publication` or a similarly conservative publication tag.
