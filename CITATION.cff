@@ -1,8 +1,15 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it."
-title: "Nodos Functional"
-version: "0.1.0-publication-demo"
-date-released: "2026-06-10"
+title: "Nodos Funcionales"
+version: "0.1.0-publication"
+date-released: "2026-06-11"
 authors:
-  - family-names: "Author"
-    given-names: "Placeholder"
+  - family-names: "To be completed"
+    given-names: "Author metadata"
+keywords:
+  - functional nodes
+  - therapeutic prioritization
+  - computational biology
+  - evidence integration
+  - reproducible workflow
+  - user curated evidence

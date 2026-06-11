@@ -918,3 +918,65 @@ Main outputs:
 - `docs/manuscript_tables.md` and `docs/manuscript_figures.md`: table and figure descriptions for manuscript preparation.
 
 The model keeps `therapeutic_priority_score` separate from `evidence_confidence_score` and reports `evolutionary_escape_risk_score` explicitly. Labels such as `demo_only`, `preliminary`, `proxy`, `missing`, `not_assessed` and `insufficient_evidence` must remain visible during interpretation.
+
+## Minimum publication release candidate
+
+Target release: `v0.1.0-publication`.
+
+Nodos Funcionales / Functional Nodes is a theory-first computational framework for prioritizing functional biological nodes using curated evidence layers and conservative interpretation. This release candidate is a prioritization and research workflow, not a clinical predictor.
+
+Main capabilities for the minimum publication-ready release candidate:
+
+- `user_curated` input workflow with explicit provenance and quality checks.
+- Offline reproducible pipeline execution for local curated inputs and demos.
+- Conservative scoring interpretation with visible uncertainty and missing-evidence flags.
+- Separation of `therapeutic_priority_score` from `evidence_confidence_score`.
+- GUI-assisted onboarding, controlled execution and run review.
+- Isolated GUI runs under `results/gui_runs/<run_id>/`.
+- Run-local `publication_package/` generation for isolated GUI runs.
+- Review comparison output restricted to `review/`.
+- Publication-readiness documentation for evidence indexing, demo readiness, manuscript artifacts and release checks.
+
+Minimal installation remains:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+Minimal offline validation:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider -m "not online" -q
+```
+
+The recommended reproducible demo is the existing Pseudomonas aeruginosa publication demo:
+
+```text
+examples/pseudomonas_aeruginosa_publication_demo/
+```
+
+Release-readiness documentation map:
+
+- [Theory of Functional Nodes](docs/theory_of_functional_nodes.md)
+- [Methodology](docs/methodology.md)
+- [Publication evidence index](docs/publication_evidence_index.md)
+- [Final reproducible demo readiness](docs/final_reproducible_demo_readiness.md)
+- [Software release readiness checklist](docs/software_release_readiness_checklist.md)
+- [Manuscript artifact map](docs/manuscript_artifact_map.md)
+- [Publication readiness master index](docs/publication_readiness_master_index.md)
+- [GUI run-review publication validation](docs/gui_run_review_publication_validation.md)
+
+Release limitations:
+
+- No clinical validation is provided.
+- No experimental validation is provided.
+- `user_curated` evidence is curator-provided and is not automatic external validation.
+- Scoring requires downstream biological and experimental validation before therapeutic target claims.
+- Ranked candidates are computationally prioritized hypotheses and do not confirm therapeutic validity.
+
+Citation metadata is available in `CITATION.cff`.
+
+License pending review before public distribution. No `LICENSE` file is present in this repository snapshot.
