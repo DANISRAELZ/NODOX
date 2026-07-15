@@ -6,16 +6,18 @@ import re
 import time
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
 import pandas as pd
 
 from .bvbrc_api import fetch_bvbrc_strain_conservation
 from .deg_api import fetch_deg_essentiality
+from .human_homology_diamond import build_human_homologs_with_diamond
 from .interpro_api import fetch_interpro_host_annotation
+from .online_http import classify_provider_failure, get_ssl_context
 from .online.provider_modes import normalize_provider_mode
+from .provider_response_audit import request_provider_payload
 from .string_api import fetch_string_functional_network
 from .uniprot_api import fetch_uniprot_annotations
 from .vfdb_api import fetch_vfdb_virulence
@@ -30,6 +32,7 @@ NETWORK_PROVIDERS = {
     "uniprot_real",
     "string_real",
     "uniprot_human_gene_lookup",
+    "human_homology_diamond",
     "interpro_domain_overlap",
     "deg_real",
     "vfdb_real",
@@ -75,6 +78,27 @@ def _write_external_layer(path: Path, df: pd.DataFrame) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(path, index=False)
     return str(path)
+
+
+def _unresolved_external_result(
+    layer_key: str,
+    provider_name: str,
+    reason: object,
+) -> dict[str, Any]:
+    status = classify_provider_failure(reason)
+    source_name = "provider_not_found" if status == "not_found" else provider_name
+    return {
+        "layer_key": layer_key,
+        "provider_name": provider_name,
+        "source_name": source_name,
+        "path": None,
+        "status": status,
+        "confidence": 0.0,
+        "retrieval_status": "unresolved",
+        "source_database": source_name,
+        "evidence": "unresolved",
+        "notes": [str(reason), "Provider retrieval failed; no biological absence was inferred."],
+    }
 
 
 def _catalog_slug(value: object) -> str:
@@ -805,10 +829,31 @@ def _build_human_homologs_stub(workspace: Path, config: dict[str, Any]) -> pd.Da
     return _annotate_human_homologs_audit(pd.DataFrame(rows))
 
 
-def _request_json(url: str, timeout: float, user_agent: str) -> Any:
-    request = Request(url, headers={"User-Agent": user_agent})
-    with urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
+def _build_unresolved_human_homologs(
+    workspace: Path,
+    database: str,
+    lookup_status: str,
+    query_strategy: str,
+    evidence_note: str,
+) -> pd.DataFrame:
+    candidates = _get_candidate_proteins(workspace)
+    if candidates.empty:
+        return pd.DataFrame(columns=["protein_id", "gene", "human_homolog", "evalue", "human_gene", "database"])
+    rows = [
+        _human_homolog_row(
+            protein_id=str(row["protein_id"]),
+            gene=str(row.get("gene", row["protein_id"])),
+            human_homolog=pd.NA,
+            evalue=pd.NA,
+            human_gene="unknown",
+            database=database,
+            lookup_status=lookup_status,
+            query_strategy=query_strategy,
+            evidence_note=evidence_note,
+        )
+        for _, row in candidates.iterrows()
+    ]
+    return _annotate_human_homologs_audit(pd.DataFrame(rows))
 
 
 def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str]]:
@@ -818,23 +863,17 @@ def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str]]
     backoff = float(cfg["provider_backoff_seconds"])
     errors: list[str] = []
     for attempt in range(retries + 1):
-        try:
-            return _request_json(url, timeout=timeout, user_agent=user_agent), errors
-        except HTTPError as exc:
-            errors.append(f"HTTP {exc.code} en human_homologs_lookup")
-            if exc.code == 429 and attempt < retries:
-                time.sleep(backoff)
-                continue
+        response = request_provider_payload(url, timeout=timeout, user_agent=user_agent, accept="application/json", opener=urlopen)
+        if response.error_status == "" and response.payload_type == "json":
+            return response.payload, errors
+        errors.append(response.rejection_reason or response.error_status or f"unexpected_payload_type:{response.payload_type}")
+        if response.http_status == 429 and attempt < retries:
+            time.sleep(backoff)
+            continue
+        if response.payload_type == "undecodable":
+            errors.append("Respuesta JSON invalida en human_homologs_lookup")
             break
-        except URLError as exc:
-            errors.append(f"Error de red en human_homologs_lookup: {exc.reason}")
-            break
-        except TimeoutError:
-            errors.append("Timeout en human_homologs_lookup")
-            break
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            errors.append(f"Respuesta JSON invalida en human_homologs_lookup: {exc}")
-            break
+        break
     return None, errors
 
 
@@ -1075,6 +1114,36 @@ def _load_local_orthology_human_homologs(workspace: Path, config: dict[str, Any]
     return _annotate_human_homologs_audit(pd.DataFrame(rows).drop_duplicates(subset=["protein_id"], keep="first"))
 
 
+def _write_diamond_manifest(workspace: Path, manifest: dict[str, Any]) -> None:
+    results_dir = workspace / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    (results_dir / "human_homology_diamond_manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=True),
+        encoding="utf-8",
+    )
+
+
+def _load_diamond_human_homologs(workspace: Path, config: dict[str, Any]) -> tuple[pd.DataFrame, dict[str, Any]]:
+    cfg = config.get("online_sources", {}).get("human_homology_diamond", {})
+    try:
+        df, manifest = build_human_homologs_with_diamond(workspace, cfg)
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        manifest = {
+            "provider_name": "human_homology_diamond",
+            "status": "diamond_provider_unresolved",
+            "retrieval_status": "diamond_provider_unresolved",
+            "execution_status": "failed_before_execution",
+            "fallback_reason": str(exc),
+            "notes": [str(exc), "No se infirio presencia ni ausencia biologica por el fallo del proveedor."],
+        }
+        _write_diamond_manifest(workspace, manifest)
+        return pd.DataFrame(), manifest
+    _write_diamond_manifest(workspace, manifest)
+    if df.empty:
+        return df, manifest
+    return _annotate_human_homologs_audit(df), manifest
+
+
 def _homology_audit_from_row(row: pd.Series) -> tuple[str, float, str]:
     lookup_status = str(row.get("homology_lookup_status", "") or "").strip()
     query_strategy = str(row.get("homology_query_strategy", "") or "").strip()
@@ -1094,10 +1163,16 @@ def _homology_audit_from_row(row: pd.Series) -> tuple[str, float, str]:
     if not human_accession:
         missing_flags.append("missing_human_uniprot_accession")
 
-    if lookup_status == "real_match" and query_strategy in {"human_gene_exact", "human_curated_gene"}:
-        return "real_gene_level_match", 0.80, _format_missing_flags([flag for flag in missing_flags if flag != "missing_alignment_evalue"])
-    if lookup_status == "real_match" and query_strategy == "human_protein_name":
-        return "real_protein_name_match", 0.65, _format_missing_flags([flag for flag in missing_flags if flag != "missing_alignment_evalue"])
+    if lookup_status == "name_match_unverified":
+        return "name_match_unverified", 0.30, _format_missing_flags(missing_flags)
+    if lookup_status == "diamond_unresolved":
+        return "diamond_unresolved", 0.0, _format_missing_flags(missing_flags)
+    if lookup_status == "real_match" and query_strategy in {"human_gene_exact", "human_curated_gene", "human_protein_name"}:
+        return "name_match_unverified", 0.30, _format_missing_flags(missing_flags)
+    if lookup_status in {"diamond_hit", "diamond_no_hit"}:
+        tier = str(row.get("homology_evidence_tier", "") or "").strip()
+        confidence = pd.to_numeric(pd.Series([row.get("homology_confidence_score")]), errors="coerce").fillna(0.60).iloc[0]
+        return tier or "diamond_sequence_alignment", float(confidence), _format_missing_flags(missing_flags)
     if lookup_status == "local_orthology_match":
         confidence = pd.to_numeric(pd.Series([row.get("orthology_confidence_score")]), errors="coerce").fillna(0.75).iloc[0]
         return "local_reproducible_orthology", float(confidence), _format_missing_flags(missing_flags)
@@ -1212,13 +1287,16 @@ def _build_human_homologs_from_real_lookup(workspace: Path, config: dict[str, An
                 _human_homolog_row(
                     protein_id=protein_id,
                     gene=gene,
-                    human_homolog=1,
+                    human_homolog=pd.NA,
                     evalue=pd.NA,
                     human_gene=gene_names[0] if gene_names else gene,
                     database=str(cfg["database_label"]),
-                    lookup_status="real_match",
+                    lookup_status="name_match_unverified",
                     query_strategy=query_strategy,
-                    evidence_note="UniProt human lookup found a candidate match; evalue unavailable from REST lookup.",
+                    evidence_note=(
+                        "UniProt human lookup found a name or gene-symbol match, but no sequence-alignment "
+                        "metrics were available; this is auxiliary evidence and does not establish homology."
+                    ),
                     human_uniprot_accession=str(entry.get("primaryAccession") or ""),
                     human_uniprot_id=str(entry.get("uniProtkbId") or ""),
                 )
@@ -1232,9 +1310,12 @@ def _build_human_homologs_from_real_lookup(workspace: Path, config: dict[str, An
                     evalue=pd.NA,
                     human_gene="",
                     database=str(cfg["database_label"]),
-                    lookup_status="real_partial_non_exact",
+                    lookup_status="name_match_unverified",
                     query_strategy=query_strategy,
-                    evidence_note="UniProt returned a human entry but gene names did not exactly match; treated as inconclusive.",
+                    evidence_note=(
+                        "UniProt returned a human entry without sequence-alignment metrics or exact curated support; "
+                        "the candidate hit was not associated as a homolog."
+                    ),
                 )
             )
     return _annotate_human_homologs_audit(pd.DataFrame(rows)), exact_matches, notes, api_success
@@ -1258,7 +1339,20 @@ def _merge_human_homologs_with_stub(real_df: pd.DataFrame, stub_df: pd.DataFrame
             merged.at[idx, "homology_evidence_note"] = "No real lookup row was available; retained configurable stub value."
             continue
         real_row = real_lookup.loc[protein_id]
-        if pd.notna(real_row.get("human_homolog")):
+        if str(real_row.get("homology_lookup_status", "") or "") == "name_match_unverified":
+            merged.at[idx, "human_homolog"] = pd.NA
+            merged.at[idx, "evalue"] = pd.NA
+            merged.at[idx, "human_gene"] = real_row.get("human_gene", "")
+            merged.at[idx, "database"] = real_row.get("database")
+            merged.at[idx, "homology_lookup_status"] = "name_match_unverified"
+            merged.at[idx, "homology_query_strategy"] = real_row.get("homology_query_strategy", "human_gene_exact")
+            merged.at[idx, "homology_evidence_note"] = real_row.get(
+                "homology_evidence_note",
+                "Name match without sequence-alignment metrics; retained as auxiliary evidence only.",
+            )
+            merged.at[idx, "human_uniprot_accession"] = real_row.get("human_uniprot_accession", "")
+            merged.at[idx, "human_uniprot_id"] = real_row.get("human_uniprot_id", "")
+        elif pd.notna(real_row.get("human_homolog")):
             merged.at[idx, "human_homolog"] = real_row.get("human_homolog")
             merged.at[idx, "evalue"] = real_row.get("evalue")
             merged.at[idx, "human_gene"] = real_row.get("human_gene")
@@ -1387,7 +1481,7 @@ def fetch_layer_external_source(
                 "notes": ["api_not_requested_offline_mode", f"online_source_mode={online_mode}"],
                 "provenance": "external provider skipped before network because offline-safe mode is active",
             }
-        if provider_name == "uniprot_human_gene_lookup" and layer_key == "human_homologs":
+        if provider_name in {"uniprot_human_gene_lookup", "human_homology_diamond"} and layer_key == "human_homologs":
             local_orthology = _load_local_orthology_human_homologs(workspace, config)
             if not local_orthology.empty:
                 written_path = _write_external_layer(external_path, local_orthology)
@@ -1400,6 +1494,47 @@ def fetch_layer_external_source(
                     "confidence": float(config["online_sources"]["human_homologs_lookup"]["confidence_local_orthology"]),
                     "notes": ["api_not_requested_offline_mode", "local_orthology_file_used_before_uniprot_lookup"],
                     "provenance": "local orthology was materialized without UniProt lookup",
+                }
+            diamond_df, diamond_manifest = _load_diamond_human_homologs(workspace, config)
+            if not diamond_df.empty:
+                written_path = _write_external_layer(external_path, diamond_df)
+                return {
+                    "layer_key": layer_key,
+                    "provider_name": provider_name,
+                    "source_name": "diamond_human_sequence_alignment",
+                    "path": written_path,
+                    "status": str(diamond_manifest.get("status", "diamond_cached_tsv_materialized")),
+                    "confidence": 0.86,
+                    "notes": ["api_not_requested_offline_mode", *list(diamond_manifest.get("notes", []))],
+                    "provenance": "DIAMOND sequence alignment materialized without UniProt name lookup",
+                }
+            if provider_name == "human_homology_diamond":
+                unresolved = _build_unresolved_human_homologs(
+                    workspace,
+                    database="computed_diamond_human_homology_unresolved_v1",
+                    lookup_status="diamond_unresolved",
+                    query_strategy="diamond_blastp_sequence_alignment",
+                    evidence_note="DIAMOND evidence unresolved; no human_homolog value was inferred.",
+                )
+                if not unresolved.empty:
+                    written_path = _write_external_layer(external_path, unresolved)
+                    return {
+                        "layer_key": layer_key,
+                        "provider_name": provider_name,
+                        "source_name": "diamond_human_sequence_alignment",
+                        "path": written_path,
+                        "status": str(diamond_manifest.get("status", "diamond_unavailable")),
+                        "confidence": 0.0,
+                        "notes": list(diamond_manifest.get("notes", [])),
+                    }
+                return {
+                    "layer_key": layer_key,
+                    "provider_name": provider_name,
+                    "source_name": "diamond_human_sequence_alignment",
+                    "path": None,
+                    "status": str(diamond_manifest.get("status", "diamond_unavailable")),
+                    "confidence": 0.0,
+                    "notes": list(diamond_manifest.get("notes", [])),
                 }
             stub_df = _build_human_homologs_stub(workspace, config)
             written_path = _write_external_layer(external_path, stub_df)
@@ -1526,13 +1661,16 @@ def fetch_layer_external_source(
                 "status": "external_unavailable_missing_taxon_id",
                 "confidence": 0.0,
             }
-        result = fetch_uniprot_annotations(
-            workspace=workspace,
-            organism_name=organism_name,
-            taxon_id=taxon_id,
-            config=config,
-            mode=online_mode,
-        )
+        try:
+            result = fetch_uniprot_annotations(
+                workspace=workspace,
+                organism_name=organism_name,
+                taxon_id=taxon_id,
+                config=config,
+                mode=online_mode,
+            )
+        except Exception as exc:  # noqa: BLE001 - provider failures degrade to unresolved evidence.
+            return _unresolved_external_result(layer_key, provider_name, exc)
         localization = _build_localization_from_uniprot(result["annotations"], config)
         written_path = _write_external_layer(external_path, localization)
         return {
@@ -1554,14 +1692,17 @@ def fetch_layer_external_source(
                 "status": "external_unavailable_missing_taxon_id",
                 "confidence": 0.0,
             }
-        result = fetch_string_functional_network(
-            workspace=workspace,
-            organism_name=organism_name,
-            taxon_id=taxon_id,
-            config=config,
-            mode=online_mode,
-            replace_existing=True,
-        )
+        try:
+            result = fetch_string_functional_network(
+                workspace=workspace,
+                organism_name=organism_name,
+                taxon_id=taxon_id,
+                config=config,
+                mode=online_mode,
+                replace_existing=True,
+            )
+        except Exception as exc:  # noqa: BLE001 - provider failures degrade to unresolved evidence.
+            return _unresolved_external_result(layer_key, provider_name, exc)
         written_path = _write_external_layer(external_path, result["functional_network"])
         return {
             "layer_key": layer_key,
@@ -1572,7 +1713,7 @@ def fetch_layer_external_source(
             "confidence": 0.88 if result["manifest"].get("api_success") else 0.78,
         }
 
-    if provider_name == "uniprot_human_gene_lookup" and layer_key == "human_homologs":
+    if provider_name in {"uniprot_human_gene_lookup", "human_homology_diamond"} and layer_key == "human_homologs":
         local_orthology = _load_local_orthology_human_homologs(workspace, config)
         if not local_orthology.empty:
             written_path = _write_external_layer(external_path, local_orthology)
@@ -1584,6 +1725,46 @@ def fetch_layer_external_source(
                 "status": "local_orthology_file_materialized",
                 "confidence": float(config["online_sources"]["human_homologs_lookup"]["confidence_local_orthology"]),
                 "notes": ["local_orthology_file_used_before_uniprot_lookup"],
+            }
+        diamond_df, diamond_manifest = _load_diamond_human_homologs(workspace, config)
+        if not diamond_df.empty:
+            written_path = _write_external_layer(external_path, diamond_df)
+            return {
+                "layer_key": layer_key,
+                "provider_name": provider_name,
+                "source_name": "diamond_human_sequence_alignment",
+                "path": written_path,
+                "status": str(diamond_manifest.get("status", "diamond_cached_tsv_materialized")),
+                "confidence": 0.86,
+                "notes": list(diamond_manifest.get("notes", [])),
+            }
+        if provider_name == "human_homology_diamond":
+            unresolved = _build_unresolved_human_homologs(
+                workspace,
+                database="computed_diamond_human_homology_unresolved_v1",
+                lookup_status="diamond_unresolved",
+                query_strategy="diamond_blastp_sequence_alignment",
+                evidence_note="DIAMOND evidence unresolved; no human_homolog value was inferred.",
+            )
+            if not unresolved.empty:
+                written_path = _write_external_layer(external_path, unresolved)
+                return {
+                    "layer_key": layer_key,
+                    "provider_name": provider_name,
+                    "source_name": "diamond_human_sequence_alignment",
+                    "path": written_path,
+                    "status": str(diamond_manifest.get("status", "diamond_unavailable")),
+                    "confidence": 0.0,
+                    "notes": list(diamond_manifest.get("notes", [])),
+                }
+            return {
+                "layer_key": layer_key,
+                "provider_name": provider_name,
+                "source_name": "diamond_human_sequence_alignment",
+                "path": None,
+                "status": str(diamond_manifest.get("status", "diamond_unavailable")),
+                "confidence": 0.0,
+                "notes": list(diamond_manifest.get("notes", [])),
             }
         stub_df = _build_human_homologs_stub(workspace, config)
         real_df, exact_matches, notes, api_success = _build_human_homologs_from_real_lookup(workspace, config)
@@ -1830,21 +2011,25 @@ def fetch_layer_external_source(
                 "status": "external_unavailable_missing_taxon_id",
                 "confidence": 0.0,
             }
-        result = fetch_deg_essentiality(
-            workspace=workspace,
-            organism_name=organism_name,
-            taxon_id=taxon_id,
-            config=config,
-            mode=online_mode,
-        )
+        try:
+            result = fetch_deg_essentiality(
+                workspace=workspace,
+                organism_name=organism_name,
+                taxon_id=taxon_id,
+                config=config,
+                mode=online_mode,
+            )
+        except Exception as exc:  # noqa: BLE001 - provider failures degrade to unresolved evidence.
+            return _unresolved_external_result(layer_key, provider_name, exc)
         df = result["essentiality_data"]
         if df.empty:
+            status = str(result.get("manifest", {}).get("retrieval_status") or result.get("manifest", {}).get("source_used") or "external_api_empty_response")
             return {
                 "layer_key": layer_key,
                 "provider_name": provider_name,
-                "source_name": "deg_real",
+                "source_name": "provider_not_found" if status == "not_found" else "deg_real",
                 "path": None,
-                "status": "external_api_empty_response",
+                "status": status if status == "not_found" else "external_api_empty_response",
                 "confidence": 0.0,
             }
         written_path = _write_external_layer(external_path, df)
@@ -1877,21 +2062,25 @@ def fetch_layer_external_source(
                 "status": "external_unavailable_missing_taxon_id",
                 "confidence": 0.0,
             }
-        result = fetch_vfdb_virulence(
-            workspace=workspace,
-            organism_name=organism_name,
-            taxon_id=taxon_id,
-            config=config,
-            mode=online_mode,
-        )
+        try:
+            result = fetch_vfdb_virulence(
+                workspace=workspace,
+                organism_name=organism_name,
+                taxon_id=taxon_id,
+                config=config,
+                mode=online_mode,
+            )
+        except Exception as exc:  # noqa: BLE001 - provider failures degrade to unresolved evidence.
+            return _unresolved_external_result(layer_key, provider_name, exc)
         df = result["virulence_data"]
         if df.empty:
+            status = str(result.get("manifest", {}).get("retrieval_status") or result.get("manifest", {}).get("source_used") or "external_api_empty_response")
             return {
                 "layer_key": layer_key,
                 "provider_name": provider_name,
-                "source_name": "vfdb_real",
+                "source_name": "provider_not_found" if status == "not_found" else "vfdb_real",
                 "path": None,
-                "status": "external_api_empty_response",
+                "status": status if status == "not_found" else "external_api_empty_response",
                 "confidence": 0.0,
             }
         written_path = _write_external_layer(external_path, df)
@@ -1924,21 +2113,25 @@ def fetch_layer_external_source(
                 "status": "external_unavailable_missing_taxon_id",
                 "confidence": 0.0,
             }
-        result = fetch_bvbrc_strain_conservation(
-            workspace=workspace,
-            organism_name=organism_name,
-            taxon_id=taxon_id,
-            config=config,
-            mode=online_mode,
-        )
+        try:
+            result = fetch_bvbrc_strain_conservation(
+                workspace=workspace,
+                organism_name=organism_name,
+                taxon_id=taxon_id,
+                config=config,
+                mode=online_mode,
+            )
+        except Exception as exc:  # noqa: BLE001 - provider failures degrade to unresolved evidence.
+            return _unresolved_external_result(layer_key, provider_name, exc)
         df = result["strain_conservation_data"]
         if df.empty:
+            status = str(result.get("manifest", {}).get("retrieval_status") or result.get("manifest", {}).get("source_used") or "external_api_empty_response")
             return {
                 "layer_key": layer_key,
                 "provider_name": provider_name,
-                "source_name": "bvbrc_real",
+                "source_name": "provider_not_found" if status == "not_found" else "bvbrc_real",
                 "path": None,
-                "status": "external_api_empty_response",
+                "status": status if status == "not_found" else "external_api_empty_response",
                 "confidence": 0.0,
             }
         written_path = _write_external_layer(external_path, df)

@@ -60,7 +60,7 @@ DEFAULT_CONFIG = {
             },
             "human_homologs": {
                 "strategy": "user_preferred",
-                "external_provider": "uniprot_human_gene_lookup",
+                "external_provider": "human_homology_diamond",
                 "fallback_provider": "configurable_stub",
             },
             "localization": {
@@ -99,6 +99,15 @@ DEFAULT_CONFIG = {
                 "external_provider": "curated_online_examples",
             },
         },
+    },
+    "curated_real_evidence": {
+        "enabled": True,
+        "base_dir": "data_curated/organisms",
+        "precedence": {
+            "replace_unresolved": True,
+            "preserve_online_real": True,
+        },
+        "minimum_confidence": 0.5,
     },
     "taxonomy": {
         "resolution_mode_default": "cache_first",
@@ -230,6 +239,38 @@ DEFAULT_CONFIG = {
                 "local_orthology_filename": "data_external/human_homologs_orthology.csv",
                 "local_orthology_database_label": "local_reproducible_orthology_v1",
                 "local_orthology_min_confidence": 0.60,
+            },
+            "human_homology_diamond": {
+                "enabled": True,
+                "provider_name": "human_homology_diamond",
+                "execution_mode": "cache_only",
+                "diamond_executable": "diamond",
+                "reference_proteome_accession": "UP000005640",
+                "reference_fasta_path": "data_external/human_homology_phase9B/human_reference_proteome_UP000005640.faa",
+                "database_prefix": "data_external/human_homology_phase9B/human_reference_UP000005640",
+                "sensitivity_mode": "ultra-sensitive",
+                "evalue_threshold": 1.0e-5,
+                "maximum_target_sequences": 25,
+                "threads": 1,
+                "allow_download": False,
+                "allow_execution": False,
+                "reuse_cache": True,
+                "candidate_fasta_path": "",
+                "cached_tsv_path": "",
+                "timeout_seconds": 600,
+                "database_label": "computed_diamond_human_homology_v1",
+                "weak_human_homolog_value": "unresolved",
+                "strong_homology_thresholds": {
+                    "evalue": 1.0e-10,
+                    "percent_identity": 25.0,
+                    "query_coverage": 0.50,
+                    "subject_coverage": 0.50,
+                },
+                "partial_similarity_thresholds": {
+                    "evalue": 1.0e-5,
+                    "percent_identity": 20.0,
+                    "query_coverage": 0.20,
+                },
             },
             "host_annotation": {
                 "enabled": True,
