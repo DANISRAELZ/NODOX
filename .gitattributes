@@ -1,0 +1,38 @@
+# Git almacenará los archivos de texto internamente con finales de línea LF.
+* text=auto eol=lf
+
+# Scripts de Windows deben conservar CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Scripts de Linux y Python usarán LF.
+*.sh text eol=lf
+*.py text eol=lf
+
+# Documentación y configuración usarán LF.
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+
+# Datos tabulares de texto usarán LF.
+*.csv text eol=lf
+*.tsv text eol=lf
+
+# Archivos binarios: Git no intentará modificar sus líneas.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.7z binary
+*.xlsx binary
+*.xls binary
+*.docx binary
+*.pptx binary
+*.dmnd binary

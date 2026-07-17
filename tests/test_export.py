@@ -8,13 +8,70 @@ import pytest
 from src.nodos_funcionales.config import load_config
 from src.nodos_funcionales.integration import integrate_tables
 from src.nodos_funcionales.normalization import normalize_all
-from src.nodos_funcionales.reporting import _build_top10_scientific_markdown, export_results
+from src.nodos_funcionales.reporting import (
+    _build_top10_scientific_markdown,
+    _export_functional_node_theory_outputs,
+    _select_functional_node_theory_universe,
+    export_results,
+)
 from src.nodos_funcionales.scoring import build_features_and_scores, compute_sensitivity
 from src.nodos_funcionales.user_explanations import THEORY_V3_NOT_ASSESSED_NOTE
 from src.nodos_funcionales.validation import load_and_validate_all
 from tests.helpers import make_temp_project
 
 pytestmark = [pytest.mark.integration, pytest.mark.slow]
+
+
+def test_functional_node_export_uses_full_therapeutic_universe_when_phase3_has_placeholders(tmp_path) -> None:
+    processed_dir = tmp_path / "data_processed"
+    results_dir = tmp_path / "results"
+    processed_dir.mkdir(parents=True)
+    results_dir.mkdir(parents=True)
+    config = load_config(make_temp_project() / "config" / "params.yaml")
+    config["phase3"]["enabled"] = False
+
+    ranking = pd.DataFrame(
+        {
+            "protein_id": [f"HP{i:04d}" for i in range(200)],
+            "gene": [f"gene{i:04d}" for i in range(200)],
+            "organism": ["Helicobacter pylori"] * 200,
+            "taxon_id": [210] * 200,
+            "strain": ["not_reported"] * 200,
+            "meta_priority_score": [0.50] * 200,
+            "therapeutic_priority_score": [0.25] * 200,
+            "functional_node_score": [0.20] * 200,
+            "evidence_level": ["unresolved"] * 200,
+            "source_used": ["provider_not_found"] * 200,
+        }
+    )
+    scored = ranking[["protein_id", "gene", "meta_priority_score", "therapeutic_priority_score", "functional_node_score"]].copy()
+    phase3_placeholders = pd.DataFrame(
+        {
+            "protein_id": ["PA0001", "PA0002", "PA0003"],
+            "gene": ["online_seed_placeholder_1", "online_seed_placeholder_2", "online_seed_placeholder_3"],
+            "audit_flags": ["phase3_not_enabled"] * 3,
+            "functional_node_theory_score": [0.0, 0.0, 0.0],
+        }
+    )
+    ranking.to_csv(results_dir / "ranking_nodos.csv", index=False)
+    scored.to_csv(processed_dir / "scored_nodes.csv", index=False)
+    phase3_placeholders.to_csv(processed_dir / "phase3_features.csv", index=False)
+
+    universe = _select_functional_node_theory_universe(
+        tmp_path,
+        ranking,
+        ranking,
+        {"organism": "Helicobacter pylori", "taxon_id": "210", "strain": "not_reported"},
+    )
+    functional, audit = _export_functional_node_theory_outputs(universe, results_dir, config, top_n=10)
+
+    assert len(universe) == 200
+    assert len(functional) == 200
+    assert len(audit) == 200
+    assert functional["protein_id"].str.startswith("HP").all()
+    assert not functional["functional_node_theory_label"].eq("high_confidence_functional_node").any()
+    assert set(functional["organism"]) == {"Helicobacter pylori"}
+    assert set(functional["taxon_id"].astype(str)) == {"210"}
 
 
 class ExportTests(unittest.TestCase):
@@ -30,7 +87,15 @@ class ExportTests(unittest.TestCase):
         export_results(project_dir, config)
 
         self.assertTrue((project_dir / "results" / "ranking_nodos.csv").exists())
+        self.assertTrue((project_dir / "results" / "ranking_nodos_by_gene.csv").exists())
+        self.assertTrue((project_dir / "results" / "ranking_functional_nodes.csv").exists())
+        self.assertTrue((project_dir / "results" / "ranking_functional_nodes_by_gene.csv").exists())
         self.assertTrue((project_dir / "results" / "ranking_nodos_legacy.csv").exists())
+        self.assertTrue((project_dir / "results" / "functional_node_theory_audit.csv").exists())
+        self.assertTrue((project_dir / "results" / "functional_node_theory_audit.md").exists())
+        self.assertTrue((project_dir / "results" / "theory_of_nodes_report.md").exists())
+        self.assertTrue((project_dir / "results" / "curated_real_evidence_manifest.json").exists())
+        self.assertTrue((project_dir / "results" / "curated_real_evidence_summary.csv").exists())
         self.assertTrue((project_dir / "results" / "phase_comparison.csv").exists())
         self.assertTrue((project_dir / "results" / "report_phase2.md").exists())
         self.assertTrue((project_dir / "results" / "resumen_ejecutivo.md").exists())
@@ -67,6 +132,22 @@ class ExportTests(unittest.TestCase):
         self.assertTrue((project_dir / "results" / "top10_scientific_summary.md").exists())
 
         ranking = pd.read_csv(project_dir / "results" / "ranking_nodos.csv")
+        functional_ranking = pd.read_csv(project_dir / "results" / "ranking_functional_nodes.csv")
+        functional_by_gene = pd.read_csv(project_dir / "results" / "ranking_functional_nodes_by_gene.csv")
+        functional_audit = pd.read_csv(project_dir / "results" / "functional_node_theory_audit.csv")
+        self.assertIn("therapeutic_priority_score", ranking.columns)
+        self.assertIn("functional_node_theory_score", functional_ranking.columns)
+        self.assertIn("functional_node_theory_confidence", functional_ranking.columns)
+        self.assertIn("functional_node_therapeutic_exploitability_score", functional_ranking.columns)
+        self.assertIn("meets_minimum_functional_node_evidence", functional_audit.columns)
+        self.assertIn("functional_impact_component", functional_audit.columns)
+        self.assertIn("dependency_component", functional_audit.columns)
+        self.assertIn("redundancy_constraint_component", functional_audit.columns)
+        self.assertIn("interpretation", functional_audit.columns)
+        self.assertIn("accessions_collapsed", functional_by_gene.columns)
+        for metadata_column in ["organism", "taxon_id", "strain"]:
+            self.assertIn(metadata_column, functional_ranking.columns)
+            self.assertIn(metadata_column, functional_by_gene.columns)
         for column in [
             "therapeutic_priority_score",
             "therapeutic_priority_contribution_summary",
@@ -124,7 +205,10 @@ class ExportTests(unittest.TestCase):
         export_results(project_dir, config, mode="legacy")
 
         ranking = pd.read_csv(project_dir / "results" / "ranking_nodos.csv")
-        self.assertEqual(list(ranking.columns), ["rank", "protein_id", "gene", "legacy_score_final"])
+        self.assertEqual(
+            list(ranking.columns),
+            ["rank", "protein_id", "gene", "organism", "strain", "taxon_id", "legacy_score_final"],
+        )
 
     def test_export_writes_candidate_audit_with_strategy_columns(self) -> None:
         project_dir = make_temp_project()

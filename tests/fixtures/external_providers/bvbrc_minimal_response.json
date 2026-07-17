@@ -1,0 +1,19 @@
+{
+  "response": {
+    "docs": [
+      {
+        "patric_id": "fig|562.1.peg.1",
+        "gene": "gyrA",
+        "product": "fixture DNA gyrase annotation",
+        "genome_id": "562.1"
+      },
+      {
+        "patric_id": "fig|562.1.peg.2",
+        "gene": "blaX",
+        "product": "fixture beta-lactamase annotation",
+        "antibiotic": "fixture beta-lactam resistance association",
+        "genome_id": "562.1"
+      }
+    ]
+  }
+}

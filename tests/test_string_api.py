@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import shutil
+import ssl
 import unittest
 import uuid
+from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import patch
 from urllib.error import URLError
@@ -37,6 +39,12 @@ class FakeResponse:
     def read(self) -> bytes:
         return json.dumps(self._payload).encode("utf-8")
 
+    def getheader(self, name: str, default: str = "") -> str:
+        return "application/json" if name.lower() == "content-type" else default
+
+    def geturl(self) -> str:
+        return "https://string-db.org/api/json/mock"
+
     def __enter__(self) -> "FakeResponse":
         return self
 
@@ -45,6 +53,20 @@ class FakeResponse:
 
 
 class StringApiTests(unittest.TestCase):
+    def offline_ssl_context_patches(self) -> ExitStack:
+        stack = ExitStack()
+        for target in [
+            "src.nodos_funcionales.human_essentiality_api.get_ssl_context",
+            "src.nodos_funcionales.interpro_api.get_ssl_context",
+            "src.nodos_funcionales.online_http.get_ssl_context",
+            "src.nodos_funcionales.online_organism_enrichment.get_ssl_context",
+            "src.nodos_funcionales.online_sources.get_ssl_context",
+            "src.nodos_funcionales.taxonomy_api.get_ssl_context",
+            "src.nodos_funcionales.uniprot_api.get_ssl_context",
+        ]:
+            stack.enter_context(patch(target, return_value=None))
+        return stack
+
     def make_workspace(self, name: str) -> Path:
         root = PROJECT_ROOT / ".tmp_tests" / f"{name}_{uuid.uuid4().hex[:8]}"
         (root / "config").mkdir(parents=True, exist_ok=True)
@@ -286,10 +308,41 @@ class StringApiTests(unittest.TestCase):
             )
         self.assertEqual(len(result["functional_network"]), 10)
         self.assertIn("edge_count", result["manifest"])
+        self.assertEqual(result["manifest"]["retrieval_status"], "connected_structured_payload")
+        self.assertFalse(result["manifest"]["blocks_ranking"])
+
+    def test_string_ssl_error_degrades_without_evidence(self) -> None:
+        workspace = self.make_workspace("string_ssl_error")
+        config = load_config(workspace / "config" / "params.yaml")
+        with patch("src.nodos_funcionales.string_api.urlopen", side_effect=ssl.SSLError("OPENSSL_Applink")):
+            with self.assertRaisesRegex(ValueError, "ssl_error"):
+                fetch_string_functional_network(
+                    workspace=workspace,
+                    organism_name="Pseudomonas aeruginosa",
+                    taxon_id="287",
+                    config=config,
+                    mode="online_optional",
+                    replace_existing=True,
+                )
+
+    def test_string_network_error_degrades_without_evidence(self) -> None:
+        workspace = self.make_workspace("string_network_error")
+        config = load_config(workspace / "config" / "params.yaml")
+        with patch("src.nodos_funcionales.string_api.urlopen", side_effect=URLError("offline")):
+            with self.assertRaisesRegex(ValueError, "unresolved|network_error"):
+                fetch_string_functional_network(
+                    workspace=workspace,
+                    organism_name="Pseudomonas aeruginosa",
+                    taxon_id="287",
+                    config=config,
+                    mode="online_optional",
+                    replace_existing=True,
+                )
 
     def test_string_enrichment_integrates_with_pipeline_layers(self) -> None:
         workspace = self.make_workspace("string_pipeline")
         config = load_config(workspace / "config" / "params.yaml")
+        config.setdefault("online_sources", {})["source_mode_effective"] = "offline_only"
         with patch("src.nodos_funcionales.string_api.urlopen") as urlopen_mock:
             urlopen_mock.side_effect = [
                 FakeResponse([{"queryItem": f"PA000{i}", "stringId": f"287.PA000{i}", "preferredName": f"gene{i}"} for i in range(1, 10)]
@@ -305,17 +358,19 @@ class StringApiTests(unittest.TestCase):
                 replace_existing=True,
             )
 
-        load_and_validate_all(workspace, config)
-        normalize_all(workspace, config)
-        integrate_tables(workspace)
-        features, _ = build_features_and_scores(workspace, config)
+        with self.offline_ssl_context_patches():
+            load_and_validate_all(workspace, config)
+            normalize_all(workspace, config)
+            integrate_tables(workspace)
+            features, _ = build_features_and_scores(workspace, config)
         self.assertIn("network_source_type", features.columns)
         self.assertTrue(features["network_source_type"].eq("computed").all())
 
     @patch("src.nodos_funcionales.string_api.urlopen")
     def test_fetch_online_data_cli_generates_manifest(self, urlopen_mock) -> None:
         workspace = self.make_workspace("string_cli")
-        run_pipeline(workspace, workspace / "config" / "params.yaml", mode="compare")
+        with self.offline_ssl_context_patches():
+            run_pipeline(workspace, workspace / "config" / "params.yaml", mode="compare", online_source_mode="offline_only")
         urlopen_mock.side_effect = [
             FakeResponse([{"queryItem": f"PA000{i}", "stringId": f"287.PA000{i}", "preferredName": f"gene{i}"} for i in range(1, 10)]
                          + [{"queryItem": "PA0010", "stringId": "287.PA0010", "preferredName": "pvdA"}]),
@@ -332,6 +387,7 @@ class StringApiTests(unittest.TestCase):
                 "--mode",
                 "online_optional",
                 "--replace-existing-functional-network",
+                "--skip-pipeline-rerun",
             ]
         )
         self.assertEqual(exit_code, 0)

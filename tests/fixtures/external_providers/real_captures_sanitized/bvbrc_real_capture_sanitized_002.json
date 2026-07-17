@@ -1,0 +1,37 @@
+{
+  "provider_name": "BV-BRC",
+  "provider_url": "https://www.bv-brc.org/api/genome_feature/?eq(genome_id,562.6961)&limit(2)",
+  "query_used": "resolve taxon_id=562 through /api/genome; then eq(genome_id,562.6961)&limit(2), Accept: application/json",
+  "organism_label": "Escherichia coli strain ST2747",
+  "taxon_id": 562,
+  "captured_at": "2026-06-22T18:41:57Z",
+  "sanitized_at": "2026-06-22T18:41:57Z",
+  "capture_type": "sanitized_external_capture",
+  "schema_observed": "application_json_list_of_genome_feature_records",
+  "record_count": 2,
+  "raw_payload_sanitized": [
+    {
+      "feature_id": "RefSeq.562.6961.CP007392.CDS.5000964.5002028.rev",
+      "feature_type": "CDS",
+      "genome_id": "562.6961",
+      "genome_name": "Escherichia coli strain ST2747",
+      "product": "hypothetical protein",
+      "protein_id": "AHM46135.1",
+      "refseq_locus_tag": "CF58_30950",
+      "taxon_id": 562
+    },
+    {
+      "feature_id": "RefSeq.562.6961.CP007392.CDS.123785.124663.fwd",
+      "feature_type": "CDS",
+      "genome_id": "562.6961",
+      "genome_name": "Escherichia coli strain ST2747",
+      "product": "pyruvate formate lyase II activase",
+      "protein_id": "AHM41716.1",
+      "refseq_locus_tag": "CF58_00850",
+      "taxon_id": 562
+    }
+  ],
+  "interpretation_warning": "These are explicit BV-BRC feature records from one resolved genome query. They are not biological validation and must not be interpreted as absence of other genomic evidence.",
+  "affects_score": false,
+  "experimental_validation_supported": false
+}

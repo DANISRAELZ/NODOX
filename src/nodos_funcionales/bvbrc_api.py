@@ -7,11 +7,12 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
 from urllib.parse import quote
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
 import pandas as pd
+
+from .provider_response_audit import ProviderResponse, request_provider_payload, response_audit_fields
 
 
 SOURCE_MODES = {"offline_only", "cache_first", "online_optional"}
@@ -47,37 +48,22 @@ def save_bvbrc_cache(workspace: Path, config: dict[str, Any], payload: dict[str,
     _json_dump(_cache_path(workspace, config), payload)
 
 
-def _request_json(url: str, timeout: float, user_agent: str) -> Any:
-    request = Request(url, headers={"User-Agent": user_agent, "Accept": "application/json"})
-    with urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
-
-
-def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str]]:
+def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str], ProviderResponse | None]:
     timeout = float(cfg["provider_timeout_seconds"])
     user_agent = str(cfg["provider_user_agent"])
     retries = int(cfg["provider_max_retries"])
     backoff = float(cfg["provider_backoff_seconds"])
     errors: list[str] = []
     for attempt in range(retries + 1):
-        try:
-            return _request_json(url, timeout=timeout, user_agent=user_agent), errors
-        except HTTPError as exc:
-            errors.append(f"HTTP {exc.code} en BV-BRC")
-            if exc.code == 429 and attempt < retries:
-                time.sleep(backoff)
-                continue
-            break
-        except URLError as exc:
-            errors.append(f"Error de red en BV-BRC: {exc.reason}")
-            break
-        except TimeoutError:
-            errors.append("Timeout en BV-BRC")
-            break
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            errors.append(f"Respuesta JSON invalida de BV-BRC: {exc}")
-            break
-    return None, errors
+        response = request_provider_payload(url, timeout=timeout, user_agent=user_agent, accept="application/json", opener=urlopen)
+        if response.error_status == "":
+            return response.payload, errors, response
+        errors.append(response.rejection_reason or response.error_status)
+        if response.http_status == 429 and attempt < retries:
+            time.sleep(backoff)
+            continue
+        return None, errors, response
+    return None, errors, None
 
 
 def _get_candidate_proteins(workspace: Path) -> pd.DataFrame:
@@ -123,6 +109,30 @@ def _as_records(payload: Any) -> list[dict[str, Any]]:
     if isinstance(payload, list):
         return [item for item in payload if isinstance(item, dict)]
     return []
+
+
+def _is_structured_bvbrc_payload(payload: Any, response: ProviderResponse | None) -> bool:
+    if response is None:
+        return False
+    if response.payload_type != "json":
+        return False
+    return isinstance(payload, (dict, list))
+
+
+def _conservative_status(response: ProviderResponse | None, records: list[dict[str, Any]] | None = None) -> str:
+    if response is None:
+        return "unresolved"
+    if response.error_status:
+        return response.error_status
+    if response.payload_type == "empty":
+        return "verified_empty_payload"
+    if response.payload_type == "html":
+        return "html_instead_of_structured_payload"
+    if response.payload_type != "json":
+        return "unresolved"
+    if records is not None and not records:
+        return "verified_empty_payload"
+    return "api_real"
 
 
 def _derive_rows(proteins: pd.DataFrame, payload: Any, config: dict[str, Any]) -> tuple[pd.DataFrame, int, list[str]]:
@@ -213,7 +223,8 @@ def fetch_bvbrc_strain_conservation(
         manifest = {"source": "bvbrc", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": 0, "source_used": "empty_candidates", "cache_hit": False, "api_attempted": False, "api_success": False, "fallback_reason": reason, "notes": [reason], "generated_at_utc": _utc_now()}
         return {"strain_conservation_data": pd.DataFrame(columns=CONSERVATION_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
 
-    payload, errors = _api_get_json(_build_query_url(taxon_id, cfg), cfg)
+    provider_url = _build_query_url(taxon_id, cfg)
+    payload, errors, response = _api_get_json(provider_url, cfg)
     if payload is None:
         if mode == "online_optional" and cache["entries"].get(cache_key):
             entry = cache["entries"][cache_key]
@@ -222,11 +233,27 @@ def fetch_bvbrc_strain_conservation(
             manifest["api_attempted"] = True
             manifest["fallback_reason"] = "api_failed_fallback_cache"
             return {"strain_conservation_data": df, "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
-        manifest = {"source": "bvbrc", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": 0, "source_used": "api_failed", "cache_hit": False, "api_attempted": True, "api_success": False, "fallback_reason": "api_failed_no_cache", "notes": errors, "generated_at_utc": _utc_now()}
+        audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
+        manifest = {"source": "bvbrc", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": 0, "source_used": "api_failed", "retrieval_status": _conservative_status(response), "cache_hit": False, "api_attempted": True, "api_success": False, "fallback_reason": "api_failed_no_cache", "notes": errors, "generated_at_utc": _utc_now(), **audit}
+        return {"strain_conservation_data": pd.DataFrame(columns=CONSERVATION_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
+
+    if not _is_structured_bvbrc_payload(payload, response):
+        audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
+        status = _conservative_status(response)
+        reason = audit.get("rejection_reason") or "structured_bvbrc_payload_not_verified"
+        manifest = {"source": "bvbrc", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": 0, "source_used": status, "retrieval_status": status, "cache_hit": False, "api_attempted": True, "api_success": False, "fallback_reason": reason, "notes": errors + [str(reason), "No BV-BRC evidence was inferred from this provider response."], "generated_at_utc": _utc_now(), **audit}
+        return {"strain_conservation_data": pd.DataFrame(columns=CONSERVATION_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
+
+    records = _as_records(payload)
+    if not records:
+        audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
+        status = _conservative_status(response, records)
+        manifest = {"source": "bvbrc", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": 0, "source_used": status, "retrieval_status": status, "cache_hit": False, "api_attempted": True, "api_success": True, "fallback_reason": "verified_empty_payload_no_bvbrc_records", "notes": errors + ["Empty structured BV-BRC payload; no genomic evidence inferred."], "generated_at_utc": _utc_now(), **audit}
         return {"strain_conservation_data": pd.DataFrame(columns=CONSERVATION_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
 
     df, matched, notes = _derive_rows(proteins, payload, config)
-    manifest = {"source": "bvbrc", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": int(matched), "source_used": "api_real" if matched else "bvbrc_filtered_no_matches", "cache_hit": False, "api_attempted": True, "api_success": True, "fallback_reason": None if matched else "no_bvbrc_matches_for_workspace_candidates", "notes": errors + notes, "generated_at_utc": _utc_now()}
+    audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
+    manifest = {"source": "bvbrc", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": int(matched), "source_used": "api_real" if matched else "bvbrc_filtered_no_matches", "retrieval_status": "api_real" if matched else "not_found", "cache_hit": False, "api_attempted": True, "api_success": True, "fallback_reason": None if matched else "no_bvbrc_matches_for_workspace_candidates", "notes": errors + notes, "generated_at_utc": _utc_now(), **audit}
     if not no_write_cache:
         cache["entries"][cache_key] = {"saved_at_utc": _utc_now(), "strain_conservation_rows": df.to_dict(orient="records"), "manifest": manifest}
         save_bvbrc_cache(workspace, config, cache)

@@ -15,7 +15,7 @@ El registro base ahora declara como proveedores externos por defecto:
 
 - `essentiality`: `deg_real`
 - `virulence`: `vfdb_real`
-- `human_homologs`: `uniprot_human_gene_lookup`
+- `human_homologs`: `human_homology_diamond` como proveedor primario; `uniprot_human_gene_lookup` queda solo como evidencia auxiliar no concluyente.
 - `localization`: `uniprot_real`
 - `host_annotation`: `interpro_domain_overlap`
 - `strain_conservation`: `bvbrc_real`

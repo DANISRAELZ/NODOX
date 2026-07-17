@@ -16,8 +16,14 @@ def test_v0_1_0_publication_release_decision_content() -> None:
         "demo",
         "final git tag should not be created automatically",
         "no automatic",
-        "clinically validated platform",
-        "experimentally validated platform",
+        "technically close to `v0.1.0-publication`",
+        "core release can proceed only after accepting or completing core dependency/security and sensitive-data review",
+        "docs/final_public_release_audit.md",
+        "docs/sensitive_data_and_secret_scan.md",
+        "docs/core_dependency_review_summary.md",
+        "docs/public_release_file_inclusion_review.md",
+        "no clinical validation",
+        "no experimental validation",
         "git tag v0.1.0-publication",
     ]
     for term in required_terms:

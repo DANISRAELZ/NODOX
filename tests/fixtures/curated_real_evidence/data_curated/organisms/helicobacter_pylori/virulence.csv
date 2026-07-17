@@ -1,0 +1,11 @@
+gene,protein_id,evidence_status,evidence_source,source_database,reference,confidence,notes,virulence_factor,virulence_score
+ureA,HP_UREA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.85,fixture only not experimental validation,1,0.70
+ureB,HP_UREB,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.85,fixture only not experimental validation,1,0.72
+vacA,HP_VACA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.85,fixture only not experimental validation,1,0.88
+cagA,HP_CAGA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.85,fixture only not experimental validation,1,0.90
+flaA,HP_FLAA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.75,fixture only not experimental validation,1,0.60
+napA,HP_NAPA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.75,fixture only not experimental validation,1,0.58
+gyrA,HP_GYRA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.70,fixture only not experimental validation,0,0.20
+rpoB,HP_RPOB,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.70,fixture only not experimental validation,0,0.20
+ftsZ,HP_FTSZ,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.70,fixture only not experimental validation,0,0.25
+dnaA,HP_DNAA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.70,fixture only not experimental validation,0,0.25

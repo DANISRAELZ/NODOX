@@ -43,6 +43,10 @@ Do not create the final tag until manually approved.
 - [ ] License and dependency audit documented at `docs/license_and_dependency_audit.md`.
 - [ ] Dependency security review documented at `docs/dependency_security_review.md`.
 - [ ] Optional workflow transitive license/security review remains pending before public workflow distribution.
+- [ ] Final public release audit documented at `docs/final_public_release_audit.md`.
+- [ ] Sensitive data and secret scan documented at `docs/sensitive_data_and_secret_scan.md`.
+- [ ] Core dependency review summary documented at `docs/core_dependency_review_summary.md`.
+- [ ] Public release file inclusion review documented at `docs/public_release_file_inclusion_review.md`.
 
 Final public release is blocked until:
 
@@ -53,6 +57,7 @@ Final public release is blocked until:
 - internal prompts/logs are removed or excluded;
 - AI-use transparency statement is reviewed;
 - human approval is given.
+- core release can proceed only after accepting or completing core dependency/security and sensitive-data review.
 
 ## Interpretation Boundaries
 

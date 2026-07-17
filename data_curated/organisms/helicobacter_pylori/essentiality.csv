@@ -1,0 +1,12 @@
+gene,protein_id,evidence_status,evidence_source,source_database,reference,confidence,notes,essential,essentiality_score,essentiality_context
+ureA,,positive_evidence,curated_literature,PubMed/NCBI,Karita 1995 PMID:8775011; Mobley 2001 NCBI Bookshelf,0.82,Urease mutant evidence supports essential role for colonization rather than generic in vitro essentiality,1,0.8,1
+ureB,,positive_evidence,curated_literature,PubMed/NCBI,Karita 1995 PMID:8775011; Mobley 2001 NCBI Bookshelf,0.82,Urease mutant evidence supports essential role for colonization rather than generic in vitro essentiality,1,0.8,1
+cagA,,unresolved_evidence,curated_literature,review/PubMed,Roesler 2014 PMC4019226; Baj 2020 PMC7824444,0.55,"Strong virulence evidence, but not curated as essential for viability",0,0.3,0
+vacA,,unresolved_evidence,curated_literature,review/PubMed,Baj 2020 PMC7824444; Brasil-Costa 2022 PMC9028951,0.55,"Strong virulence evidence, but not curated as essential for viability",0,0.3,0
+flaA,,positive_evidence,curated_literature,PubMed,Ottemann 2002 PMC127824,0.75,Motility is needed for initial colonization; contextual colonization dependency,1,0.65,1
+napA,,unresolved_evidence,curated_literature,PMC,Fu 2014 PMC4017044; Wang 2006 PMC1698064,0.55,"Virulence/inflammation evidence, not viability essentiality",0,0.3,0
+gyrA,,probable_positive_evidence,curated_literature,review/PubMed,Hasanuzzaman 2024 PMC10825452; Lopez-Gasca 2018 PMC5928819,0.65,DNA gyrase target; likely core replication/topology function but requires direct essentiality confirmation,1,0.6,1
+gyrB,,probable_positive_evidence,curated_literature,review/PubMed,Hasanuzzaman 2024 PMC10825452; Lopez-Gasca 2018 PMC5928819,0.65,DNA gyrase target; likely core replication/topology function but requires direct essentiality confirmation,1,0.6,1
+rpoB,,probable_positive_evidence,curated_literature,CARD/review,CARD rpoB H. pylori rifampicin resistance; Hasanuzzaman 2024 PMC10825452,0.6,"RNA polymerase beta subunit; antibiotic target relevance, direct essentiality not asserted here",1,0.55,1
+ftsZ,,probable_positive_evidence,curated_literature,PMC/review,Specht 2013 PMC3624519; Andreu 2022 Biomedicines,0.6,"Cell division protein; central bacterial cytokinesis role, direct H. pylori essentiality not asserted here",1,0.55,1
+dnaA,,probable_positive_evidence,curated_literature,PMC/NCBI,Natrajan 2009 PMC2795545; Takeuchi 2001 NCBI Bookshelf,0.58,Replication initiation context; direct H. pylori essentiality not asserted here,1,0.5,1

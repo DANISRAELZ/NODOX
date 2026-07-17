@@ -3,6 +3,8 @@ from __future__ import annotations
 import gzip
 import io
 import json
+import os
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +14,8 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 import pandas as pd
+
+from .online_http import get_ssl_context
 
 
 SOURCE_MODES = {"offline_only", "cache_first", "online_optional"}
@@ -47,8 +51,15 @@ def save_human_essentiality_cache(workspace: Path, config: dict[str, Any], paylo
 
 
 def _request_bytes(url: str, timeout: float, user_agent: str) -> bytes:
+    if (
+        getattr(urlopen, "__module__", "") == "urllib.request"
+        and sys.platform == "win32"
+        and os.environ.get("NODOS_ALLOW_WINDOWS_REAL_HTTPS") != "1"
+    ):
+        raise URLError("windows_real_https_requires_diagnostic_opt_in")
     request = Request(url, headers={"User-Agent": user_agent, "Accept": "text/tab-separated-values,text/plain,*/*"})
-    with urlopen(request, timeout=timeout) as response:
+    context = get_ssl_context() if getattr(urlopen, "__module__", "") == "urllib.request" and sys.platform != "win32" else None
+    with urlopen(request, timeout=timeout, context=context) as response:
         return response.read()
 
 
@@ -77,8 +88,15 @@ def _api_get_bytes(url: str, cfg: dict[str, Any]) -> tuple[bytes | None, list[st
 
 
 def _request_json(url: str, timeout: float, user_agent: str) -> Any:
+    if (
+        getattr(urlopen, "__module__", "") == "urllib.request"
+        and sys.platform == "win32"
+        and os.environ.get("NODOS_ALLOW_WINDOWS_REAL_HTTPS") != "1"
+    ):
+        raise URLError("windows_real_https_requires_diagnostic_opt_in")
     request = Request(url, headers={"User-Agent": user_agent, "Accept": "application/json"})
-    with urlopen(request, timeout=timeout) as response:
+    context = get_ssl_context() if getattr(urlopen, "__module__", "") == "urllib.request" and sys.platform != "win32" else None
+    with urlopen(request, timeout=timeout, context=context) as response:
         return json.loads(response.read().decode("utf-8"))
 
 

@@ -978,6 +978,10 @@ Release-readiness documentation map:
 - [GUI run-review publication validation](docs/gui_run_review_publication_validation.md)
 - [Pre-publication repository audit](docs/pre_publication_repository_audit.md)
 - [AI-use transparency statement](docs/ai_use_transparency_statement.md)
+- [Final public release audit](docs/final_public_release_audit.md)
+- [Sensitive data and secret scan](docs/sensitive_data_and_secret_scan.md)
+- [Core dependency review summary](docs/core_dependency_review_summary.md)
+- [Public release file inclusion review](docs/public_release_file_inclusion_review.md)
 
 Release limitations:
 
@@ -992,3 +996,5 @@ Citation metadata is available in `CITATION.cff`.
 Project code is licensed under Apache License 2.0. Dependency license and security review remain release requirements.
 
 Before any public release or final tag, the pre-publication repository audit must be reviewed. The audit is a publication-safety requirement and does not imply additional biological, clinical or experimental validation.
+
+`v0.1.0-publication` is technically close, but the public tag remains blocked until final human approval. Optional workflow public distribution requires separate dependency review, and the core release can proceed only after accepting or completing core dependency/security and sensitive-data review.

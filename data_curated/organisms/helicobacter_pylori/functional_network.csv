@@ -1,0 +1,12 @@
+gene,protein_id,evidence_status,evidence_source,source_database,reference,confidence,notes,network_centrality,pathway_bottleneck_score,functional_dependency_score,interaction_count,network_source
+ureA,,positive_evidence,curated_literature,PubMed/UniProt,"Stingl 2008 MCP; UniProt P14916; Mobley 2001 NCBI Bookshelf",0.80,"Urease complex component; acid survival/colonization pathway; interacts functionally with urease maturation system",0.75,0.80,0.85,,
+ureB,,positive_evidence,curated_literature,PubMed/UniProt,"Stingl 2008 MCP; UniProt P69996; Mobley 2001 NCBI Bookshelf",0.80,"Urease complex component; acid survival/colonization pathway; interacts functionally with urease maturation system",0.75,0.80,0.85,,
+cagA,,positive_evidence,curated_literature,review/PubMed,"Roesler 2014 PMC4019226; Baj 2020 PMC7824444",0.75,"Major virulence effector linked to host signaling and Cag pathogenicity island",0.65,0.70,0.80,,
+vacA,,positive_evidence,curated_literature,review/UniProt,"UniProt P55981; Baj 2020 PMC7824444",0.72,"Secreted/autotransporter toxin; virulence pathway affecting host epithelium",0.60,0.65,0.75,,
+flaA,,positive_evidence,curated_literature,UniProt/PubMed,"UniProt P0A0S1; Ottemann 2002 PMC127824",0.70,"Flagellar motility module required for colonization",0.60,0.65,0.70,,
+napA,,positive_evidence,curated_literature,PMC,"Fu 2014 PMC4017044; Satin 2000 PMC2213429",0.70,"Inflammatory/immune interaction module; neutrophil activation",0.55,0.60,0.70,,
+gyrA,,probable_positive_evidence,curated_literature,review/PubMed,"Hasanuzzaman 2024 PMC10825452; Lopez-Gasca 2018 PMC5928819",0.62,"DNA topology/replication-associated antibiotic target",0.65,0.65,0.65,,
+gyrB,,probable_positive_evidence,curated_literature,review/PubMed,"Hasanuzzaman 2024 PMC10825452; Lopez-Gasca 2018 PMC5928819",0.62,"DNA topology/replication-associated antibiotic target",0.65,0.65,0.65,,
+rpoB,,probable_positive_evidence,curated_literature,CARD/review,"CARD rpoB H. pylori rifampicin resistance; Hasanuzzaman 2024 PMC10825452",0.60,"RNA polymerase target/resistance relevance",0.60,0.60,0.60,,
+ftsZ,,probable_positive_evidence,curated_literature,PMC/review,"Specht 2013 PMC3624519; Andreu 2022 Biomedicines",0.62,"Cell division/cytokinesis module",0.65,0.65,0.65,,
+dnaA,,probable_positive_evidence,curated_literature,PMC/NCBI,"Natrajan 2009 PMC2795545; Takeuchi 2001 NCBI Bookshelf",0.58,"Replication initiation module",0.60,0.60,0.60,,

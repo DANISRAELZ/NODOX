@@ -1,0 +1,21 @@
+{
+  "provider_name": "VFDB",
+  "provider_url": "http://www.mgc.ac.cn/VFs/Down/VFs.tsv.gz",
+  "query_used": "configured VFDB download endpoint",
+  "organism_label": "Escherichia coli",
+  "taxon_id": 562,
+  "captured_at": "2026-06-22T18:06:10Z",
+  "sanitized_at": "2026-06-22T18:06:10Z",
+  "capture_type": "sanitized_external_capture",
+  "schema_observed": "http_404_no_payload",
+  "record_count": 0,
+  "raw_payload_sanitized": {
+    "provider_error": {
+      "http_status": 404,
+      "error_type": "http_error"
+    }
+  },
+  "interpretation_warning": "The provider returned HTTP 404 during this controlled capture. This must not be interpreted as absence of virulence evidence.",
+  "affects_score": false,
+  "experimental_validation_supported": false
+}

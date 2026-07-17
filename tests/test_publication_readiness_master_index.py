@@ -27,10 +27,15 @@ def test_publication_readiness_master_index_references_readiness_documents() -> 
         "docs/demo_expected_outputs_manifest.md",
         "docs/manuscript_figure_table_specifications.md",
         "docs/v0_1_0_publication_release_decision.md",
+        "docs/final_public_release_audit.md",
+        "docs/sensitive_data_and_secret_scan.md",
+        "docs/core_dependency_review_summary.md",
+        "docs/public_release_file_inclusion_review.md",
         "final demo",
         "manuscript",
         "release tag",
         "software citation",
+        "public tag remains blocked until final human approval",
         "publication-readiness-closure-2026-06-11",
     ]
     for term in required_terms:

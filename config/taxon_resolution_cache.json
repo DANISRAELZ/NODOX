@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at_utc": "2026-05-09T00:21:10.596202+00:00",
+  "updated_at_utc": "2026-07-15T20:05:18.555663+00:00",
   "entries": {
     "corynebacterium pseudotuberculosis::": {
       "cache_key": "corynebacterium pseudotuberculosis::",
@@ -18,8 +18,8 @@
     },
     "mycobacterium tuberculosis::h37rv": {
       "cache_key": "mycobacterium tuberculosis::h37rv",
-      "saved_at_utc": "2026-05-09T00:21:10.596202+00:00",
-      "refresh_count": 109,
+      "saved_at_utc": "2026-07-15T20:05:18.555654+00:00",
+      "refresh_count": 165,
       "result": {
         "organism_input_name": "Mycobacterium tuberculosis",
         "organism_canonical_name": "Mycobacterium tuberculosis",
@@ -150,8 +150,8 @@
     },
     "helicobacter pylori::": {
       "cache_key": "helicobacter pylori::",
-      "saved_at_utc": "2026-04-28T23:43:37.278350+00:00",
-      "refresh_count": 2,
+      "saved_at_utc": "2026-07-15T16:44:32.674884+00:00",
+      "refresh_count": 7,
       "result": {
         "organism_input_name": "Helicobacter pylori",
         "organism_canonical_name": "Helicobacter pylori",
@@ -170,7 +170,7 @@
         "taxon_resolution_status": "online_exact_name_match",
         "taxon_resolution_notes": "Resolucion por API publica NCBI E-utilities usando termino `Helicobacter pylori`.",
         "resolution_confidence": 0.95,
-        "timestamp_utc": "2026-04-28T23:43:37.278350+00:00",
+        "timestamp_utc": "2026-07-15T16:44:32.674778+00:00",
         "organism_slug": "helicobacter_pylori"
       }
     },

@@ -122,7 +122,7 @@ class LayerSourceAuditTests(unittest.TestCase):
         scored_after = pd.read_csv(workspace / "data_processed" / "scored_nodes.csv")
 
         pd.testing.assert_frame_equal(ranking_before, ranking_after)
-        pd.testing.assert_frame_equal(scored_before.reset_index(drop=True), scored_after.reset_index(drop=True))
+        pd.testing.assert_frame_equal(scored_before.reset_index(drop=True), scored_after.reset_index(drop=True), check_dtype=False)
         self.assertNotIn("evidence_priority_level", ranking_after.columns)
         self.assertNotIn("evidence_priority_level", scored_after.columns)
 

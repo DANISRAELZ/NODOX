@@ -1,0 +1,22 @@
+{
+  "provider_name": "DEG",
+  "provider_url": "https://tubic.org/deg/public/index.php?query=562&format=json",
+  "query_used": "query=562&format=json",
+  "organism_label": "Escherichia coli",
+  "taxon_id": 562,
+  "captured_at": "2026-06-22T18:06:10Z",
+  "sanitized_at": "2026-06-22T18:06:10Z",
+  "capture_type": "sanitized_external_capture",
+  "schema_observed": "text_html_instead_of_json",
+  "record_count": 0,
+  "raw_payload_sanitized": {
+    "unparsed_response": {
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": 45297
+    }
+  },
+  "interpretation_warning": "The provider returned HTML rather than the requested JSON schema. This must not be interpreted as absence of essentiality evidence.",
+  "affects_score": false,
+  "experimental_validation_supported": false
+}

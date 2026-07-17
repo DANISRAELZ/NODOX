@@ -100,7 +100,7 @@ Real providers already connected behind `fetch_layer_external_source()`:
 - `virulence` -> `vfdb_real`
 - `localization` -> `uniprot_real`
 - `functional_network` -> `string_real`
-- `human_homologs` -> `uniprot_human_gene_lookup` (partial real lookup)
+- `human_homologs` -> `human_homology_diamond` (sequence-alignment provider; cache-first/offline-safe)
 - `host_annotation` -> `interpro_domain_overlap`
 - `strain_conservation` -> `bvbrc_real`
 
@@ -108,7 +108,7 @@ Hybrid or stub-backed providers:
 
 - `human_homologs` -> `local_reproducible_orthology` when `data_external/human_homologs_orthology.csv` is present
 - `human_homologs` -> `configurable_stub` as explicit fallback when the real lookup is unavailable
-- `human_homologs` -> `uniprot_human_gene_lookup+configurable_stub` when the real lookup resolves only part of the layer
+- `human_homologs` -> `uniprot_human_gene_lookup` only as auxiliary name evidence; name matches do not establish `human_homolog=1`
 - `host_annotation` -> `interpro_api+controlled_host_annotation_v1` when comparable InterPro domains are unavailable
 
 Controlled or curated therapeutic context providers:
@@ -129,7 +129,7 @@ controlled stubs layer by layer without changing the resolver contract.
 
 ## Human Homologs Provider
 
-The `human_homologs` layer now uses a minimal real provider based on UniProt
+The `human_homologs` layer now prioritizes reproducible sequence evidence from DIAMOND
 human gene lookup.
 
 Current behavior:

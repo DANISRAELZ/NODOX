@@ -1,0 +1,23 @@
+{
+  "provider_name": "VFDB",
+  "provider_url": "http://www.mgc.ac.cn/cgi-bin/VFs/v5/main.cgi",
+  "query_used": "manual inspection of the current official VFDB portal and published links",
+  "organism_label": "not_applicable_to_portal_review",
+  "taxon_id": "",
+  "captured_at": "2026-06-22T18:41:57Z",
+  "sanitized_at": "2026-06-22T18:41:57Z",
+  "capture_type": "sanitized_external_capture",
+  "schema_observed": "html_portal_without_verified_programmatic_download_link",
+  "record_count": 0,
+  "raw_payload_sanitized": {
+    "portal_review": {
+      "http_status": 200,
+      "content_type": "text/html",
+      "old_download_status": 404,
+      "stable_programmatic_download_verified": false
+    }
+  },
+  "interpretation_warning": "The official portal is reachable but no stable programmatic download was verified. No alternative URL may be inferred, and this is not evidence of absence of virulence records.",
+  "affects_score": false,
+  "experimental_validation_supported": false
+}

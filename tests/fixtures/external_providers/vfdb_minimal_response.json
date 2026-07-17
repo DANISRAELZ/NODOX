@@ -1,0 +1,10 @@
+{
+  "results": [
+    {
+      "vfdb_id": "VFG000001",
+      "gene": "toxA",
+      "protein_id": "VFDB:P00001",
+      "virulence_factor": "fixture virulence factor annotation"
+    }
+  ]
+}

@@ -1,5 +1,10 @@
 # Human homologs - proveedor UniProt hibrido
 
+> Nota de estado: esta pagina describe la fase previa. La capa vigente usa
+> DIAMOND como proveedor primario de evidencia de secuencia; las coincidencias
+> UniProt por nombre o simbolo se conservan solo como evidencia auxiliar no
+> concluyente y no producen por si solas `human_homolog=1`.
+
 ## Proposito cientifico
 
 La capa `human_homologs` ayuda a estimar riesgo de similitud con el hospedero.

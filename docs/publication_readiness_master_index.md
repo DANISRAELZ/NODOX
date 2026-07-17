@@ -16,6 +16,10 @@ This master index links the closure documents for the minimum publication-ready 
 - Demo expected outputs manifest: `docs/demo_expected_outputs_manifest.md`
 - Manuscript figure/table specifications: `docs/manuscript_figure_table_specifications.md`
 - v0.1.0 publication release decision: `docs/v0_1_0_publication_release_decision.md`
+- Final public release audit: `docs/final_public_release_audit.md`
+- Sensitive data and secret scan: `docs/sensitive_data_and_secret_scan.md`
+- Core dependency review summary: `docs/core_dependency_review_summary.md`
+- Public release file inclusion review: `docs/public_release_file_inclusion_review.md`
 
 ## Remaining Path To Final Demo
 
@@ -46,6 +50,8 @@ publication-readiness-closure-2026-06-11
 Do not create tags until explicitly instructed.
 
 The release decision document records that the project is ready for final human approval review, with dependency license/security review, optional final manual demo run and optional manuscript figure generation still pending.
+
+The final public release audit documents that `v0.1.0-publication` is technically close, but the public tag remains blocked until final human approval. Optional workflow public distribution requires separate dependency review, and the core release can proceed only after accepting or completing core dependency/security and sensitive-data review.
 
 ## Remaining Path To Software Citation
 

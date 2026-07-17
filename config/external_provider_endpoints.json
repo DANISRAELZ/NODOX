@@ -1,0 +1,64 @@
+{
+  "endpoint_spec_version": "7H-2026-06-22",
+  "providers": {
+    "VFDB": {
+      "provider_name": "VFDB",
+      "base_url": "http://www.mgc.ac.cn/VFs/Down",
+      "query_url_template": "http://www.mgc.ac.cn/cgi-bin/VFs/v5/main.cgi",
+      "expected_format": "manual_download_or_fasta",
+      "method": "GET",
+      "required_parameters": [],
+      "optional_parameters": [],
+      "stable_download_url": null,
+      "documentation_url": "http://www.mgc.ac.cn/cgi-bin/VFs/v5/main.cgi",
+      "last_verified_at": "2026-06-22T18:41:57Z",
+      "endpoint_status": "requires_manual_download",
+      "notes": "The old VFs.tsv.gz path returned HTTP 404. The current official portal responded, but manual inspection did not expose a verifiable stable programmatic download URL.",
+      "recommendation": "Use the official portal for a manually reviewed download and licensing check. Do not construct or guess an alternative URL.",
+      "interpretation_warning": "Endpoint failure or HTTP 404 must not be interpreted as absence of virulence evidence.",
+      "affects_score": false
+    },
+    "DEG": {
+      "provider_name": "DEG",
+      "base_url": "https://tubic.org/deg/public/index.php",
+      "query_url_template": "https://tubic.org/deg/public/download/deg_annotation_p.csv.zip",
+      "expected_format": "zip_semicolon_delimited_csv",
+      "method": "GET",
+      "required_parameters": [],
+      "optional_parameters": [],
+      "stable_download_url": "https://tubic.org/deg/public/download/deg_annotation_p.csv.zip",
+      "documentation_url": "https://tubic.org/deg/public/index.php/download",
+      "last_verified_at": "2026-06-22T18:41:57Z",
+      "endpoint_status": "requires_format_adapter",
+      "notes": "The JSON-style query remains invalid because it returns HTML. The official download page publishes a non-empty ZIP containing deg_annotation_p.csv with semicolon-delimited protein records.",
+      "recommendation": "Implement and test an explicit ZIP plus semicolon-delimited CSV adapter before feeding records into Phase 7E.",
+      "interpretation_warning": "HTML or unresolved format responses must not be interpreted as absence of essentiality evidence.",
+      "affects_score": false
+    },
+    "BV-BRC": {
+      "provider_name": "BV-BRC",
+      "base_url": "https://www.bv-brc.org/api",
+      "query_url_template": "https://www.bv-brc.org/api/genome_feature/?eq(genome_id,{genome_id})&limit({limit})",
+      "discovery_url_template": "https://www.bv-brc.org/api/genome/?eq(taxon_id,{taxon_id})&limit({limit})",
+      "expected_format": "application_json",
+      "method": "GET",
+      "required_parameters": [
+        "taxon_id",
+        "genome_id"
+      ],
+      "optional_parameters": [
+        "limit",
+        "select",
+        "Accept: application/json"
+      ],
+      "stable_download_url": null,
+      "documentation_url": "https://www.bv-brc.org/docs/",
+      "last_verified_at": "2026-06-22T18:41:57Z",
+      "endpoint_status": "verified_structured_payload",
+      "notes": "The genome endpoint resolved taxon_id 562 to real genome_id 562.6961. The genome_feature endpoint returned HTTP 200 application/json with two explicit CDS records.",
+      "recommendation": "Resolve a genome_id through the genome endpoint, request genome_feature with Accept application/json, and retain both queries in provenance.",
+      "interpretation_warning": "A valid empty response is query-limited and must not be interpreted as absence of genomic or resistance evidence.",
+      "affects_score": false
+    }
+  }
+}

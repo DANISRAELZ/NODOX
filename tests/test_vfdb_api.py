@@ -6,7 +6,7 @@ import unittest
 import uuid
 from pathlib import Path
 from unittest.mock import patch
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -18,11 +18,23 @@ pytestmark = pytest.mark.online
 
 
 class FakeResponse:
-    def __init__(self, payload):
+    def __init__(self, payload, content_type: str = "application/json"):
         self._payload = payload
+        self._content_type = content_type
+        self.status = 200
 
     def read(self) -> bytes:
+        if isinstance(self._payload, bytes):
+            return self._payload
+        if isinstance(self._payload, str):
+            return self._payload.encode("utf-8")
         return json.dumps(self._payload).encode("utf-8")
+
+    def getheader(self, name: str, default: str = "") -> str:
+        return self._content_type if name.lower() == "content-type" else default
+
+    def geturl(self) -> str:
+        return "http://example.test/provider"
 
     def __enter__(self) -> "FakeResponse":
         return self
@@ -70,6 +82,44 @@ class VfdbApiTests(unittest.TestCase):
             result = fetch_vfdb_virulence(workspace, "Pseudomonas aeruginosa", "287", config, "cache_first")
         self.assertFalse(result["manifest"]["api_success"])
         self.assertTrue(result["virulence_data"].empty)
+        self.assertFalse(result["manifest"]["affects_score"])
+
+    def test_html_or_changed_endpoint_does_not_infer_virulence(self) -> None:
+        workspace = self.make_workspace("vfdb_html")
+        config = load_config(workspace / "config" / "params.yaml")
+        html = "<html><body>VFDB portal changed</body></html>"
+        with patch("src.nodos_funcionales.vfdb_api.urlopen", return_value=FakeResponse(html, "text/html")):
+            result = fetch_vfdb_virulence(workspace, "Pseudomonas aeruginosa", "287", config, "online_optional")
+        manifest = result["manifest"]
+        self.assertTrue(result["virulence_data"].empty)
+        self.assertFalse(manifest["api_success"])
+        self.assertEqual(manifest["retrieval_status"], "deprecated_or_changed")
+        self.assertEqual(manifest["payload_type"], "html")
+        self.assertFalse(manifest["affects_score"])
+
+    def test_unexpected_payload_does_not_infer_virulence(self) -> None:
+        workspace = self.make_workspace("vfdb_unexpected")
+        config = load_config(workspace / "config" / "params.yaml")
+        with patch("src.nodos_funcionales.vfdb_api.urlopen", return_value=FakeResponse("free text", "text/plain")):
+            result = fetch_vfdb_virulence(workspace, "Pseudomonas aeruginosa", "287", config, "online_optional")
+        manifest = result["manifest"]
+        self.assertTrue(result["virulence_data"].empty)
+        self.assertFalse(manifest["api_success"])
+        self.assertEqual(manifest["retrieval_status"], "deprecated_or_changed")
+        self.assertEqual(manifest["payload_type"], "unexpected_text")
+        self.assertFalse(manifest["affects_score"])
+
+    def test_http_404_is_not_found_without_virulence_evidence(self) -> None:
+        workspace = self.make_workspace("vfdb_404")
+        config = load_config(workspace / "config" / "params.yaml")
+        error = HTTPError("http://example.test/vfdb", 404, "not found", {}, None)
+        with patch("src.nodos_funcionales.vfdb_api.urlopen", side_effect=error):
+            result = fetch_vfdb_virulence(workspace, "Pseudomonas aeruginosa", "287", config, "online_optional")
+        manifest = result["manifest"]
+        self.assertTrue(result["virulence_data"].empty)
+        self.assertFalse(manifest["api_success"])
+        self.assertEqual(manifest["retrieval_status"], "not_found")
+        self.assertFalse(manifest["affects_score"])
 
     def test_offline_mode_without_cache_raises(self) -> None:
         workspace = self.make_workspace("vfdb_offline")

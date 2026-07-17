@@ -7,14 +7,14 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
 import pandas as pd
 
 from .online.provider_modes import normalize_provider_mode
 from .online.provenance import provider_provenance
+from .provider_response_audit import ProviderResponse, request_provider_payload, response_audit_fields
 
 
 STRING_SOURCE_MODES = {"offline_only", "cache_first", "online_optional", "local", "auto", "api_stub"}
@@ -86,13 +86,11 @@ def _safe_json_loads(raw_bytes: bytes) -> Any:
         raise ValueError(f"Respuesta JSON invalida de STRING: {exc}") from exc
 
 
-def _request_json(url: str, timeout: float, user_agent: str) -> Any:
-    request = Request(url, headers={"User-Agent": user_agent})
-    with urlopen(request, timeout=timeout) as response:
-        return _safe_json_loads(response.read())
+def _request_json(url: str, timeout: float, user_agent: str) -> ProviderResponse:
+    return request_provider_payload(url, timeout=timeout, user_agent=user_agent, accept="application/json", opener=urlopen)
 
 
-def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str]]:
+def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str], ProviderResponse | None]:
     timeout = float(cfg["provider_timeout_seconds"])
     user_agent = str(cfg["provider_user_agent"])
     retries = int(cfg["provider_max_retries"])
@@ -100,24 +98,45 @@ def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str]]
     errors: list[str] = []
 
     for attempt in range(retries + 1):
-        try:
-            return _request_json(url, timeout=timeout, user_agent=user_agent), errors
-        except HTTPError as exc:
-            errors.append(f"HTTP {exc.code} en STRING")
-            if exc.code == 429 and attempt < retries:
-                time.sleep(backoff)
-                continue
-            break
-        except URLError as exc:
-            errors.append(f"Error de red en STRING: {exc.reason}")
-            break
-        except TimeoutError:
-            errors.append("Timeout en STRING")
-            break
-        except ValueError as exc:
-            errors.append(str(exc))
-            break
-    return None, errors
+        response = _request_json(url, timeout=timeout, user_agent=user_agent)
+        if response.error_status == "" and response.payload_type == "json":
+            return response.payload, errors, response
+        reason = response.rejection_reason or response.error_status or f"unexpected_payload_type:{response.payload_type}"
+        errors.append(reason)
+        if response.http_status == 429 and attempt < retries:
+            time.sleep(backoff)
+            continue
+        return None, errors, response
+    return None, errors, None
+
+
+def _string_retrieval_status(response: ProviderResponse | None, payload: Any) -> str:
+    if response is None:
+        return "unresolved"
+    if response.error_status == "ssl_error":
+        return "ssl_error"
+    if response.error_status == "not_found":
+        return "not_found"
+    if response.error_status:
+        return "network_error" if response.payload_type == "network_error" else response.error_status
+    if response.payload_type != "json":
+        return "invalid_payload"
+    if isinstance(payload, list):
+        return "connected_structured_payload"
+    return "invalid_payload"
+
+
+def _string_audit(response: ProviderResponse | None, url: str) -> dict[str, Any]:
+    if response is None:
+        return {
+            "provider_url": url,
+            "http_status": "",
+            "content_type": "",
+            "payload_type": "unresolved",
+            "rejection_reason": "no_response",
+            "affects_score": False,
+        }
+    return response_audit_fields(response, affects_score=False)
 
 
 def _get_candidate_proteins(workspace: Path) -> pd.DataFrame:
@@ -644,7 +663,7 @@ def fetch_string_functional_network(
         raise ValueError("Se requiere taxon_id para consultar STRING de forma reproducible.")
 
     id_url = _build_string_id_url(proteins, taxon_id, cfg)
-    mapping_payload, mapping_errors = _api_get_json(id_url, cfg)
+    mapping_payload, mapping_errors, mapping_response = _api_get_json(id_url, cfg)
     mappings = _extract_string_mappings(mapping_payload)
     notes = mapping_errors[:]
     api_success = mapping_payload is not None and not mappings.empty
@@ -691,10 +710,12 @@ def fetch_string_functional_network(
                 "manifest_path": manifest_path,
                 "report_path": report_path,
             }
-        raise ValueError("STRING no devolvió mappings utilizables para las proteínas del workspace.")
+        status = _string_retrieval_status(mapping_response, mapping_payload)
+        reason = "; ".join(notes) or "STRING no devolvio mappings utilizables para las proteinas del workspace."
+        raise ValueError(f"{status}: {reason}")
 
     network_url = _build_network_url(mappings["string_id"].dropna().astype(str).tolist(), taxon_id, cfg)
-    edge_payload, edge_errors = _api_get_json(network_url, cfg)
+    edge_payload, edge_errors, edge_response = _api_get_json(network_url, cfg)
     notes.extend(edge_errors)
     if edge_payload is None and normalized_mode == "online_optional" and cache["entries"].get(cache_key):
         cached_entry = cache["entries"][cache_key]
@@ -739,6 +760,8 @@ def fetch_string_functional_network(
     edges = _extract_edges(edge_payload)
     if edges.empty:
         notes.append("STRING no devolvió aristas para el conjunto consultado; se generará una red vacía pero compatible.")
+    retrieval_status = _string_retrieval_status(edge_response, edge_payload)
+    audit = _string_audit(edge_response, network_url)
     derived = _derive_functional_network(
         proteins=proteins,
         mappings=mappings,
@@ -788,6 +811,7 @@ def fetch_string_functional_network(
         "degraded_mapping_count": degraded_mapping_count,
         "edge_count": int(len(edges)),
         "source_used": "api_real",
+        "retrieval_status": retrieval_status,
         "cache_hit": False,
         "api_attempted": True,
         "api_success": bool(edge_payload is not None),
@@ -800,6 +824,12 @@ def fetch_string_functional_network(
         "provenance_summary": (
             f"provider={cfg['provider_name']}; source_used=api_real; cache_hit=False; api_success={edge_payload is not None}"
         ),
+        "id_query_url": id_url,
+        "network_query_url": network_url,
+        "parser_used": "string_json_list_parser",
+        "blocks_ranking": False,
+        "evidence_inferred": bool(edge_payload is not None),
+        **audit,
     }
     manifest.update(
         provider_provenance(
@@ -812,6 +842,7 @@ def fetch_string_functional_network(
             incomplete=edge_payload is None or mappings.empty,
         )
     )
+    manifest["retrieval_status"] = retrieval_status
 
     if not no_write_cache:
         cache["entries"][cache_key] = {

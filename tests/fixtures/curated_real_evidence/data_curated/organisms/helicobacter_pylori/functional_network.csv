@@ -1,0 +1,11 @@
+gene,protein_id,evidence_status,evidence_source,source_database,reference,confidence,notes,network_centrality,pathway_bottleneck_score,functional_dependency_score,interaction_count,network_source
+ureA,HP_UREA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.85,fixture only not experimental validation,0.70,0.68,0.72,12,curated_fixture_network
+ureB,HP_UREB,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.85,fixture only not experimental validation,0.72,0.70,0.74,12,curated_fixture_network
+vacA,HP_VACA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.75,fixture only not experimental validation,0.62,0.55,0.58,8,curated_fixture_network
+cagA,HP_CAGA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.75,fixture only not experimental validation,0.64,0.58,0.60,8,curated_fixture_network
+flaA,HP_FLAA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.70,fixture only not experimental validation,0.55,0.52,0.56,7,curated_fixture_network
+napA,HP_NAPA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.70,fixture only not experimental validation,0.52,0.50,0.54,6,curated_fixture_network
+gyrA,HP_GYRA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.80,fixture only not experimental validation,0.75,0.76,0.78,15,curated_fixture_network
+rpoB,HP_RPOB,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.80,fixture only not experimental validation,0.76,0.75,0.78,15,curated_fixture_network
+ftsZ,HP_FTSZ,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.80,fixture only not experimental validation,0.74,0.72,0.76,14,curated_fixture_network
+dnaA,HP_DNAA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.78,fixture only not experimental validation,0.70,0.70,0.74,13,curated_fixture_network

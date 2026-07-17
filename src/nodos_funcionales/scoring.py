@@ -8,11 +8,13 @@ import pandas as pd
 
 from .collateral_sensitivity import compute_collateral_sensitivity_features
 from .contextual_essentiality import compute_contextual_essentiality_features
+from .curated_real_evidence import apply_curated_real_evidence
 from .evidence_quality import compute_evidence_quality_features
 from .evolutionary_escape import compute_evolutionary_escape_features
 from .evolutionary_escape_risk import compute_evolutionary_escape_risk_features
 from .functional_node_theory import compute_functional_node_theory_score
 from .layer_registry import TARGET_LAYER_KEYS
+from .organism_metadata import apply_organism_metadata, load_organism_metadata
 from .phase3_evidence import apply_phase3_evidence_audit
 from .redundancy_analysis import compute_redundancy_features
 from .scoring_components import (
@@ -119,6 +121,13 @@ HOST_RISK_AUDIT_COLUMNS = [
 ]
 
 HUMAN_HOMOLOGY_AUDIT_COLUMNS = [
+    "evalue",
+    "human_hit_id",
+    "human_hit_name",
+    "percent_identity",
+    "query_coverage",
+    "subject_coverage",
+    "bit_score",
     "homology_lookup_status",
     "homology_query_strategy",
     "homology_evidence_tier",
@@ -126,6 +135,13 @@ HUMAN_HOMOLOGY_AUDIT_COLUMNS = [
     "homology_missing_flags",
     "human_uniprot_accession",
     "human_uniprot_id",
+    "orthology_tool",
+    "orthology_version",
+    "orthology_reference",
+    "orthology_query_coverage",
+    "orthology_subject_coverage",
+    "orthology_percent_identity",
+    "orthology_bitscore",
     "human_homology_audit_summary",
 ]
 
@@ -818,6 +834,7 @@ def _initialize_phase3_columns(features: pd.DataFrame) -> None:
 def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
     processed_dir = base_dir / "data_processed"
     integrated = pd.read_csv(processed_dir / "integrated_nodes.csv")
+    integrated = apply_curated_real_evidence(base_dir, integrated, config)
     features = integrated.copy()
     validate_scoring_inputs(features)
 
@@ -1137,10 +1154,11 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
         "uniprot_protein_name",
         pd.Series(["not_reported"] * len(features), index=features.index),
     ).fillna("not_reported")
-    if "organism" not in features.columns:
-        features["organism"] = "not_reported"
-    if "strain" not in features.columns:
-        features["strain"] = "not_reported"
+    features = apply_organism_metadata(
+        features,
+        load_organism_metadata(base_dir),
+        overwrite_not_reported=True,
+    )
     features["selectivity_score"] = _clamp(features["host_safety_score"])
     features["clinical_context_score"] = _clamp(
         0.40 * features["infection_context_score"]
@@ -1323,6 +1341,7 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
         "product",
         "organism",
         "strain",
+        "taxon_id",
         "gene_symbol_normalized",
         "legacy_score_final",
         "antibiotic_target_score",
@@ -1437,6 +1456,14 @@ def build_features_and_scores(base_dir: Path, config: dict) -> tuple[pd.DataFram
         "optional_data_quality_score",
         "optional_data_source_summary",
         "data_realism_flag",
+        "curated_evidence_layers",
+        "curated_evidence_references",
+        "curated_evidence_notes",
+        "curated_evidence_confidence",
+        "curated_real_evidence_layer_count",
+        "curated_evidence_missing_layers",
+        "curated_evidence_conflict_flags",
+        "curated_evidence_summary",
         "candidate_audit_summary",
         "host_risk_audit_summary",
     ]

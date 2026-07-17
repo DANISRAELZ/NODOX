@@ -6,7 +6,7 @@ import unittest
 import uuid
 from pathlib import Path
 from unittest.mock import patch
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -18,11 +18,21 @@ pytestmark = pytest.mark.online
 
 
 class FakeResponse:
-    def __init__(self, payload):
+    def __init__(self, payload, content_type: str = "application/json"):
         self._payload = payload
+        self._content_type = content_type
+        self.status = 200
 
     def read(self) -> bytes:
+        if isinstance(self._payload, str):
+            return self._payload.encode("utf-8")
         return json.dumps(self._payload).encode("utf-8")
+
+    def getheader(self, name: str, default: str = "") -> str:
+        return self._content_type if name.lower() == "content-type" else default
+
+    def geturl(self) -> str:
+        return "https://example.test/bvbrc"
 
     def __enter__(self) -> "FakeResponse":
         return self
@@ -81,6 +91,54 @@ class BvbrcApiTests(unittest.TestCase):
             result = fetch_bvbrc_strain_conservation(workspace, "Pseudomonas aeruginosa", "287", config, "cache_first")
         self.assertFalse(result["manifest"]["api_success"])
         self.assertTrue(result["strain_conservation_data"].empty)
+        self.assertFalse(result["manifest"]["affects_score"])
+
+    def test_empty_payload_is_verified_empty_not_negative_evidence(self) -> None:
+        workspace = self.make_workspace("bvbrc_empty")
+        config = load_config(workspace / "config" / "params.yaml")
+        with patch("src.nodos_funcionales.bvbrc_api.urlopen", return_value=FakeResponse([])):
+            result = fetch_bvbrc_strain_conservation(workspace, "Pseudomonas aeruginosa", "287", config, "online_optional")
+        manifest = result["manifest"]
+        self.assertTrue(result["strain_conservation_data"].empty)
+        self.assertTrue(manifest["api_success"])
+        self.assertEqual(manifest["retrieval_status"], "verified_empty_payload")
+        self.assertEqual(manifest["payload_type"], "json")
+        self.assertFalse(manifest["affects_score"])
+
+    def test_auth_error_is_non_blocking_provider_status(self) -> None:
+        workspace = self.make_workspace("bvbrc_auth")
+        config = load_config(workspace / "config" / "params.yaml")
+        error = HTTPError("https://example.test/bvbrc", 403, "forbidden", {}, None)
+        with patch("src.nodos_funcionales.bvbrc_api.urlopen", side_effect=error):
+            result = fetch_bvbrc_strain_conservation(workspace, "Pseudomonas aeruginosa", "287", config, "online_optional")
+        manifest = result["manifest"]
+        self.assertTrue(result["strain_conservation_data"].empty)
+        self.assertFalse(manifest["api_success"])
+        self.assertEqual(manifest["retrieval_status"], "auth_or_permission_error")
+        self.assertFalse(manifest["affects_score"])
+
+    def test_404_is_not_found_without_negative_evidence(self) -> None:
+        workspace = self.make_workspace("bvbrc_404")
+        config = load_config(workspace / "config" / "params.yaml")
+        error = HTTPError("https://example.test/bvbrc", 404, "not found", {}, None)
+        with patch("src.nodos_funcionales.bvbrc_api.urlopen", side_effect=error):
+            result = fetch_bvbrc_strain_conservation(workspace, "Pseudomonas aeruginosa", "287", config, "online_optional")
+        manifest = result["manifest"]
+        self.assertTrue(result["strain_conservation_data"].empty)
+        self.assertFalse(manifest["api_success"])
+        self.assertEqual(manifest["retrieval_status"], "not_found")
+        self.assertFalse(manifest["affects_score"])
+
+    def test_invalid_payload_is_unresolved_without_negative_evidence(self) -> None:
+        workspace = self.make_workspace("bvbrc_invalid")
+        config = load_config(workspace / "config" / "params.yaml")
+        with patch("src.nodos_funcionales.bvbrc_api.urlopen", return_value=FakeResponse("free text", "text/plain")):
+            result = fetch_bvbrc_strain_conservation(workspace, "Pseudomonas aeruginosa", "287", config, "online_optional")
+        manifest = result["manifest"]
+        self.assertTrue(result["strain_conservation_data"].empty)
+        self.assertFalse(manifest["api_success"])
+        self.assertEqual(manifest["retrieval_status"], "unresolved")
+        self.assertFalse(manifest["affects_score"])
 
     def test_offline_mode_without_cache_raises(self) -> None:
         workspace = self.make_workspace("bvbrc_offline")

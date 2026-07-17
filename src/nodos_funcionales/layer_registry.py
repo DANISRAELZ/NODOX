@@ -21,7 +21,7 @@ _DATASET_REQUIRED = {spec.table_key: spec.required for spec in DATASET_SPECS}
 DEFAULT_EXTERNAL_PROVIDERS = {
     "essentiality": "curated_online_examples",
     "virulence": "curated_online_examples",
-    "human_homologs": "uniprot_human_gene_lookup",
+    "human_homologs": "human_homology_diamond",
     "localization": "curated_online_examples",
     "host_annotation": "interpro_domain_overlap",
     "strain_conservation": "bvbrc_real",

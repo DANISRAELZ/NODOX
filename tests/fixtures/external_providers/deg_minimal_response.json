@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "deg_id": "DEG0001",
+      "gene": "dnaA",
+      "protein_id": "DEG:P0001",
+      "evidence": "fixture external essentiality record"
+    }
+  ]
+}

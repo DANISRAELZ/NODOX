@@ -8,6 +8,9 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from .online_http import get_ssl_context
+from .provider_response_audit import request_provider_payload
+
 
 def _now_utc() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -21,9 +24,14 @@ def _safe_json_loads(raw_bytes: bytes) -> dict[str, Any]:
 
 
 def _request_json(url: str, timeout: float, user_agent: str) -> dict[str, Any]:
-    request = Request(url, headers={"User-Agent": user_agent})
-    with urlopen(request, timeout=timeout) as response:
-        return _safe_json_loads(response.read())
+    response = request_provider_payload(url, timeout=timeout, user_agent=user_agent, accept="application/json", opener=urlopen)
+    if response.error_status == "" and response.payload_type == "json":
+        return response.payload
+    if response.payload_type == "network_error":
+        raise URLError(response.rejection_reason)
+    if response.payload_type == "timeout":
+        raise TimeoutError(response.rejection_reason)
+    raise ValueError(response.rejection_reason or response.error_status or f"unexpected_payload_type:{response.payload_type}")
 
 
 def _candidate_name(summary: dict[str, Any]) -> str:

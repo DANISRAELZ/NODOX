@@ -11,8 +11,10 @@ from urllib.request import Request, urlopen
 
 import pandas as pd
 
+from .online_http import get_ssl_context
 from .online.provider_modes import accepted_provider_modes, normalize_provider_mode
 from .online.provenance import provider_provenance
+from .provider_response_audit import request_provider_payload
 
 UNIPROT_SOURCE_MODES = {"offline_only", "cache_first", "online_optional", "local", "auto", "api_stub"}
 
@@ -67,9 +69,10 @@ def invalidate_uniprot_cache_entries_for_protein(workspace: Path, config: dict[s
 
 
 def _request_json(url: str, timeout: float, user_agent: str) -> Any:
-    request = Request(url, headers={"User-Agent": user_agent})
-    with urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
+    response = request_provider_payload(url, timeout=timeout, user_agent=user_agent, accept="application/json", opener=urlopen)
+    if response.error_status == "" and response.payload_type == "json":
+        return response.payload
+    raise ValueError(response.rejection_reason or response.error_status or f"unexpected_payload_type:{response.payload_type}")
 
 
 def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str]]:
@@ -79,23 +82,17 @@ def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str]]
     backoff = float(cfg["provider_backoff_seconds"])
     errors: list[str] = []
     for attempt in range(retries + 1):
-        try:
-            return _request_json(url, timeout=timeout, user_agent=user_agent), errors
-        except HTTPError as exc:
-            errors.append(f"HTTP {exc.code} en UniProt")
-            if exc.code == 429 and attempt < retries:
-                time.sleep(backoff)
-                continue
+        response = request_provider_payload(url, timeout=timeout, user_agent=user_agent, accept="application/json", opener=urlopen)
+        if response.error_status == "" and response.payload_type == "json":
+            return response.payload, errors
+        errors.append(response.rejection_reason or response.error_status or f"unexpected_payload_type:{response.payload_type}")
+        if response.http_status == 429 and attempt < retries:
+            time.sleep(backoff)
+            continue
+        if response.payload_type == "undecodable":
+            errors.append("Respuesta JSON invalida de UniProt")
             break
-        except URLError as exc:
-            errors.append(f"Error de red en UniProt: {exc.reason}")
-            break
-        except TimeoutError:
-            errors.append("Timeout en UniProt")
-            break
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            errors.append(f"Respuesta JSON invalida de UniProt: {exc}")
-            break
+        break
     return None, errors
 
 

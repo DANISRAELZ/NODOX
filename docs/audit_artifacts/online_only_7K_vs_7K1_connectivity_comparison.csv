@@ -1,0 +1,4 @@
+organism,taxon_id,run_7k_candidate_seed_count,run_7k_ranking_allowed,diagnostic_7k1_candidate_seed_status,diagnostic_7k1_candidate_seed_contract,run_7k_ssl_error_providers,run_7k_network_error_providers,run_7k_structured_evidence_providers,run_7k1_executed,run_7k1_candidate_seed_count,run_7k1_ranking_allowed,persistent_limitation
+Pseudomonas aeruginosa,287,0,False,openssl_applink_error,false,UniProt;STRING;InterPro,Europe PMC;Taxonomy;Human essentiality,,false,not_run,not_run,openssl_applink_error
+Escherichia coli,562,0,False,openssl_applink_error,false,UniProt;STRING;InterPro,Europe PMC;Taxonomy;Human essentiality,,false,not_run,not_run,openssl_applink_error
+Mycobacterium tuberculosis,1773,0,False,openssl_applink_error,false,UniProt;STRING;InterPro,Europe PMC;Taxonomy;Human essentiality,,false,not_run,not_run,openssl_applink_error

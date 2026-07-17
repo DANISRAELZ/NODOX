@@ -1,0 +1,29 @@
+{
+  "pseudomonas_aeruginosa": {
+    "organism": "Pseudomonas aeruginosa",
+    "organism_slug": "pseudomonas_aeruginosa",
+    "taxon_id": 287
+  },
+  "escherichia_coli": {
+    "organism": "Escherichia coli",
+    "organism_slug": "escherichia_coli",
+    "taxon_id": 562
+  },
+  "mycobacterium_tuberculosis": {
+    "organism": "Mycobacterium tuberculosis",
+    "organism_slug": "mycobacterium_tuberculosis",
+    "taxon_id": 1773
+  },
+  "mycobacterium_tuberculosis_h37rv": {
+    "organism": "Mycobacterium tuberculosis",
+    "organism_slug": "mycobacterium_tuberculosis",
+    "strain": "H37Rv",
+    "strain_slug": "h37rv",
+    "taxon_id": 83332
+  },
+  "helicobacter_pylori": {
+    "organism": "Helicobacter pylori",
+    "organism_slug": "helicobacter_pylori",
+    "taxon_id": 210
+  }
+}

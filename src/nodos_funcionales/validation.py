@@ -493,7 +493,7 @@ SCHEMAS: dict[str, Schema] = {
 
 DATASET_SPECS: list[DatasetSpec] = [
     DatasetSpec(filename="essentiality.csv", table_key="essentiality", required=True),
-    DatasetSpec(filename="virulence.csv", table_key="virulence", required=True),
+    DatasetSpec(filename="virulence.csv", table_key="virulence", required=False),
     DatasetSpec(filename="human_homologs.csv", table_key="human_homologs", required=True),
     DatasetSpec(filename="localization.csv", table_key="localization", required=True),
     DatasetSpec(filename="strain_conservation.csv", table_key="strain_conservation", required=False),

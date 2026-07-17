@@ -5,7 +5,12 @@ from pathlib import Path
 
 import pandas as pd
 
+from .functional_node_theory import (
+    build_functional_node_theory_audit,
+    compute_functional_node_theory_score,
+)
 from .organism_profile import write_organism_profile_validation
+from .organism_metadata import apply_organism_metadata, load_organism_metadata
 from .provenance_user_summary import write_provenance_user_summary
 from .ranking_snapshots import write_ranking_snapshot_outputs
 from .user_explanations import (
@@ -51,6 +56,13 @@ HOST_RISK_REPORT_COLUMNS = [
 
 HUMAN_HOMOLOGY_REPORT_COLUMNS = [
     "human_homology_audit_summary",
+    "evalue",
+    "human_hit_id",
+    "human_hit_name",
+    "percent_identity",
+    "query_coverage",
+    "subject_coverage",
+    "bit_score",
     "homology_lookup_status",
     "homology_query_strategy",
     "homology_evidence_tier",
@@ -58,6 +70,13 @@ HUMAN_HOMOLOGY_REPORT_COLUMNS = [
     "homology_missing_flags",
     "human_uniprot_accession",
     "human_uniprot_id",
+    "orthology_tool",
+    "orthology_version",
+    "orthology_reference",
+    "orthology_query_coverage",
+    "orthology_subject_coverage",
+    "orthology_percent_identity",
+    "orthology_bitscore",
 ]
 
 THERAPY_SITE_CONTEXT_REPORT_COLUMNS = [
@@ -113,6 +132,65 @@ THERAPEUTIC_PRIORITY_CONTRIBUTION_COLUMNS = [
     "therapeutic_priority_infection_context_score_contribution",
 ]
 
+GENE_COLLAPSE_COLUMNS = [
+    "gene",
+    "gene_name",
+    "gene_symbol",
+    "preferred_gene_name",
+    "locus_tag",
+    "target_gene",
+    "node_name",
+    "protein_name",
+    "protein_id",
+]
+
+RANKING_BY_GENE_SCORE_COLUMNS = [
+    "meta_priority_score",
+    "therapeutic_priority_score",
+    "priority_score",
+    "score",
+    "functional_node_theory_score",
+]
+
+FUNCTIONAL_NODE_RANKING_COLUMNS = [
+    "protein_id",
+    "gene",
+    "organism",
+    "taxon_id",
+    "strain",
+    "product",
+    "functional_node_theory_score",
+    "functional_node_theory_confidence",
+    "functional_node_theory_label",
+    "functional_node_therapeutic_exploitability_score",
+    "meets_minimum_functional_node_evidence",
+    "functional_impact_component",
+    "dependency_component",
+    "redundancy_constraint_component",
+    "context_component",
+    "host_safety_component",
+    "evidence_quality_component",
+    "therapeutic_priority_score",
+    "meta_priority_score",
+    "meta_priority_score_v3",
+    "therapeutic_role_v3",
+    "phase3_recommendation",
+    "functional_node_score",
+    "evidence_level",
+    "data_realism_flag",
+    "source_used",
+    "retrieval_status",
+    "curated_evidence_layers",
+    "curated_evidence_references",
+    "curated_evidence_notes",
+    "curated_evidence_missing_layers",
+    "curated_evidence_conflict_flags",
+    "curated_evidence_summary",
+    "audit_flags",
+    "missing_evidence_flags",
+    "interpretation",
+]
+
 
 def _display_df(df: pd.DataFrame) -> pd.DataFrame:
     display = df.copy()
@@ -122,6 +200,108 @@ def _display_df(df: pd.DataFrame) -> pd.DataFrame:
     if len(float_columns):
         display[float_columns] = display[float_columns].round(4)
     return display
+
+
+def export_ranking_by_gene(ranking: pd.DataFrame, out_path: Path) -> pd.DataFrame:
+    """Export a one-row-per-gene view without changing the original ranking."""
+    gene_column = _first_existing_column(ranking, GENE_COLLAPSE_COLUMNS)
+    score_column = _first_existing_column(ranking, RANKING_BY_GENE_SCORE_COLUMNS)
+    if score_column is None:
+        raise ValueError(
+            "Cannot export ranking_nodos_by_gene.csv: no supported score column found. "
+            f"Expected one of: {', '.join(RANKING_BY_GENE_SCORE_COLUMNS)}."
+        )
+
+    collapsed = ranking.copy()
+    if collapsed.index.name and collapsed.index.name not in collapsed.columns:
+        collapsed = collapsed.reset_index()
+    collapsed["gene_collapse_key"] = collapsed[gene_column].map(_gene_collapse_key)
+    collapsed["_ranking_by_gene_score"] = pd.to_numeric(collapsed[score_column], errors="coerce")
+    collapsed["accessions_collapsed"] = collapsed.groupby("gene_collapse_key", dropna=False)["gene_collapse_key"].transform("size")
+    collapsed = (
+        collapsed.sort_values(
+            ["_ranking_by_gene_score", "gene_collapse_key"],
+            ascending=[False, True],
+            na_position="last",
+            kind="mergesort",
+        )
+        .drop_duplicates(subset="gene_collapse_key", keep="first")
+        .drop(columns=["_ranking_by_gene_score"])
+        .reset_index(drop=True)
+    )
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    collapsed.to_csv(out_path, index=False)
+    return collapsed
+
+
+def export_functional_node_ranking_by_gene(ranking: pd.DataFrame, out_path: Path) -> pd.DataFrame:
+    """Export one row per gene ordered by Functional Node theory support."""
+    gene_column = _first_existing_column(ranking, GENE_COLLAPSE_COLUMNS)
+    if gene_column is None:
+        raise ValueError("Cannot export ranking_functional_nodes_by_gene.csv: no gene-like column found.")
+    if "functional_node_theory_score" not in ranking.columns:
+        raise ValueError("Cannot export ranking_functional_nodes_by_gene.csv: functional_node_theory_score is missing.")
+
+    collapsed = ranking.copy()
+    if collapsed.index.name and collapsed.index.name not in collapsed.columns:
+        collapsed = collapsed.reset_index()
+    collapsed["gene_collapse_key"] = collapsed[gene_column].map(_gene_collapse_key)
+    collapsed["_functional_node_score"] = pd.to_numeric(collapsed["functional_node_theory_score"], errors="coerce")
+    collapsed["_functional_node_confidence"] = pd.to_numeric(
+        collapsed.get("functional_node_theory_confidence", 0.0),
+        errors="coerce",
+    ).fillna(0.0)
+    collapsed["accessions_collapsed"] = collapsed.groupby("gene_collapse_key", dropna=False)["gene_collapse_key"].transform("size")
+    collapsed = (
+        collapsed.sort_values(
+            ["_functional_node_score", "_functional_node_confidence", "gene_collapse_key"],
+            ascending=[False, False, True],
+            na_position="last",
+            kind="mergesort",
+        )
+        .drop_duplicates(subset="gene_collapse_key", keep="first")
+        .drop(columns=["_functional_node_score", "_functional_node_confidence"])
+        .reset_index(drop=True)
+    )
+    preferred_columns = [
+        "accessions_collapsed",
+        "organism",
+        "taxon_id",
+        "strain",
+        "gene",
+        "protein_id",
+        "functional_node_theory_score",
+        "functional_node_theory_confidence",
+        "functional_node_theory_label",
+        "functional_node_therapeutic_exploitability_score",
+        "meets_minimum_functional_node_evidence",
+        "audit_flags",
+        "missing_evidence_flags",
+        "interpretation",
+    ]
+    collapsed = collapsed[[column for column in preferred_columns if column in collapsed.columns]]
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    collapsed.to_csv(out_path, index=False)
+    return collapsed
+
+
+def _first_existing_column(df: pd.DataFrame, candidates: list[str]) -> str | None:
+    for column in candidates:
+        if column in df.columns:
+            return column
+    return None
+
+
+def _gene_collapse_key(value: object) -> str:
+    if pd.isna(value):
+        return "unknown"
+    text = str(value).strip()
+    if not text or text.casefold() in {"nan", "none", "null"}:
+        return "unknown"
+    for separator in [";", ",", "|"]:
+        if separator in text:
+            text = text.split(separator, 1)[0].strip()
+    return text or "unknown"
 
 
 def _fmt_optional_score(value: object) -> str:
@@ -147,14 +327,270 @@ def _markdown_table(df: pd.DataFrame) -> str:
     return "\n".join([header, separator] + rows)
 
 
+def _export_functional_node_theory_outputs(
+    features: pd.DataFrame,
+    results_dir: Path,
+    config: dict,
+    top_n: int,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    theory = compute_functional_node_theory_score(features, config)
+    sort_columns = [
+        "functional_node_theory_score",
+        "functional_node_theory_confidence",
+        "functional_node_therapeutic_exploitability_score",
+    ]
+    theory = theory.sort_values(
+        [column for column in sort_columns if column in theory.columns],
+        ascending=False,
+        kind="mergesort",
+    ).reset_index(drop=True)
+    theory.index = range(1, len(theory) + 1)
+    theory.index.name = "rank"
+
+    ranking = theory[[column for column in FUNCTIONAL_NODE_RANKING_COLUMNS if column in theory.columns]].copy()
+    ranking.to_csv(results_dir / "ranking_functional_nodes.csv")
+    try:
+        by_gene = export_functional_node_ranking_by_gene(ranking, results_dir / "ranking_functional_nodes_by_gene.csv")
+    except ValueError:
+        by_gene = pd.DataFrame()
+
+    audit = build_functional_node_theory_audit(theory)
+    audit.to_csv(results_dir / "functional_node_theory_audit.csv", index=False)
+    (results_dir / "functional_node_theory_audit.md").write_text(
+        "\n".join(
+            [
+                "# Functional Node Theory Audit",
+                "",
+                "Esta auditoria separa el score conceptual de la confianza de evidencia. Un score alto con evidencia unresolved, demo, placeholder o controlada se mantiene como hipotesis y no como nodo funcional robusto.",
+                "",
+                _markdown_table(audit.head(top_n)),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (results_dir / "theory_of_nodes_report.md").write_text(
+        _build_theory_of_nodes_report(ranking, audit, by_gene, top_n),
+        encoding="utf-8",
+    )
+    return ranking, audit
+
+
+def _select_functional_node_theory_universe(
+    base_dir: Path,
+    phase2_ranking: pd.DataFrame,
+    phase2_features: pd.DataFrame,
+    workspace_metadata: dict,
+) -> pd.DataFrame:
+    """Return the broadest candidate table for Functional Node Theory export.
+
+    Phase 8 is an interpretive export layer. It must not shrink to Phase 3
+    placeholders when `phase3.enabled` is false or when a stale
+    `phase3_features.csv` has fewer rows than the therapeutic ranking.
+    """
+    processed_dir = base_dir / "data_processed"
+    results_dir = base_dir / "results"
+    candidates = [
+        ("phase2_ranking", phase2_ranking),
+        ("phase2_features", phase2_features),
+        ("scored_nodes", _read_csv_if_exists(processed_dir / "scored_nodes.csv")),
+        ("existing_ranking_nodos", _read_csv_if_exists(results_dir / "ranking_nodos.csv")),
+    ]
+    candidates = [(name, table) for name, table in candidates if _is_candidate_table(table)]
+    if not candidates:
+        universe = phase2_ranking.copy()
+    else:
+        candidates.sort(
+            key=lambda item: (
+                len(item[1]),
+                _candidate_table_value(item[1]),
+            ),
+            reverse=True,
+        )
+        universe = candidates[0][1].copy()
+
+    if universe.index.name and universe.index.name not in universe.columns:
+        universe = universe.reset_index()
+    universe = _merge_missing_candidate_columns(universe, phase2_features)
+    universe = _merge_missing_candidate_columns(universe, _read_csv_if_exists(processed_dir / "scored_nodes.csv"))
+
+    phase3_features = _read_csv_if_exists(processed_dir / "phase3_features.csv")
+    if _is_candidate_table(phase3_features) and len(phase3_features) >= len(universe):
+        universe = _merge_missing_candidate_columns(universe, phase3_features)
+    elif "audit_flags" in universe.columns:
+        universe["audit_flags"] = universe["audit_flags"].fillna("").astype(str).map(
+            lambda value: value.replace("phase3_not_enabled", "phase3_not_used_for_functional_node_universe")
+        )
+
+    return apply_organism_metadata(universe, workspace_metadata, overwrite_not_reported=True)
+
+
+def _read_csv_if_exists(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame()
+    return pd.read_csv(path)
+
+
+def _is_candidate_table(table: pd.DataFrame) -> bool:
+    return not table.empty and "protein_id" in table.columns
+
+
+def _candidate_table_value(table: pd.DataFrame) -> int:
+    useful_columns = {
+        "therapeutic_priority_score",
+        "meta_priority_score",
+        "functional_node_score",
+        "functional_node_theory_score",
+        "evidence_quality_score",
+        "evidence_confidence_score",
+        "organism",
+        "taxon_id",
+        "strain",
+    }
+    return len([column for column in useful_columns if column in table.columns])
+
+
+def _merge_missing_candidate_columns(base: pd.DataFrame, extra: pd.DataFrame) -> pd.DataFrame:
+    if not _is_candidate_table(base) or not _is_candidate_table(extra):
+        return base
+    extra = extra.drop_duplicates(subset="protein_id", keep="first").copy()
+    extra["protein_id"] = extra["protein_id"].astype(str)
+    missing_columns = [column for column in extra.columns if column not in base.columns and column != "protein_id"]
+    if not missing_columns:
+        return base
+    return base.merge(extra[["protein_id", *missing_columns]], on="protein_id", how="left")
+
+
+def _build_theory_of_nodes_report(
+    ranking: pd.DataFrame,
+    audit: pd.DataFrame,
+    by_gene: pd.DataFrame,
+    top_n: int,
+) -> str:
+    high_confidence = ranking.loc[
+        ranking.get("functional_node_theory_label", pd.Series([], dtype=object)).eq("high_confidence_functional_node")
+    ].copy()
+    score_high_confidence_low = ranking.loc[
+        pd.to_numeric(ranking.get("functional_node_theory_score", 0.0), errors="coerce").fillna(0.0).ge(0.55)
+        & pd.to_numeric(ranking.get("functional_node_theory_confidence", 0.0), errors="coerce").fillna(0.0).lt(0.45)
+    ].copy()
+    insufficient = ranking.loc[
+        ~ranking.get("meets_minimum_functional_node_evidence", pd.Series([False] * len(ranking), index=ranking.index)).fillna(False).astype(bool)
+    ].copy()
+    label_summary = (
+        ranking.groupby("functional_node_theory_label", as_index=False)
+        .agg(
+            candidate_count=("protein_id", "size"),
+            mean_functional_node_theory_score=("functional_node_theory_score", "mean"),
+            mean_functional_node_theory_confidence=("functional_node_theory_confidence", "mean"),
+        )
+        .sort_values(["candidate_count", "mean_functional_node_theory_score"], ascending=[False, False])
+        if "functional_node_theory_label" in ranking.columns and not ranking.empty
+        else pd.DataFrame()
+    )
+    confidence_top = ranking.sort_values(
+        ["functional_node_theory_confidence", "functional_node_theory_score"],
+        ascending=[False, False],
+        kind="mergesort",
+    ).head(top_n)
+
+    lines = [
+        "# Theory of Functional Nodes Report",
+        "",
+        "Un Nodo Funcional se interpreta aqui como una entidad molecular cuya alteracion puede reorganizar funciones relevantes del patogeno y cambiar de forma predecible supervivencia, infeccion, persistencia o evolucion.",
+        "",
+        "## Separacion de preguntas",
+        "",
+        "- Prioridad terapeutica: `therapeutic_priority_score` pregunta si el blanco parece util farmacologicamente.",
+        "- Nodo funcional: `functional_node_theory_score` pregunta si el blanco condiciona funciones criticas del sistema biologico.",
+        "- Nodo funcional terapeuticamente explotable: `functional_node_therapeutic_exploitability_score` combina la hipotesis funcional con confianza, accesibilidad, selectividad y seguridad de forma conservadora.",
+        "",
+        "## Advertencia de interpretacion",
+        "",
+        "- El pipeline puede estar tecnicamente estable aunque la evidencia biologica siga incompleta.",
+        "- Candidatos con evidencia `unresolved`, `provider_not_implemented`, `provider_not_found`, `demo_only`, `placeholder` o `controlled_context` se reportan como hipotesis computacionales.",
+        "- La ausencia de evidencia no se interpreta como evidencia negativa, pero reduce la confianza y bloquea etiquetas de alta confianza.",
+        "- Estos rankings no son validacion experimental ni recomendacion clinica.",
+        "",
+        "## Archivos generados",
+        "",
+        "- `results/ranking_functional_nodes.csv`",
+        "- `results/ranking_functional_nodes_by_gene.csv`",
+        "- `results/functional_node_theory_audit.csv`",
+        "- `results/functional_node_theory_audit.md`",
+        "- `results/theory_of_nodes_report.md`",
+        "",
+        "## Resumen por etiqueta",
+        "",
+        _markdown_table(label_summary),
+        "",
+        "## Top por functional_node_theory_score",
+        "",
+        _markdown_table(ranking.head(top_n)),
+        "",
+        "## Top por confianza",
+        "",
+        _markdown_table(confidence_top),
+        "",
+        "## Score alto pero confianza baja",
+        "",
+        _markdown_table(score_high_confidence_low.head(top_n)),
+        "",
+        "## Candidatos descartados por evidencia insuficiente",
+        "",
+        _markdown_table(insufficient.head(top_n)),
+        "",
+        "## Ranking colapsado por gen",
+        "",
+        _markdown_table(by_gene.head(top_n)),
+        "",
+        "## Auditoria por candidato",
+        "",
+        _markdown_table(audit.head(top_n)),
+    ]
+    if "meta_priority_score_v3" in ranking.columns:
+        phase3_columns = [
+            "gene",
+            "protein_id",
+            "meta_priority_score_v3",
+            "functional_node_theory_score",
+            "functional_node_theory_confidence",
+            "functional_node_theory_label",
+            "therapeutic_role_v3",
+            "phase3_recommendation",
+        ]
+        phase3_top = ranking.sort_values("meta_priority_score_v3", ascending=False, kind="mergesort")
+        lines.extend(
+            [
+                "",
+                "## Top 10 por meta_priority_score_v3",
+                "",
+                _markdown_table(phase3_top[[column for column in phase3_columns if column in phase3_top.columns]].head(top_n)),
+                "",
+                "## Datos demo",
+                "",
+                "Los registros demo, placeholder, unresolved o dependientes de contexto controlado pueden conservar scores hipoteticos, pero no elevan `functional_node_theory_confidence` ni habilitan `high_confidence_functional_node`.",
+            ]
+        )
+    if high_confidence.empty:
+        lines.extend(
+            [
+                "",
+                "## Lectura conservadora",
+                "",
+                "No se declararon nodos funcionales de alta confianza en esta exportacion. Esto puede ocurrir aunque existan scores altos si la evidencia sigue unresolved, demo, placeholder, controlada o con baja cobertura de capas.",
+            ]
+        )
+    return "\n".join(lines)
+
+
 def _load_workspace_metadata(base_dir: Path) -> dict:
-    profile_path = base_dir / "results" / "organism_profile.json"
     manifest_path = base_dir / "results" / "acquisition_manifest.json"
+    organism_metadata = load_organism_metadata(base_dir)
     metadata = {
-        "organism": "not_reported",
-        "strain": "not_reported",
+        "organism": organism_metadata["organism"],
+        "strain": organism_metadata["strain"],
         "workspace": str(base_dir),
-        "taxon_id": "not_reported",
+        "taxon_id": organism_metadata["taxon_id"],
         "analysis_support_level": "preliminary",
         "available_layers": [],
         "missing_layers": [],
@@ -162,12 +598,6 @@ def _load_workspace_metadata(base_dir: Path) -> dict:
         "external_layers": [],
         "demo_or_proxy_layers": [],
     }
-    if profile_path.exists():
-        profile = json.loads(profile_path.read_text(encoding="utf-8"))
-        metadata["organism"] = profile.get("organism_canonical_name") or profile.get("organism_input_name") or "not_reported"
-        metadata["strain"] = profile.get("strain_canonical") or profile.get("strain_input") or "not_reported"
-        metadata["taxon_id"] = profile.get("taxon_id") or "not_reported"
-        metadata["workspace"] = profile.get("workspace") or str(base_dir)
     if manifest_path.exists():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         datasets = manifest.get("datasets", [])
@@ -1698,6 +2128,8 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
 
     features = pd.read_csv(processed_dir / "phase2_features.csv")
     workspace_metadata = _load_workspace_metadata(base_dir)
+    features = apply_organism_metadata(features, workspace_metadata, overwrite_not_reported=True)
+    features = compute_functional_node_theory_score(features, config)
     literature_support = _load_literature_support(processed_dir)
     sensitivity = pd.read_csv(results_dir / "sensitivity_analysis.csv") if (results_dir / "sensitivity_analysis.csv").exists() else pd.DataFrame()
     provenance_summary = _build_provenance_summary(features)
@@ -1796,6 +2228,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
                 ).reset_index(drop=True)
             phase2_ranking.index = range(1, len(phase2_ranking) + 1)
             phase2_ranking.index.name = "rank"
+    phase2_ranking = apply_organism_metadata(phase2_ranking, workspace_metadata, overwrite_not_reported=True)
     clinical_impact_curation_queue = _build_clinical_impact_curation_queue(phase2_ranking, top_n)
     disease_context_curation_queue = _build_disease_context_curation_queue(phase2_ranking, top_n)
     therapy_site_context_curation_queue = _build_therapy_site_context_curation_queue(phase2_ranking, top_n)
@@ -1809,6 +2242,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "product",
         "organism",
         "strain",
+        "taxon_id",
         "legacy_score_final",
         "antibiotic_target_score",
         "antivirulence_target_score",
@@ -1877,6 +2311,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "host_damage_score",
         "host_direct_damage_score",
         "virulence_associated_severity_score",
+        *HUMAN_HOMOLOGY_REPORT_COLUMNS,
         "infection_site_access_score",
         "infection_context_score",
         "evidence_confidence_score",
@@ -1899,16 +2334,35 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
     ]
     phase2_columns = list(dict.fromkeys(phase2_columns))
     phase2_output = phase2_ranking[[column for column in phase2_columns if column in phase2_ranking.columns]]
+    theory_export_features = _select_functional_node_theory_universe(
+        base_dir,
+        phase2_ranking,
+        features,
+        workspace_metadata,
+    )
+    functional_node_ranking, functional_node_audit = _export_functional_node_theory_outputs(
+        theory_export_features,
+        results_dir,
+        config,
+        top_n,
+    )
 
     legacy_ranking = features.sort_values("legacy_score_final", ascending=False).reset_index(drop=True)
     legacy_ranking.index = range(1, len(legacy_ranking) + 1)
     legacy_ranking.index.name = "rank"
-    legacy_output = legacy_ranking[["protein_id", "gene", "legacy_score_final"]]
+    legacy_ranking = apply_organism_metadata(legacy_ranking, workspace_metadata, overwrite_not_reported=True)
+    legacy_columns = ["protein_id", "gene", "organism", "strain", "taxon_id", "legacy_score_final"]
+    legacy_output = legacy_ranking[[column for column in legacy_columns if column in legacy_ranking.columns]]
 
     if mode == "legacy":
         legacy_output.to_csv(results_dir / "ranking_nodos.csv")
+        try:
+            export_ranking_by_gene(legacy_output, results_dir / "ranking_nodos_by_gene.csv")
+        except ValueError:
+            pass
     else:
         phase2_output.to_csv(results_dir / "ranking_nodos.csv")
+        export_ranking_by_gene(phase2_output, results_dir / "ranking_nodos_by_gene.csv")
     _, ranking_snapshot_comparison_path = write_ranking_snapshot_outputs(results_dir, phase2_ranking)
     simple_explanations = build_simple_candidate_explanations(phase2_ranking, top_n)
     simple_explanations.to_csv(results_dir / "candidate_explanations_simple.csv", index=False)
@@ -2186,8 +2640,16 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
             "retrieval_mode",
             "cache_status",
             "interpretation_warning",
-            "data_realism_flag",
-            "top_positive_drivers",
+        "data_realism_flag",
+        "curated_evidence_layers",
+        "curated_evidence_references",
+        "curated_evidence_notes",
+        "curated_evidence_confidence",
+        "curated_real_evidence_layer_count",
+        "curated_evidence_missing_layers",
+        "curated_evidence_conflict_flags",
+        "curated_evidence_summary",
+        "top_positive_drivers",
             "top_negative_drivers",
             "candidate_audit_summary",
     ]
@@ -2315,8 +2777,12 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         f"- Candidatos evaluados: {len(features)}",
         f"- Modo de pipeline: `{mode}`",
         "- Ranking principal: `results/ranking_nodos.csv`",
+        "- Ranking explicito de teoria de nodos funcionales: `results/ranking_functional_nodes.csv`",
+        "- Ranking de teoria de nodos colapsado por gen: `results/ranking_functional_nodes_by_gene.csv`",
         "- Snapshot compacto de ranking: `results/ranking_snapshot.csv`",
         "- Ranking legacy: `results/ranking_nodos_legacy.csv`",
+        "- Auditoria de teoria de nodos: `results/functional_node_theory_audit.csv`",
+        "- Reporte narrativo de teoria de nodos: `results/theory_of_nodes_report.md`",
         "- Resumen ejecutivo: `results/resumen_ejecutivo.md`",
         "- Explicacion simple para usuarios no tecnicos: `results/candidate_explanations_simple.md`",
         "- Soporte bibliografico interpretativo: `results/literature_support_summary.csv`",

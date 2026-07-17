@@ -6,7 +6,7 @@ import unittest
 import uuid
 from pathlib import Path
 from unittest.mock import patch
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 
 import pandas as pd
 import pytest
@@ -200,6 +200,26 @@ class LayerExternalSourceTests(unittest.TestCase):
         self.assertIn("network_centrality", df.columns)
         self.assertEqual(len(df), 10)
 
+    def test_functional_network_404_is_unresolved_provider_not_found(self) -> None:
+        workspace = self.make_workspace("layer_string_404")
+        config = load_config(workspace / "config" / "params.yaml")
+        error = HTTPError("https://string-db.test", 404, "not found", {}, None)
+        with patch("src.nodos_funcionales.online_sources.fetch_string_functional_network", side_effect=error):
+            result = fetch_layer_external_source(
+                layer_key="functional_network",
+                workspace=workspace,
+                filename="functional_network.csv",
+                config=config,
+                provider_name="string_real",
+            )
+
+        self.assertIsNone(result["path"])
+        self.assertEqual(result["status"], "not_found")
+        self.assertEqual(result["source_name"], "provider_not_found")
+        self.assertEqual(result["source_database"], "provider_not_found")
+        self.assertEqual(result["evidence"], "unresolved")
+        self.assertEqual(float(result["confidence"]), 0.0)
+
     def test_essentiality_layer_uses_deg_provider(self) -> None:
         workspace = self.make_workspace("layer_deg")
         config = load_config(workspace / "config" / "params.yaml")
@@ -289,7 +309,7 @@ class LayerExternalSourceTests(unittest.TestCase):
         self.assertAlmostEqual(float(result["confidence"]), 0.55, places=2)
         df = pd.read_csv(result["path"])
         self.assertIn("human_homolog", df.columns)
-        self.assertEqual(int(df.loc[df["protein_id"] == "PA0001", "human_homolog"].iloc[0]), 1)
+        self.assertTrue(pd.isna(df.loc[df["protein_id"] == "PA0001", "human_homolog"].iloc[0]))
         self.assertIn("homology_lookup_status", df.columns)
         self.assertIn("homology_query_strategy", df.columns)
         self.assertIn("homology_evidence_tier", df.columns)
@@ -301,9 +321,9 @@ class LayerExternalSourceTests(unittest.TestCase):
         )
         self.assertEqual(
             df.loc[df["protein_id"] == "PA0001", "homology_evidence_tier"].iloc[0],
-            "real_gene_level_match",
+            "name_match_unverified",
         )
-        self.assertGreater(
+        self.assertLess(
             float(df.loc[df["protein_id"] == "PA0001", "homology_confidence_score"].iloc[0]),
             float(df.loc[df["protein_id"] == "PA0002", "homology_confidence_score"].iloc[0]),
         )
@@ -355,11 +375,11 @@ class LayerExternalSourceTests(unittest.TestCase):
         self.assertEqual(result["status"], "api_real_partial_with_stub_backfill")
         df = pd.read_csv(result["path"])
         row = df.loc[df["protein_id"] == "PA0002"].iloc[0]
-        self.assertEqual(int(row["human_homolog"]), 1)
+        self.assertTrue(pd.isna(row["human_homolog"]))
         self.assertEqual(row["human_gene"], "POLR2B")
-        self.assertEqual(row["homology_lookup_status"], "real_match")
+        self.assertEqual(row["homology_lookup_status"], "name_match_unverified")
         self.assertEqual(row["homology_query_strategy"], "human_protein_name")
-        self.assertEqual(row["homology_evidence_tier"], "real_protein_name_match")
+        self.assertEqual(row["homology_evidence_tier"], "name_match_unverified")
 
     def test_human_homologs_layer_uses_curated_human_gene_to_fill_accession(self) -> None:
         workspace = self.make_workspace("layer_homologs_curated_gene")

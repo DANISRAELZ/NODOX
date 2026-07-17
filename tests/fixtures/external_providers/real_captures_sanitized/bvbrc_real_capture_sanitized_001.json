@@ -1,0 +1,18 @@
+{
+  "provider_name": "BV-BRC",
+  "provider_url": "https://www.bv-brc.org/api/genome_feature/?eq(genome_id,562.1)&limit(1)",
+  "query_used": "eq(genome_id,562.1)&limit(1)",
+  "organism_label": "Escherichia coli",
+  "taxon_id": 562,
+  "captured_at": "2026-06-22T18:06:10Z",
+  "sanitized_at": "2026-06-22T18:06:10Z",
+  "capture_type": "sanitized_external_capture",
+  "schema_observed": "text_csv_header_only",
+  "record_count": 0,
+  "raw_payload_sanitized": {
+    "records": []
+  },
+  "interpretation_warning": "The valid captured response contained a CSV header and no data records. This query-limited result must not be interpreted as absence of genomic or resistance evidence.",
+  "affects_score": false,
+  "experimental_validation_supported": false
+}

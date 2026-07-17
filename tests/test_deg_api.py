@@ -19,11 +19,23 @@ pytestmark = pytest.mark.online
 
 
 class FakeResponse:
-    def __init__(self, payload):
+    def __init__(self, payload, content_type: str = "application/json"):
         self._payload = payload
+        self._content_type = content_type
+        self.status = 200
 
     def read(self) -> bytes:
+        if isinstance(self._payload, bytes):
+            return self._payload
+        if isinstance(self._payload, str):
+            return self._payload.encode("utf-8")
         return json.dumps(self._payload).encode("utf-8")
+
+    def getheader(self, name: str, default: str = "") -> str:
+        return self._content_type if name.lower() == "content-type" else default
+
+    def geturl(self) -> str:
+        return "https://example.test/deg"
 
     def __enter__(self) -> "FakeResponse":
         return self
@@ -71,6 +83,32 @@ class DegApiTests(unittest.TestCase):
             result = fetch_deg_essentiality(workspace, "Pseudomonas aeruginosa", "287", config, "cache_first")
         self.assertFalse(result["manifest"]["api_success"])
         self.assertTrue(result["essentiality_data"].empty)
+        self.assertFalse(result["manifest"]["affects_score"])
+
+    def test_html_payload_is_conservative_unresolved_not_evidence(self) -> None:
+        workspace = self.make_workspace("deg_html")
+        config = load_config(workspace / "config" / "params.yaml")
+        html = "<!doctype html><html><body>DEG download page</body></html>"
+        with patch("src.nodos_funcionales.deg_api.urlopen", return_value=FakeResponse(html, "text/html")):
+            result = fetch_deg_essentiality(workspace, "Pseudomonas aeruginosa", "287", config, "online_optional")
+        manifest = result["manifest"]
+        self.assertTrue(result["essentiality_data"].empty)
+        self.assertFalse(manifest["api_success"])
+        self.assertEqual(manifest["retrieval_status"], "html_instead_of_structured_payload")
+        self.assertEqual(manifest["payload_type"], "html")
+        self.assertFalse(manifest["affects_score"])
+
+    def test_zip_payload_without_adapter_is_not_essentiality_evidence(self) -> None:
+        workspace = self.make_workspace("deg_zip")
+        config = load_config(workspace / "config" / "params.yaml")
+        with patch("src.nodos_funcionales.deg_api.urlopen", return_value=FakeResponse(b"PK\x03\x04fake", "application/zip")):
+            result = fetch_deg_essentiality(workspace, "Pseudomonas aeruginosa", "287", config, "online_optional")
+        manifest = result["manifest"]
+        self.assertTrue(result["essentiality_data"].empty)
+        self.assertFalse(manifest["api_success"])
+        self.assertEqual(manifest["retrieval_status"], "unsupported_structured_archive")
+        self.assertEqual(manifest["payload_type"], "zip")
+        self.assertFalse(manifest["affects_score"])
 
     def test_offline_mode_without_cache_raises(self) -> None:
         workspace = self.make_workspace("deg_offline")

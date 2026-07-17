@@ -54,3 +54,24 @@ data_demo/
 .vendor/
 
 .venv/
+
+# Entorno virtual WSL
+.venv-wsl/
+
+# Corridas locales antiguas
+pseudomonas_aeruginosa_20260612_*/
+
+# Copias de seguridad temporales
+*.before_*
+*.before-*
+
+# Metadatos locales de instalación
+src/nodos_funcionales.egg-info/
+
+# Resultados y comprimidos
+results/
+*.zip
+
+# Archivos temporales accidentales
+sp
+tr

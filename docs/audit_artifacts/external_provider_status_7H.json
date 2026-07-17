@@ -1,0 +1,38 @@
+[
+  {
+    "provider": "VFDB",
+    "endpoint": "http://www.mgc.ac.cn/cgi-bin/VFs/v5/main.cgi",
+    "organism_consulted": "organism_agnostic_not_run",
+    "http_status": "not_run",
+    "content_type": "not_observed",
+    "payload_type": "not_observed",
+    "final_status": "requires_manual_download",
+    "conservative_reason": "no stable programmatic payload verified; do not infer virulence",
+    "affects_score": false,
+    "next_recommendation": "manual licensing and stable download review before adapter work"
+  },
+  {
+    "provider": "DEG",
+    "endpoint": "https://tubic.org/deg/public/download/deg_annotation_p.csv.zip",
+    "organism_consulted": "organism_agnostic_not_run",
+    "http_status": "not_run",
+    "content_type": "not_observed",
+    "payload_type": "zip_semicolon_delimited_csv",
+    "final_status": "requires_format_adapter",
+    "conservative_reason": "official download exists but connector must not parse it until an explicit adapter is tested",
+    "affects_score": false,
+    "next_recommendation": "implement versioned ZIP/CSV adapter in a later phase"
+  },
+  {
+    "provider": "BV-BRC",
+    "endpoint": "https://www.bv-brc.org/api/genome_feature/",
+    "organism_consulted": "organism_agnostic_not_run",
+    "http_status": "not_run",
+    "content_type": "not_observed",
+    "payload_type": "application_json",
+    "final_status": "verified_structured_payload",
+    "conservative_reason": "structured JSON route is available but empty payloads remain technical no-evidence states",
+    "affects_score": false,
+    "next_recommendation": "preserve genome_id resolution and query provenance"
+  }
+]

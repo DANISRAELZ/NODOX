@@ -2,14 +2,14 @@
 
 ## Proposito cientifico
 
-Esta fase permite complementar el proveedor parcial de UniProt para
-`human_homologs` con un archivo local de ortologia reproducible. El objetivo es
+Esta fase permite complementar la capa `human_homologs` con un archivo local de
+ortologia reproducible. El objetivo es
 reducir dependencia del backfill configurable sin introducir consultas online
 obligatorias ni cambiar el contrato del resolvedor por capas.
 
 ## Entrada nueva
 
-El proveedor `uniprot_human_gene_lookup` revisa primero:
+El resolvedor de `human_homologs` revisa primero:
 
 ```text
 data_external/human_homologs_orthology.csv

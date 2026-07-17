@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import gzip
 import hashlib
 import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
 import pandas as pd
+
+from .provider_response_audit import ProviderResponse, request_provider_payload, response_audit_fields
 
 
 SOURCE_MODES = {"offline_only", "cache_first", "online_optional"}
@@ -46,46 +46,22 @@ def save_vfdb_cache(workspace: Path, config: dict[str, Any], payload: dict[str, 
     _json_dump(_cache_path(workspace, config), payload)
 
 
-def _request_json(url: str, timeout: float, user_agent: str) -> Any:
-    request = Request(url, headers={"User-Agent": user_agent, "Accept": "application/json,text/tab-separated-values,*/*"})
-    with urlopen(request, timeout=timeout) as response:
-        raw = response.read()
-    try:
-        raw = gzip.decompress(raw)
-    except OSError:
-        pass
-    text = raw.decode("utf-8")
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return text
-
-
-def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str]]:
+def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str], ProviderResponse | None]:
     timeout = float(cfg["provider_timeout_seconds"])
     user_agent = str(cfg["provider_user_agent"])
     retries = int(cfg["provider_max_retries"])
     backoff = float(cfg["provider_backoff_seconds"])
     errors: list[str] = []
     for attempt in range(retries + 1):
-        try:
-            return _request_json(url, timeout=timeout, user_agent=user_agent), errors
-        except HTTPError as exc:
-            errors.append(f"HTTP {exc.code} en VFDB")
-            if exc.code == 429 and attempt < retries:
-                time.sleep(backoff)
-                continue
-            break
-        except URLError as exc:
-            errors.append(f"Error de red en VFDB: {exc.reason}")
-            break
-        except TimeoutError:
-            errors.append("Timeout en VFDB")
-            break
-        except UnicodeDecodeError as exc:
-            errors.append(f"Respuesta no decodificable de VFDB: {exc}")
-            break
-    return None, errors
+        response = request_provider_payload(url, timeout=timeout, user_agent=user_agent, accept="application/json,text/tab-separated-values,*/*", opener=urlopen)
+        if response.error_status == "":
+            return response.payload, errors, response
+        errors.append(response.rejection_reason or response.error_status)
+        if response.http_status == 429 and attempt < retries:
+            time.sleep(backoff)
+            continue
+        return None, errors, response
+    return None, errors, None
 
 
 def _get_candidate_proteins(workspace: Path) -> pd.DataFrame:
@@ -130,6 +106,28 @@ def _as_records(payload: Any) -> list[dict[str, Any]]:
             rows.append({header[idx]: values[idx] for idx in range(min(len(header), len(values)))})
         return rows
     return []
+
+
+def _is_structured_vfdb_payload(payload: Any, response: ProviderResponse | None) -> bool:
+    if response is None:
+        return False
+    if response.payload_type not in {"json", "tabular_text"}:
+        return False
+    return bool(_as_records(payload))
+
+
+def _conservative_status(response: ProviderResponse | None) -> str:
+    if response is None:
+        return "unresolved"
+    if response.error_status == "not_found":
+        return "not_found"
+    if response.payload_type == "html":
+        return "deprecated_or_changed"
+    if response.payload_type in {"empty", "unexpected_text"}:
+        return "deprecated_or_changed"
+    if response.error_status:
+        return response.error_status
+    return "unresolved"
 
 
 def _record_tokens(record: dict[str, Any]) -> set[str]:
@@ -212,7 +210,8 @@ def fetch_vfdb_virulence(
         manifest = {"source": "vfdb", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": 0, "protein_count_mapped": 0, "source_used": "empty_candidates", "cache_hit": False, "api_attempted": False, "api_success": False, "fallback_reason": "no_candidate_proteins", "notes": ["no_candidate_proteins"], "generated_at_utc": _utc_now()}
         return {"virulence_data": pd.DataFrame(columns=VIRULENCE_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
 
-    payload, errors = _api_get_json(str(cfg["provider_base_url"]).rstrip("/") + "/VFs.tsv.gz", cfg)
+    provider_url = str(cfg["provider_base_url"]).rstrip("/") + "/VFs.tsv.gz"
+    payload, errors, response = _api_get_json(provider_url, cfg)
     if payload is None:
         if mode == "online_optional" and cache["entries"].get(cache_key):
             entry = cache["entries"][cache_key]
@@ -221,11 +220,20 @@ def fetch_vfdb_virulence(
             manifest["api_attempted"] = True
             manifest["fallback_reason"] = "api_failed_fallback_cache"
             return {"virulence_data": df, "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
-        manifest = {"source": "vfdb", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": 0, "source_used": "api_failed", "cache_hit": False, "api_attempted": True, "api_success": False, "fallback_reason": "api_failed_no_cache", "notes": errors, "generated_at_utc": _utc_now()}
+        audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
+        manifest = {"source": "vfdb", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": 0, "source_used": "api_failed", "retrieval_status": _conservative_status(response), "cache_hit": False, "api_attempted": True, "api_success": False, "fallback_reason": "api_failed_no_cache", "notes": errors, "generated_at_utc": _utc_now(), **audit}
+        return {"virulence_data": pd.DataFrame(columns=VIRULENCE_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
+
+    if not _is_structured_vfdb_payload(payload, response):
+        audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
+        status = _conservative_status(response)
+        reason = audit.get("rejection_reason") or "structured_vfdb_payload_not_verified"
+        manifest = {"source": "vfdb", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": 0, "source_used": status, "retrieval_status": status, "cache_hit": False, "api_attempted": True, "api_success": False, "fallback_reason": reason, "notes": errors + [str(reason), "No virulence evidence was inferred from this provider response."], "generated_at_utc": _utc_now(), **audit}
         return {"virulence_data": pd.DataFrame(columns=VIRULENCE_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
 
     df, matched = _derive_rows(proteins, payload, config)
-    manifest = {"source": "vfdb", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": int(matched), "source_used": "api_real" if matched else "vfdb_filtered_no_matches", "cache_hit": False, "api_attempted": True, "api_success": True, "fallback_reason": None if matched else "no_vfdb_matches_for_workspace_candidates", "notes": errors, "generated_at_utc": _utc_now()}
+    audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
+    manifest = {"source": "vfdb", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": int(matched), "source_used": "api_real" if matched else "vfdb_filtered_no_matches", "retrieval_status": "api_real" if matched else "not_found", "cache_hit": False, "api_attempted": True, "api_success": True, "fallback_reason": None if matched else "no_vfdb_matches_for_workspace_candidates", "notes": errors, "generated_at_utc": _utc_now(), **audit}
     if not no_write_cache:
         cache["entries"][cache_key] = {"saved_at_utc": _utc_now(), "virulence_rows": df.to_dict(orient="records"), "manifest": manifest}
         save_vfdb_cache(workspace, config, cache)

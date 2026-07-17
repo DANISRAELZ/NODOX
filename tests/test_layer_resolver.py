@@ -350,16 +350,20 @@ class LayerResolverTests(unittest.TestCase):
         self.assertEqual(manifest["human_homologs"]["source_type"], "external")
         self.assertEqual(
             manifest["human_homologs"]["source_name"],
-            "uniprot_human_gene_lookup+configurable_stub",
+            "diamond_human_sequence_alignment",
         )
         self.assertEqual(
             manifest["human_homologs"]["retrieval_status"],
-            "api_real_partial_with_stub_backfill",
+            "diamond_query_fasta_unavailable",
         )
-        self.assertAlmostEqual(float(manifest["human_homologs"]["confidence"]), 0.55, places=2)
+        self.assertAlmostEqual(float(manifest["human_homologs"]["confidence"]), 0.0, places=2)
         self.assertTrue(bool(manifest["human_homologs"]["is_external"]))
-        self.assertEqual(int(resolved.loc[resolved["protein_id"] == "PA0001", "human_homolog"].iloc[0]), 1)
-        self.assertEqual(int(cached.loc[cached["protein_id"] == "PA0001", "human_homolog"].iloc[0]), 1)
+        self.assertTrue(pd.isna(resolved.loc[resolved["protein_id"] == "PA0001", "human_homolog"].iloc[0]))
+        self.assertTrue(pd.isna(cached.loc[cached["protein_id"] == "PA0001", "human_homolog"].iloc[0]))
+        self.assertEqual(
+            resolved.loc[resolved["protein_id"] == "PA0001", "homology_evidence_tier"].iloc[0],
+            "diamond_unresolved",
+        )
 
     def test_host_annotation_user_data_has_priority_over_controlled_provider(self) -> None:
         workspace = self.make_workspace()

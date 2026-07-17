@@ -1,0 +1,27 @@
+{
+  "run_name": "publication_3organisms",
+  "organisms": [
+    {
+      "label": "Pseudomonas aeruginosa PAO1",
+      "organism_id": "287",
+      "strain": "PAO1",
+      "taxon": "Pseudomonas aeruginosa"
+    },
+    {
+      "label": "Helicobacter pylori",
+      "organism_id": "210",
+      "strain": "",
+      "taxon": "Helicobacter pylori"
+    },
+    {
+      "label": "Mycobacterium tuberculosis H37Rv",
+      "organism_id": "83332",
+      "strain": "H37Rv",
+      "taxon": "Mycobacterium tuberculosis"
+    }
+  ],
+  "provider_mode": "online_only",
+  "normalize_external_evidence": true,
+  "check_provider_connectivity": true,
+  "external_evidence_affects_score": false
+}

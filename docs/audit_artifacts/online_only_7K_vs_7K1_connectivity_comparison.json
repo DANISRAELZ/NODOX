@@ -1,0 +1,53 @@
+{
+  "comparison": "7K_vs_7K1",
+  "diagnostic_probable_cause": "openssl_applink_error",
+  "run_7k1_executed": false,
+  "reason_run_7k1_not_executed": "candidate_seed did not pass diagnostic contract for taxon 287, 562 or 1773",
+  "rows": [
+    {
+      "organism": "Pseudomonas aeruginosa",
+      "taxon_id": "287",
+      "run_7k_candidate_seed_count": "0",
+      "run_7k_ranking_allowed": "False",
+      "diagnostic_7k1_candidate_seed_status": "openssl_applink_error",
+      "diagnostic_7k1_candidate_seed_contract": "false",
+      "run_7k_ssl_error_providers": "UniProt;STRING;InterPro",
+      "run_7k_network_error_providers": "Europe PMC;Taxonomy;Human essentiality",
+      "run_7k_structured_evidence_providers": "",
+      "run_7k1_executed": "false",
+      "run_7k1_candidate_seed_count": "not_run",
+      "run_7k1_ranking_allowed": "not_run",
+      "persistent_limitation": "openssl_applink_error"
+    },
+    {
+      "organism": "Escherichia coli",
+      "taxon_id": "562",
+      "run_7k_candidate_seed_count": "0",
+      "run_7k_ranking_allowed": "False",
+      "diagnostic_7k1_candidate_seed_status": "openssl_applink_error",
+      "diagnostic_7k1_candidate_seed_contract": "false",
+      "run_7k_ssl_error_providers": "UniProt;STRING;InterPro",
+      "run_7k_network_error_providers": "Europe PMC;Taxonomy;Human essentiality",
+      "run_7k_structured_evidence_providers": "",
+      "run_7k1_executed": "false",
+      "run_7k1_candidate_seed_count": "not_run",
+      "run_7k1_ranking_allowed": "not_run",
+      "persistent_limitation": "openssl_applink_error"
+    },
+    {
+      "organism": "Mycobacterium tuberculosis",
+      "taxon_id": "1773",
+      "run_7k_candidate_seed_count": "0",
+      "run_7k_ranking_allowed": "False",
+      "diagnostic_7k1_candidate_seed_status": "openssl_applink_error",
+      "diagnostic_7k1_candidate_seed_contract": "false",
+      "run_7k_ssl_error_providers": "UniProt;STRING;InterPro",
+      "run_7k_network_error_providers": "Europe PMC;Taxonomy;Human essentiality",
+      "run_7k_structured_evidence_providers": "",
+      "run_7k1_executed": "false",
+      "run_7k1_candidate_seed_count": "not_run",
+      "run_7k1_ranking_allowed": "not_run",
+      "persistent_limitation": "openssl_applink_error"
+    }
+  ]
+}

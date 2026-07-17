@@ -9,8 +9,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from .online_http import get_ssl_context
+
 import pandas as pd
 
+from .provider_response_audit import request_provider_payload
 from .string_api import fetch_string_functional_network
 
 
@@ -175,9 +178,10 @@ def _json_dump(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _request_json(url: str, timeout: float, user_agent: str) -> Any:
-    request = Request(url, headers={"User-Agent": user_agent})
-    with urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
+    response = request_provider_payload(url, timeout=timeout, user_agent=user_agent, accept="application/json", opener=urlopen)
+    if response.error_status == "" and response.payload_type == "json":
+        return response.payload
+    raise ValueError(response.rejection_reason or response.error_status or f"unexpected_payload_type:{response.payload_type}")
 
 
 def _extract_gene_names(entry: dict[str, Any]) -> list[str]:
@@ -293,7 +297,7 @@ def fetch_uniprot_candidate_universe(
     manifest["api_attempted"] = True
     try:
         payload = _request_json(url, float(cfg["provider_timeout_seconds"]), str(cfg["provider_user_agent"]))
-    except (HTTPError, URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (HTTPError, URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         df = _empty(output, CANDIDATE_UNIVERSE_COLUMNS)
         manifest["notes"].append(f"UniProt unavailable: {exc}")
         return df, manifest

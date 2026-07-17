@@ -6,13 +6,14 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
 from urllib.parse import quote
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
 import pandas as pd
 
 from .human_essentiality_api import fetch_human_essentiality_annotations
+from .online_http import get_ssl_context
+from .provider_response_audit import request_provider_payload
 
 
 SOURCE_MODES = {"offline_only", "cache_first", "online_optional"}
@@ -63,12 +64,6 @@ def save_interpro_cache(workspace: Path, config: dict[str, Any], payload: dict[s
     _json_dump(_cache_path(workspace, config), payload)
 
 
-def _request_json(url: str, timeout: float, user_agent: str) -> Any:
-    request = Request(url, headers={"User-Agent": user_agent, "Accept": "application/json"})
-    with urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
-
-
 def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str]]:
     timeout = float(cfg["provider_timeout_seconds"])
     user_agent = str(cfg["provider_user_agent"])
@@ -76,24 +71,28 @@ def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str]]
     backoff = float(cfg["provider_backoff_seconds"])
     errors: list[str] = []
     for attempt in range(retries + 1):
-        try:
-            return _request_json(url, timeout=timeout, user_agent=user_agent), errors
-        except HTTPError as exc:
-            errors.append(f"HTTP {exc.code} en InterPro")
-            if exc.code == 429 and attempt < retries:
-                time.sleep(backoff)
-                continue
-            break
-        except URLError as exc:
-            errors.append(f"Error de red en InterPro: {exc.reason}")
-            break
-        except TimeoutError:
-            errors.append("Timeout en InterPro")
-            break
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            errors.append(f"Respuesta JSON invalida de InterPro: {exc}")
-            break
+        response = request_provider_payload(url, timeout=timeout, user_agent=user_agent, accept="application/json", opener=urlopen)
+        if response.error_status == "" and response.payload_type == "json":
+            return response.payload, errors
+        errors.append(response.rejection_reason or response.error_status or f"unexpected_payload_type:{response.payload_type}")
+        if response.http_status == 429 and attempt < retries:
+            time.sleep(backoff)
+            continue
+        break
     return None, errors
+
+
+def _interpro_status_from_notes(api_success: bool, accessions: list[str], notes: list[str]) -> str:
+    if api_success and accessions:
+        return "connected_structured_payload"
+    joined = " ".join(str(note) for note in notes).lower()
+    if "ssl_error" in joined or "openssl" in joined:
+        return "ssl_error"
+    if "network_error" in joined or "error de red" in joined:
+        return "network_error"
+    if "html_instead_of_structured_payload" in joined or "unexpected_payload_type" in joined:
+        return "invalid_payload"
+    return "unresolved"
 
 
 def _normalise_id(value: object) -> str:
@@ -354,6 +353,7 @@ def fetch_interpro_host_annotation(
 
     df, paired_domain_rows, essentiality_notes = _derive_host_annotation(candidates, domain_lookup, config, workspace)
     source_used = "api_real" if api_success and paired_domain_rows else ("api_real_partial" if api_success else "api_failed")
+    all_notes = notes + essentiality_notes
     manifest = {
         "source": "interpro",
         "provider": str(cfg["provider_name"]),
@@ -369,9 +369,14 @@ def fetch_interpro_host_annotation(
         "cache_hit": False,
         "api_attempted": bool(accessions),
         "api_success": bool(api_success and accessions),
+        "retrieval_status": _interpro_status_from_notes(api_success, accessions, notes),
         "fallback_reason": None if paired_domain_rows else "no_comparable_interpro_domain_pairs",
-        "notes": notes + essentiality_notes,
+        "notes": all_notes,
         "generated_at_utc": _utc_now(),
+        "affects_score": False,
+        "blocks_ranking": False,
+        "evidence_inferred": bool(paired_domain_rows),
+        "parser_used": "interpro_json_results_parser",
     }
     if not no_write_cache and not df.empty and api_success:
         cache["entries"][cache_key] = {"saved_at_utc": _utc_now(), "host_annotation_rows": df.to_dict(orient="records"), "manifest": manifest}

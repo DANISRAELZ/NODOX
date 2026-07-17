@@ -1,0 +1,11 @@
+gene,protein_id,evidence_status,evidence_source,source_database,reference,confidence,notes,literature_support_score,pmid,finding,experimental_support
+ureA,HP_UREA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.70,fixture only not experimental validation,0.60,fixture_pmid,fixture finding,curated_fixture
+ureB,HP_UREB,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.70,fixture only not experimental validation,0.60,fixture_pmid,fixture finding,curated_fixture
+vacA,HP_VACA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.70,fixture only not experimental validation,0.70,fixture_pmid,fixture finding,curated_fixture
+cagA,HP_CAGA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.70,fixture only not experimental validation,0.70,fixture_pmid,fixture finding,curated_fixture
+flaA,HP_FLAA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.65,fixture only not experimental validation,0.55,fixture_pmid,fixture finding,curated_fixture
+napA,HP_NAPA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.65,fixture only not experimental validation,0.55,fixture_pmid,fixture finding,curated_fixture
+gyrA,HP_GYRA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.65,fixture only not experimental validation,0.50,fixture_pmid,fixture finding,curated_fixture
+rpoB,HP_RPOB,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.65,fixture only not experimental validation,0.50,fixture_pmid,fixture finding,curated_fixture
+ftsZ,HP_FTSZ,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.65,fixture only not experimental validation,0.50,fixture_pmid,fixture finding,curated_fixture
+dnaA,HP_DNAA,curated_fixture,phase9A_fixture,curated_fixture,fixture_reference,0.65,fixture only not experimental validation,0.50,fixture_pmid,fixture finding,curated_fixture

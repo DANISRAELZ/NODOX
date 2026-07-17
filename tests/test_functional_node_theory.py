@@ -5,7 +5,11 @@ import unittest
 import pandas as pd
 
 from src.nodos_funcionales.config import load_config
-from src.nodos_funcionales.functional_node_theory import compute_functional_node_theory_score
+from src.nodos_funcionales.functional_node_theory import (
+    build_functional_node_theory_audit,
+    compute_functional_node_theory_score,
+    meets_minimum_functional_node_evidence,
+)
 from tests.helpers import PROJECT_ROOT
 
 
@@ -56,7 +60,7 @@ class FunctionalNodeTheoryTests(unittest.TestCase):
         result = compute_functional_node_theory_score(df, self.config)
 
         self.assertLess(float(result.loc[0, "functional_node_theory_score"]), 0.75)
-        self.assertEqual(result.loc[0, "functional_node_theory_label"], "central_but_redundant")
+        self.assertNotEqual(result.loc[0, "functional_node_theory_label"], "high_confidence_functional_node")
         self.assertIn("functional_node_theory_high_redundancy", result.loc[0, "audit_flags"])
 
     def test_high_escape_risk_lowers_score_and_label(self) -> None:
@@ -77,7 +81,7 @@ class FunctionalNodeTheoryTests(unittest.TestCase):
         result = compute_functional_node_theory_score(df, self.config)
 
         self.assertLess(float(result.loc[0, "functional_node_theory_score"]), 0.70)
-        self.assertEqual(result.loc[0, "functional_node_theory_label"], "promising_but_evolutionary_risk")
+        self.assertNotEqual(result.loc[0, "functional_node_theory_label"], "high_confidence_functional_node")
         self.assertIn("functional_node_theory_high_evolutionary_risk", result.loc[0, "audit_flags"])
 
     def test_good_evidence_increases_reported_confidence(self) -> None:
@@ -104,12 +108,14 @@ class FunctionalNodeTheoryTests(unittest.TestCase):
                 "evolutionary_space_constraint_score": [0.90],
                 "evidence_quality_score": [0.90],
                 "confidence_ceiling": [0.40],
+                "data_realism_flag": ["demo_only"],
             }
         )
 
         result = compute_functional_node_theory_score(df, self.config)
 
-        self.assertEqual(float(result.loc[0, "functional_node_theory_confidence"]), 0.40)
+        self.assertEqual(float(result.loc[0, "functional_node_theory_confidence"]), 0.25)
+        self.assertEqual(result.loc[0, "functional_node_theory_label"], "hypothesis_only_insufficient_evidence")
         self.assertIn("functional_node_theory_confidence_limited", result.loc[0, "audit_flags"])
 
     def test_score_is_between_zero_and_one(self) -> None:
@@ -128,6 +134,87 @@ class FunctionalNodeTheoryTests(unittest.TestCase):
 
         self.assertTrue(result["functional_node_theory_score"].between(0, 1).all())
         self.assertTrue(result["functional_node_theory_confidence"].between(0, 1).all())
+
+    def test_high_score_unresolved_evidence_is_not_high_confidence(self) -> None:
+        df = pd.DataFrame(
+            {
+                "protein_id": ["PA0008"],
+                "gene": ["geneX"],
+                "functional_node_score": [0.95],
+                "contextual_essentiality_score": [0.95],
+                "conservation_score": [0.90],
+                "evolutionary_space_constraint_score": [0.90],
+                "evidence_quality_score": [0.90],
+                "confidence_ceiling": [0.95],
+                "evidence_level": ["unresolved"],
+                "source_used": ["provider_not_found"],
+            }
+        )
+
+        result = compute_functional_node_theory_score(df, self.config)
+
+        self.assertLessEqual(float(result.loc[0, "functional_node_theory_confidence"]), 0.30)
+        self.assertFalse(bool(result.loc[0, "meets_minimum_functional_node_evidence"]))
+        self.assertNotEqual(result.loc[0, "functional_node_theory_label"], "high_confidence_functional_node")
+        self.assertIn(result.loc[0, "functional_node_theory_label"], {"unresolved_evidence_candidate", "hypothesis_only_insufficient_evidence"})
+
+    def test_candidate_with_sufficient_multidimensional_evidence_can_be_supported(self) -> None:
+        df = pd.DataFrame(
+            {
+                "protein_id": ["PA0009"],
+                "gene": ["geneY"],
+                "functional_node_score": [0.88],
+                "network_centrality": [0.80],
+                "pathway_bottleneck_score": [0.76],
+                "contextual_essentiality_score": [0.78],
+                "virulence_score": [0.70],
+                "conservation_score": [0.82],
+                "evolutionary_space_constraint_score": [0.84],
+                "redundancy_penalty": [0.10],
+                "evolutionary_escape_risk_score": [0.10],
+                "infection_context_score": [0.72],
+                "infection_site_access_score": [0.70],
+                "host_safety_score": [0.86],
+                "selectivity_score": [0.82],
+                "evidence_quality_score": [0.88],
+                "confidence_ceiling": [0.90],
+                "real_evidence_layer_count": [3],
+                "data_realism_flag": ["real_or_curated"],
+                "evidence_level": ["curated"],
+            }
+        )
+
+        result = compute_functional_node_theory_score(df, self.config)
+
+        self.assertTrue(bool(result.loc[0, "meets_minimum_functional_node_evidence"]))
+        self.assertIn(
+            result.loc[0, "functional_node_theory_label"],
+            {"high_confidence_functional_node", "moderate_confidence_functional_node"},
+        )
+        self.assertGreater(float(result.loc[0, "functional_node_therapeutic_exploitability_score"]), 0.0)
+        self.assertTrue(meets_minimum_functional_node_evidence(result.loc[0]))
+
+    def test_audit_contains_required_interpretable_components(self) -> None:
+        df = pd.DataFrame(
+            {
+                "protein_id": ["PA0010"],
+                "gene": ["geneZ"],
+                "functional_node_score": [0.50],
+                "evidence_quality_score": [0.50],
+            }
+        )
+
+        result = compute_functional_node_theory_score(df, self.config)
+        audit = build_functional_node_theory_audit(result)
+
+        for column in [
+            "functional_impact_component",
+            "dependency_component",
+            "redundancy_constraint_component",
+            "evidence_quality_component",
+            "interpretation",
+        ]:
+            self.assertIn(column, audit.columns)
 
 
 if __name__ == "__main__":

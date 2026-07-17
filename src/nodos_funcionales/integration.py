@@ -7,6 +7,8 @@ from pandas.errors import EmptyDataError
 
 from .layer_registry import TARGET_LAYER_KEYS
 from .layer_resolver import load_layer_resolution_manifest
+from .organism_metadata import apply_organism_metadata, load_organism_metadata
+from .unresolved_virulence import materialize_unresolved_virulence_layer
 
 
 HOST_ANNOTATION_AUDIT_COLUMNS = [
@@ -150,6 +152,8 @@ def integrate_tables(base_dir: Path) -> pd.DataFrame:
 
         manifest = load_layer_resolution_manifest(base_dir, load_config(config_path))
 
+    materialize_unresolved_virulence_layer(base_dir)
+
     essentiality = pd.read_csv(processed_dir / "normalized_essentiality.csv")
     virulence = pd.read_csv(processed_dir / "normalized_virulence.csv")
     homologs = pd.read_csv(processed_dir / "normalized_human_homologs.csv")
@@ -183,6 +187,13 @@ def integrate_tables(base_dir: Path) -> pd.DataFrame:
             "human_homolog",
             "evalue",
             "human_gene",
+            "human_hit_id",
+            "human_hit_name",
+            "percent_identity",
+            "query_coverage",
+            "subject_coverage",
+            "bit_score",
+            "shared_domain_count",
             "homology_lookup_status",
             "homology_query_strategy",
             "homology_evidence_note",
@@ -457,6 +468,13 @@ def integrate_tables(base_dir: Path) -> pd.DataFrame:
         "human_homolog",
         "evalue",
         "human_gene",
+        "human_hit_id",
+        "human_hit_name",
+        "percent_identity",
+        "query_coverage",
+        "subject_coverage",
+        "bit_score",
+        "shared_domain_count",
         "homology_lookup_status",
         "homology_query_strategy",
         "homology_evidence_note",
@@ -566,5 +584,10 @@ def integrate_tables(base_dir: Path) -> pd.DataFrame:
             ]
         )
     integrated = merged[[column for column in keep_columns if column in merged.columns]].copy()
+    integrated = apply_organism_metadata(
+        integrated,
+        load_organism_metadata(base_dir),
+        overwrite_not_reported=True,
+    )
     integrated.to_csv(processed_dir / "integrated_nodes.csv", index=False)
     return integrated

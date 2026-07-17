@@ -34,6 +34,9 @@ def build_ranking_snapshot(ranking: pd.DataFrame, score_columns: Iterable[str] |
         if "rank" not in snapshot.columns:
             snapshot["rank"] = range(1, len(snapshot) + 1)
     columns = ["rank", "protein_id", "gene"]
+    for column in ["organism", "strain", "taxon_id"]:
+        if column in snapshot.columns:
+            columns.append(column)
     for column in score_columns or SNAPSHOT_SCORE_COLUMNS:
         if column in snapshot.columns:
             columns.append(column)

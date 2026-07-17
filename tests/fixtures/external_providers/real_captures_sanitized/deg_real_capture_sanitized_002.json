@@ -1,0 +1,31 @@
+{
+  "provider_name": "DEG",
+  "provider_url": "https://tubic.org/deg/public/download/deg_annotation_p.csv.zip",
+  "query_used": "official DEG protein annotation download",
+  "organism_label": "multiple organisms in DEG bacterial/eukaryotic protein annotation export",
+  "taxon_id": "",
+  "captured_at": "2026-06-22T18:41:57Z",
+  "sanitized_at": "2026-06-22T18:41:57Z",
+  "capture_type": "sanitized_external_capture",
+  "schema_observed": "application_zip_with_semicolon_delimited_csv",
+  "record_count": 3,
+  "raw_payload_sanitized": {
+    "download_metadata": {
+      "http_status": 200,
+      "content_type": "application/zip",
+      "archive_size_bytes": 823232,
+      "entry_name": "deg_annotation_p.csv",
+      "entry_size_bytes": 5615809,
+      "delimiter": ";",
+      "header_present": false
+    },
+    "sample_lines": [
+      "DEG1001;DEG10010001;dnaA;16077069;COG0593L;DNA replication;initiation of chromosome replication;Bacillus subtilis 168;NC_000964;Rich medium;-;GO terms omitted;P05648",
+      "DEG1001;DEG10010002;dnaN;16077070;COG0592L;DNA replication;DNA polymerase III beta subunit;Bacillus subtilis 168;NC_000964;Rich medium;-;GO terms omitted;P05649",
+      "DEG1001;DEG10010003;gyrB;16077074;COG0187L;DNA packaging;DNA gyrase subunit B;Bacillus subtilis 168;NC_000964;Rich medium;-;GO terms omitted;P05652"
+    ]
+  },
+  "interpretation_warning": "This capture proves that an official structured DEG download is available. It requires an explicit ZIP and semicolon-delimited CSV adapter and does not itself validate essentiality claims.",
+  "affects_score": false,
+  "experimental_validation_supported": false
+}
