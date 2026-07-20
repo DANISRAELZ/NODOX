@@ -33,7 +33,7 @@ jobs:
       - name: Scan current tree and Git history
         shell: bash
         run: |
-          python - <<'PY'
+          python - <<'PY' | tee secret_scan_report.txt
           from __future__ import annotations
 
           import re
@@ -73,8 +73,7 @@ jobs:
               if not raw_path:
                   continue
               path = raw_path.decode("utf-8", errors="replace")
-              data = Path(path).read_bytes()
-              text = decode(data)
+              text = decode(Path(path).read_bytes())
               if text is None:
                   continue
               for name, pattern in high_confidence.items():
@@ -84,9 +83,7 @@ jobs:
                   if pattern.search(text):
                       warning_findings.append(f"current:{path}: {name}")
 
-          objects = subprocess.check_output(
-              ["git", "rev-list", "--objects", "--all"], text=True
-          ).splitlines()
+          objects = subprocess.check_output(["git", "rev-list", "--objects", "--all"], text=True).splitlines()
           seen: set[str] = set()
           for line in objects:
               parts = line.split(" ", 1)
@@ -96,9 +93,7 @@ jobs:
                   continue
               seen.add(sha)
               try:
-                  kind = subprocess.check_output(
-                      ["git", "cat-file", "-t", sha], text=True, stderr=subprocess.DEVNULL
-                  ).strip()
+                  kind = subprocess.check_output(["git", "cat-file", "-t", sha], text=True, stderr=subprocess.DEVNULL).strip()
               except subprocess.CalledProcessError:
                   continue
               if kind != "blob":
@@ -106,8 +101,7 @@ jobs:
               size = int(subprocess.check_output(["git", "cat-file", "-s", sha], text=True))
               if size > 5_000_000:
                   continue
-              data = subprocess.check_output(["git", "cat-file", "blob", sha])
-              text = decode(data)
+              text = decode(subprocess.check_output(["git", "cat-file", "blob", sha]))
               if text is None:
                   continue
               for name, pattern in high_confidence.items():
@@ -125,10 +119,11 @@ jobs:
               print("None detected")
 
           print("=== Review warnings ===")
-          if warning_findings:
-              for item in sorted(set(warning_findings))[:200]:
+          unique_warnings = sorted(set(warning_findings))
+          if unique_warnings:
+              for item in unique_warnings[:500]:
                   print(item)
-              if len(set(warning_findings)) > 200:
+              if len(unique_warnings) > 500:
                   print("Additional warnings omitted")
           else:
               print("None detected")
@@ -138,4 +133,26 @@ jobs:
           PY
 
       - name: Run recommended offline test suite
-        run: python -m pytest -p no:cacheprovider -m "not online" -q
+        id: tests
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pytest -p no:cacheprovider -m "not online" -q 2>&1 | tee pytest_offline_report.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-release-audit-reports
+          path: |
+            secret_scan_report.txt
+            pytest_offline_report.txt
+          if-no-files-found: warn
+
+      - name: Enforce test result
+        if: always()
+        shell: bash
+        run: |
+          test "${{ steps.tests.outputs.exit_code }}" = "0"
