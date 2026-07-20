@@ -1,12 +1,14 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it."
+message: "If you use this software, please cite it. The theoretical model remains under active review by the project collaborators and should be considered provisional."
 type: software
 title: "NODOX"
 abstract: >-
   NODOX is an explainable, evidence-aware bioinformatics platform for
   prioritizing bacterial therapeutic-target hypotheses through Functional Node
   Theory, explicit provenance, evidence-confidence assessment, and evolutionary
-  escape-risk analysis.
+  escape-risk analysis. The theoretical model underlying NODOX remains under
+  active review by the project collaborators; its assumptions, variables, and
+  interpretation are provisional and may change as that review progresses.
 version: "0.1.0-publication"
 date-released: "2026-06-11"
 license: "Apache-2.0"
