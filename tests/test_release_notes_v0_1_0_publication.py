@@ -10,8 +10,8 @@ NOTES_PATH = PROJECT_ROOT / "docs" / "release_notes_v0_1_0_publication.md"
 def test_release_notes_v0_1_0_publication_content() -> None:
     text = NOTES_PATH.read_text(encoding="utf-8").lower()
     required_terms = [
-        "v0.1.0-publication",
-        "2026-06-11",
+        "v0.1.0",
+        "2026-07-20",
         "release scope",
         "included",
         "not included",
@@ -26,6 +26,8 @@ def test_release_notes_v0_1_0_publication_content() -> None:
         "no experimental validation",
         "not intended for clinical decision-making",
         "do not confirm therapeutic validity",
+        "team of collaborators",
+        "final release tag: `v0.1.0`",
     ]
     for term in required_terms:
         assert term in text
