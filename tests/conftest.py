@@ -44,14 +44,18 @@ SNAPSHOT_FILE_KEYWORDS = {
     "ranking_snapshots",
 }
 
-# These tests preserve the behavior of the former PAO1 demonstration dataset.
-# They are useful as historical diagnostics, but they are not part of the
-# organism-agnostic contract of NODOX and must not gate the standard suite.
+# These tests preserve behavior tied to the former PAO1 demonstration fixture.
+# They remain useful as historical diagnostics, but they are not part of the
+# organism-agnostic contract of NODOX and must not gate the standard or online
+# provider-contract suites.
 ORGANISM_REGRESSION_NODEIDS = {
     "tests/test_e2e.py::EndToEndTests::test_full_phase2_pipeline_runs_on_example_data",
     "tests/test_ranking_snapshots.py::test_pao1_demo_pipeline_matches_curated_snapshot",
     "tests/test_scoring.py::ScoringTests::test_scores_are_generated_in_expected_range",
     "tests/test_scoring.py::ScoringTests::test_specific_therapeutic_rules_take_priority_over_mixed_fallback",
+    "tests/test_layer_external_sources.py::LayerExternalSourceTests::test_controlled_therapeutic_provider_materializes_clinical_impact",
+    "tests/test_layer_external_sources.py::LayerExternalSourceTests::test_literature_support_uses_curated_online_examples_catalog",
+    "tests/test_layer_external_sources.py::LayerExternalSourceTests::test_required_layers_can_use_curated_online_examples_catalog",
 }
 
 
