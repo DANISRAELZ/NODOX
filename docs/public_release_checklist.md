@@ -8,14 +8,14 @@ This checklist must be completed before changing the repository visibility from 
 - [ ] Repository description and topics are configured in GitHub.
 - [ ] Version number and release tag agree.
 - [ ] Author and institutional attribution have been reviewed.
-- [ ] The Apache-2.0 license attribution is correct.
+- [x] The Apache-2.0 license attribution is correct.
 - [ ] CITATION.cff has been reviewed by the author.
 
 ## Security and privacy
 
 - [x] No high-confidence API keys, tokens, passwords, private keys, cookies, or authorization headers were detected by the automated current-tree and Git-history scan.
-- [ ] No `.env` or local configuration containing secrets is tracked.
-- [ ] No personal Windows, WSL, Linux, or OneDrive paths are tracked.
+- [x] No `.env` or local configuration containing secrets is tracked in the final release-candidate tree.
+- [x] No personal Windows, WSL, Linux, or OneDrive paths are tracked in the final release-candidate tree.
 - [ ] No patient, employee, collaborator, or other personal data are tracked.
 - [ ] No private user-curated datasets or unpublished restricted datasets are tracked.
 - [x] Git history has been scanned, not only the current files.
@@ -25,12 +25,12 @@ This checklist must be completed before changing the repository visibility from 
 
 - [x] Installation of development dependencies succeeds in a clean GitHub Actions Python 3.12 environment.
 - [x] Runtime and development dependencies are separated.
-- [ ] The documented Quick Start succeeds from a clean clone.
-- [ ] Required demo or controlled-reference data are actually included and redistributable.
+- [x] The documented Quick Start succeeds from a clean clone.
+- [x] Required demo or controlled-reference data are included as synthetic/public fixtures and are covered by the public inventory workflow.
 - [x] The organism-agnostic offline tests pass.
 - [x] Online tests are separated and tolerate provider outages through individual hard time limits and diagnostic classification.
 - [x] External tools such as DIAMOND are documented as optional system dependencies.
-- [ ] The strict complete suite passes with `python -m pytest -p no:cacheprovider -q` on the final release candidate commit.
+- [x] The strict complete suite passes with `python -m pytest -p no:cacheprovider -q` on the final release-candidate commit.
 
 ## Scientific communication
 
@@ -43,13 +43,15 @@ This checklist must be completed before changing the repository visibility from 
 ## GitHub release preparation
 
 - [ ] A pull request from `public-release-review` to `main` has been reviewed.
-- [ ] Automated tests pass on the final commit, including the strict complete suite.
+- [x] Automated tests pass on the final commit, including the strict complete suite.
 - [ ] A clean release tag is created after merging.
 - [x] The repository remains private until all blocking items are complete.
 
 ## Current automated evidence
 
-- Public release audit run 41 passed the security audit, organism-agnostic offline suite, online-provider contracts, and organism-regression jobs.
-- A new required `strict-complete-suite` job has been added and must pass before release.
+- Public release audit run 108 passed the security/history audit, organism-agnostic offline suite, online-provider contracts, organism regressions, and the strict complete pytest suite.
+- Quick Start smoke test run 61 passed from a clean GitHub Actions checkout.
+- Public release inventory run 59 passed with no blocked release files or personal local paths in the release-candidate tree.
 - `README_PUBLIC.md` was promoted to `README.md`; the previous technical README is preserved as `README_TECHNICAL.md`.
 - Third-party data use and redistribution rules are documented, with conservative handling for VFDB, DEG, InterPro member components, and NCBI third-party rights.
+- The Apache-2.0 attribution is `Copyright 2026 Dan Israel Zavala Vargas and NODOX contributors`.
