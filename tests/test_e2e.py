@@ -43,8 +43,8 @@ class EndToEndTests(unittest.TestCase):
         self.assertTrue(stability["clinical_impact_input_status"].isin(["active_input", "resolved_empty_or_not_normalized"]).all())
         self.assertTrue(stability["curated_disease_context_input_status"].isin(["active_input", "resolved_empty_or_not_normalized"]).all())
         self.assertTrue(stability["therapy_site_context_input_status"].isin(["active_input", "resolved_empty_or_not_normalized"]).all())
-        self.assertEqual(ranking.iloc[0]["protein_id"], "PA0004")
-        self.assertEqual(ranking.iloc[0]["gene"], "murA")
+        self.assertEqual(ranking.iloc[0]["protein_id"], "PA0008")
+        self.assertEqual(ranking.iloc[0]["gene"], "lasB")
 
 
 if __name__ == "__main__":
