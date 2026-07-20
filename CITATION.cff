@@ -1,12 +1,12 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it."
-title: "Nodos Funcionales"
+title: "NODOX"
 version: "0.1.0-publication"
 date-released: "2026-06-11"
 license: "Apache-2.0"
 authors:
-  - family-names: "To be completed"
-    given-names: "Author metadata"
+  - given-names: "Dan Israel"
+    family-names: "Zavala Vargas"
 keywords:
   - functional nodes
   - therapeutic prioritization
