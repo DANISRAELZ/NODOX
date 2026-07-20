@@ -1,0 +1,11 @@
+protein_id,gene,virulence_score,virulence_factor,database
+PA0001,gyrB,0.20,synthetic_housekeeping,synthetic_public_fixture_v1
+PA0002,dnaA,0.10,synthetic_housekeeping,synthetic_public_fixture_v1
+PA0003,ftsZ,0.25,synthetic_cell_division,synthetic_public_fixture_v1
+PA0004,murA,0.85,synthetic_cell_wall_dependency,synthetic_public_fixture_v1
+PA0005,lasR,0.95,synthetic_virulence_regulator,synthetic_public_fixture_v1
+PA0006,algD,0.80,synthetic_biofilm_factor,synthetic_public_fixture_v1
+PA0007,oprF,0.70,synthetic_surface_factor,synthetic_public_fixture_v1
+PA0008,secA,0.50,synthetic_secretion_dependency,synthetic_public_fixture_v1
+PA0009,folA,0.15,synthetic_metabolic_enzyme,synthetic_public_fixture_v1
+PA0010,rpoB,0.20,synthetic_housekeeping,synthetic_public_fixture_v1
