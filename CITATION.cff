@@ -1,9 +1,17 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it."
+type: software
 title: "NODOX"
+abstract: >-
+  NODOX is an explainable, evidence-aware bioinformatics platform for
+  prioritizing bacterial therapeutic-target hypotheses through Functional Node
+  Theory, explicit provenance, evidence-confidence assessment, and evolutionary
+  escape-risk analysis.
 version: "0.1.0-publication"
 date-released: "2026-06-11"
 license: "Apache-2.0"
+repository-code: "https://github.com/DANISRAELZ/NODOX"
+url: "https://github.com/DANISRAELZ/NODOX"
 authors:
   - given-names: "Dan Israel"
     family-names: "Zavala Vargas"
