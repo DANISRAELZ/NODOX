@@ -31,3 +31,12 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q"
+markers = [
+    "unit: fast isolated tests",
+    "integration: tests spanning multiple NODOX components",
+    "online: tests of online-provider behavior, usually mocked or availability-dependent",
+    "slow: tests that may take substantially longer than unit tests",
+    "snapshot: deterministic output comparison tests",
+    "e2e: end-to-end pipeline tests",
+    "organism_regression: optional historical regression tied to a specific organism or former demonstration dataset",
+]
