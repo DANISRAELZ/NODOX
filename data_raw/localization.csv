@@ -1,0 +1,11 @@
+protein_id,gene,localization,database
+PA0001,gyrB,cytoplasm,synthetic_public_fixture_v1
+PA0002,dnaA,cytoplasm,synthetic_public_fixture_v1
+PA0003,ftsZ,cytoplasm,synthetic_public_fixture_v1
+PA0004,murA,cytoplasm,synthetic_public_fixture_v1
+PA0005,lasR,cytoplasm,synthetic_public_fixture_v1
+PA0006,algD,inner_membrane,synthetic_public_fixture_v1
+PA0007,oprF,outer_membrane,synthetic_public_fixture_v1
+PA0008,secA,inner_membrane,synthetic_public_fixture_v1
+PA0009,folA,cytoplasm,synthetic_public_fixture_v1
+PA0010,rpoB,cytoplasm,synthetic_public_fixture_v1
