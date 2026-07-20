@@ -7,6 +7,8 @@ NODOX is a multiorganism bioinformatics research platform for the computational 
 The purpose of NODOX is not to produce a definitive list of validated drug targets. Its purpose is to organize complex and incomplete biological evidence into an auditable, interpretable, and reproducible prioritization workflow that helps researchers decide which candidates deserve deeper review, curation, and experimental validation.
 
 > NODOX generates ranked research hypotheses. It does not establish therapeutic efficacy, clinical validity, safety, or experimental confirmation.
+>
+> **Theoretical model status:** The theoretical model underlying NODOX remains under active review by the project collaborators. Its concepts, assumptions, variables, and scoring interpretation should be considered provisional and may change as that review progresses. Passing software tests confirms implementation consistency and reproducibility; it does not constitute scientific validation of the theoretical model.
 
 ## Why NODOX exists
 
