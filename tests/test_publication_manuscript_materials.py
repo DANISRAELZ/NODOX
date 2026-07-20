@@ -57,8 +57,9 @@ def test_manuscript_supporting_docs_avoid_prohibited_language() -> None:
 
 def test_readme_publication_section_is_conservative() -> None:
     readme = _read("README.md").lower()
-    assert "publication package" in readme
+    assert "publication-oriented" in readme or "publication-package" in readme
     assert "therapeutic_priority_score" in readme
     assert "evidence_confidence_score" in readme
+    assert "requires independent validation" in readme
     for phrase in FORBIDDEN_PHRASES:
         assert phrase not in readme
