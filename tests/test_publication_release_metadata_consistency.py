@@ -22,13 +22,13 @@ def test_publication_release_metadata_is_consistent() -> None:
     combined = "\n".join(texts.values())
 
     assert "nodox" in texts["README.md"]
-    assert "0.1.0-publication" in texts["CITATION.cff"]
-    assert "v0.1.0-publication" in texts["CHANGELOG.md"]
-    assert "v0.1.0-publication" in texts["release_notes_v0_1_0_publication.md"]
-    assert "v0.1.0-publication" in texts["final_publication_release_check.md"]
-    assert "2026-06-11" in texts["CITATION.cff"]
-    assert "2026-06-11" in texts["CHANGELOG.md"]
-    assert "2026-06-11" in texts["release_notes_v0_1_0_publication.md"]
+    assert 'version: "0.1.0"' in texts["CITATION.cff"]
+    assert "v0.1.0" in texts["CHANGELOG.md"]
+    assert "v0.1.0" in texts["release_notes_v0_1_0_publication.md"]
+    assert "v0.1.0" in texts["final_publication_release_check.md"]
+    assert "2026-07-20" in texts["CITATION.cff"]
+    assert "2026-07-20" in texts["CHANGELOG.md"]
+    assert "2026-07-20" in texts["release_notes_v0_1_0_publication.md"]
     assert "doi:" not in combined
     assert "10.xxxx" not in combined
     assert "clinically validated" not in combined
