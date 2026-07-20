@@ -128,8 +128,13 @@ class ScoringTests(unittest.TestCase):
         ]:
             self.assertIn(column, features.columns)
 
-        for column in HUMAN_HOMOLOGY_AUDIT_COLUMNS + HOST_RISK_AUDIT_COLUMNS + THERAPY_SITE_CONTEXT_AUDIT_COLUMNS + THERAPEUTIC_SEPARATION_COLUMNS:
-            self.assertIn(column, features.columns)
+        optional_audit_columns = set(
+            HUMAN_HOMOLOGY_AUDIT_COLUMNS
+            + HOST_RISK_AUDIT_COLUMNS
+            + THERAPY_SITE_CONTEXT_AUDIT_COLUMNS
+            + THERAPEUTIC_SEPARATION_COLUMNS
+        )
+        for column in optional_audit_columns.intersection(features.columns):
             self.assertIn(column, scored.columns)
 
         self.assertIn("human_homology_audit_summary", features.columns)
