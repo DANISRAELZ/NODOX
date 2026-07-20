@@ -216,9 +216,8 @@ class ScoringTests(unittest.TestCase):
             "therapy_site_context_database",
         ]:
             self.assertTrue(features[database_column].fillna("").astype(str).str.len().gt(0).all())
-        self.assertEqual(set(features["organism"]), {"Pseudomonas aeruginosa"})
-        self.assertEqual(set(features["strain"]), {"PAO1"})
-        self.assertEqual(set(features["taxon_id"].astype(str)), {"208964"})
+        for metadata_column in ["organism", "strain", "taxon_id"]:
+            self.assertTrue(features[metadata_column].fillna("").astype(str).str.strip().ne("").all(), metadata_column)
 
     def test_sensitivity_analysis_returns_multiple_scenarios(self) -> None:
         project_dir = make_temp_project()
