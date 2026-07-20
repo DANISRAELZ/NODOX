@@ -4,7 +4,7 @@ This checklist must be completed before changing the repository visibility from 
 
 ## Repository identity
 
-- [ ] README title and project description consistently use NODOX.
+- [x] README title and project description consistently use NODOX.
 - [ ] Repository description and topics are configured in GitHub.
 - [ ] Version number and release tag agree.
 - [ ] Author and institutional attribution have been reviewed.
@@ -34,10 +34,10 @@ This checklist must be completed before changing the repository visibility from 
 
 ## Scientific communication
 
-- [ ] The root README clearly labels NODOX as exploratory scientific software.
-- [ ] Demo, proxy, cache, controlled-reference, online, and user-curated evidence are distinguished in the root README.
-- [ ] Limitations and validation requirements are visible near the beginning of the root README.
-- [ ] Example rankings are not presented as experimentally validated therapeutic claims.
+- [x] The root README clearly labels NODOX as exploratory scientific software.
+- [x] Demo, proxy, cache, controlled-reference, online, and user-curated evidence are distinguished in the root README.
+- [x] Limitations and validation requirements are visible near the beginning of the root README.
+- [x] Example rankings are not presented as experimentally validated therapeutic claims.
 - [ ] Third-party databases and their licensing or terms of use have been reviewed.
 
 ## GitHub release preparation
@@ -51,3 +51,4 @@ This checklist must be completed before changing the repository visibility from 
 
 - Public release audit run 41 passed the security audit, organism-agnostic offline suite, online-provider contracts, and organism-regression jobs.
 - A new required `strict-complete-suite` job has been added and must pass before release.
+- `README_PUBLIC.md` was promoted to `README.md`; the previous technical README is preserved as `README_TECHNICAL.md`.
