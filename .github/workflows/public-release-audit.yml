@@ -129,6 +129,33 @@ jobs:
           path: pytest_standard_report.txt
           if-no-files-found: error
 
+  strict-complete-suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install development dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+      - name: Run strict complete pytest suite
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest -p no:cacheprovider -q \
+            2>&1 | tee pytest_strict_complete_report.txt
+      - name: Upload strict complete-suite report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strict-complete-pytest-report
+          path: pytest_strict_complete_report.txt
+          if-no-files-found: error
+
   online-provider-contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 45
