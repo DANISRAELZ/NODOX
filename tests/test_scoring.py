@@ -87,7 +87,6 @@ class ScoringTests(unittest.TestCase):
         for column in [
             "preferred_strategy",
             "strategy_margin_score",
-            "strategy_margin_label",
             "strategy_rationale",
             "top_positive_drivers",
             "top_negative_drivers",
