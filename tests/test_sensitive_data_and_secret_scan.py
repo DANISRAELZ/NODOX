@@ -39,6 +39,7 @@ def test_sensitive_data_and_secret_scan_documentation() -> None:
 def test_lightweight_static_secret_scan_gate() -> None:
     assert not (PROJECT_ROOT / ".env").exists()
     final_check = (PROJECT_ROOT / "docs" / "final_publication_release_check.md").read_text(encoding="utf-8").lower()
-    assert "human approval is given" in final_check
+    assert "repository owner has authorized" in final_check
+    assert "public release inventory" in final_check
     for risky_name in [".env", "id_rsa", "secret.key", "credentials.json"]:
         assert not (PROJECT_ROOT / risky_name).exists()

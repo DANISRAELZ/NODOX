@@ -8,30 +8,42 @@ README_PATH = PROJECT_ROOT / "README.md"
 
 
 def test_readme_publication_release_readiness_terms() -> None:
-    text = README_PATH.read_text(encoding="utf-8").lower()
-    required_terms = [
-        "nodos funcionales",
+    readme = README_PATH.read_text(encoding="utf-8").lower()
+    required_readme_terms = [
+        "nodox",
         "functional nodes",
         "prioritization",
-        "user_curated",
+        "user-curated",
         "therapeutic_priority_score",
         "evidence_confidence_score",
-        "gui",
-        "publication_package",
+        "publication-oriented",
         "pseudomonas aeruginosa",
         "citation.cff",
-        "project code is licensed under apache license 2.0",
-        "dependency license and security review remain release requirements",
-        "pre-publication repository audit",
-        "ai-use transparency statement",
-        "final public release audit",
-        "sensitive data and secret scan",
-        "core dependency review summary",
-        "public release file inclusion review",
-        "public tag remains blocked until final human approval",
-        "limitations",
-        "no clinical validation",
-        "no experimental validation",
+        "apache license 2.0",
+        "interpretation rules",
+        "unresolved layers",
+        "not experimental or clinical validation",
+        "independent validation",
+        "team of collaborators",
+        "provisional",
     ]
-    for term in required_terms:
-        assert term in text
+    for term in required_readme_terms:
+        assert term in readme
+
+    release_documents = {
+        "pre-publication repository audit": "docs/pre_publication_repository_audit.md",
+        "ai-use transparency statement": "docs/ai_use_transparency_statement.md",
+        "final public release audit": "docs/final_publication_release_check.md",
+        "sensitive data and secret scan": "docs/sensitive_data_and_secret_scan.md",
+        "core dependency review summary": "docs/core_dependency_review_summary.md",
+        "public release file inclusion review": "docs/public_release_file_inclusion_review.md",
+    }
+    for expected_term, relative_path in release_documents.items():
+        path = PROJECT_ROOT / relative_path
+        assert path.exists(), relative_path
+        assert expected_term in path.read_text(encoding="utf-8").lower()
+
+    final_check = (PROJECT_ROOT / "docs" / "final_publication_release_check.md").read_text(encoding="utf-8").lower()
+    assert "repository owner has authorized" in final_check
+    assert "target tag: `v0.1.0`" in final_check
+    assert "final tag points to the merged release commit" in final_check

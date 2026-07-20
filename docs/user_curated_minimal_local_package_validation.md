@@ -1,146 +1,95 @@
 # User-curated minimal local package validation
 
-## Proposito
+## Propósito
 
-Este documento registra el cierre documental de la primera validacion local
-minima de paquete `user_curated`. El contenido del paquete local no se
-versiona: solo se documenta que fue creado, que mantiene trazabilidad minima y
-que su manifest paso prevalidacion estructural.
+Este documento registra el cierre local mínimo de un paquete `user_curated`. El contenido real del paquete no se versiona; solo se documentan estructura, trazabilidad y prevalidación.
 
-## Paquete local creado
-
-Se creo el paquete local:
+## Paquete local
 
 ```text
 user_curated_staging/minimal_user_curated_validation_01/
 ```
 
-El directorio `user_curated_staging/` permanece ignorado por Git mediante
-`.gitignore` y no debe versionarse. Esta regla evita convertir insumos locales
-de usuario en artefactos del repositorio.
+`user_curated_staging/` permanece ignorado por Git y no debe versionarse.
 
 ## Estructura verificada
 
-El paquete local contiene:
+El paquete contiene:
 
-- `README.md`;
-- `manifest.csv`;
-- `raw_inputs/`;
-- `provenance/`;
-- `notes/`.
+- `README.md`
+- `manifest.csv`
+- `raw_inputs/`
+- `provenance/`
+- `notes/`
 
-Los `raw_inputs` incluyeron:
+Dentro de `raw_inputs/` se revisaron los archivos previstos para el paquete mínimo:
 
-- `gene_list.csv`;
-- `manual_curation.csv`;
-- `functional_annotations.csv`;
-- `conservation.csv`;
-- `evolutionary_escape_risk.csv`.
+- `gene_list.csv`
+- `manual_curation.csv`
+- `functional_annotations.csv`
+- `conservation.csv`
+- `evolutionary_escape_risk.csv`
 
-## Alcance biologico declarado
+## Alcance ficticio y neutral
 
-El organismo usado fue generico de prueba:
+El manifest declara el organismo `Example bacterium` y el alcance `minimal_validation_scope`.
 
-- organism: `Example bacterium`;
-- strain/scope: `minimal_validation_scope`.
+No se uso PAO1, H37Rv ni Corynebacterium como default. Los candidatos del paquete son ficticios y no constituyen evidencia clinica, experimental ni una recomendación terapéutica.
 
-No se uso PAO1, H37Rv ni Corynebacterium como default. El alcance biologico fue
-declarado de forma explicita para esta validacion local y no debe inferirse a
-partir de organismos modelo, datos demo, cache, proxies ni referencias
-controladas.
+`source_type=user_curated` describe procedencia y revisión humana. En este paquete de validación solo representa estructura local y trazabilidad revisable; no convierte un fixture en evidencia biológica real.
 
-Los candidatos del paquete son ficticios y metodologicamente utiles para
-validar estructura:
+## Prevalidación
 
-- `candidate_A`;
-- `candidate_B`;
-- `candidate_C`.
+### paso validacion por Python
 
-Estos candidatos no constituyen evidencia clinica, evidencia experimental ni
-recomendacion terapeutica.
-
-## Manifest y prevalidacion
-
-El `manifest.csv` declaro:
-
-- `dataset_id=minimal_user_curated_validation_01`;
-- `source_type=user_curated`;
-- procedencia local clara y revisable;
-- organismo y strain/scope definidos por usuario;
-- schema/template usado por archivo;
-- archivo asociado;
-- estado de revision;
-- notas indicando que es un dataset minimo de validacion local, no evidencia
-  clinica.
-
-El manifest paso validacion por Python:
+Comando relativo para Windows con el entorno virtual del repositorio:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\validate_user_curated_manifest.py user_curated_staging\minimal_user_curated_validation_01\manifest.csv
 ```
 
-Resultado registrado:
+Comando equivalente con el intérprete activo:
 
-```text
-[OK] Manifest user_curated valido para revision/importacion.
-[OK] Esta prevalidacion no ejecuta pipeline, importacion ni scoring.
+```powershell
+python scripts/validate_user_curated_manifest.py user_curated_staging/minimal_user_curated_validation_01/manifest.csv
 ```
 
-El manifest tambien paso validacion por wrapper PowerShell:
+### paso validacion por wrapper PowerShell
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\validate_user_curated_manifest.ps1 -ManifestPath user_curated_staging\minimal_user_curated_validation_01\manifest.csv
 ```
 
-Resultado registrado:
+Resultado esperado:
 
 ```text
-[OK] Python: C:\Users\danis\OneDrive\Escritorio\nodos\.venv\Scripts\python.exe
-[OK] Prevalidando manifest user_curated: user_curated_staging\minimal_user_curated_validation_01\manifest.csv
-[INFO] Esta revision no ejecuta importacion, pipeline ni scoring.
 [OK] Manifest user_curated valido para revision/importacion.
 [OK] Esta prevalidacion no ejecuta pipeline, importacion ni scoring.
 ```
 
-Esta prevalidacion no ejecuta pipeline, importacion ni scoring.
+Esta prevalidacion no ejecuta pipeline, importacion ni scoring y no modifica `src/nodos_funcionales/scoring.py`.
 
-## Garantias conservadas
+## Garantías de no modificación
 
-La validacion local no modifica:
+La validación no modifica:
 
-- `src/nodos_funcionales/scoring.py`;
+- scoring;
 - snapshots;
 - `results/`;
 - `data_processed/`;
 - `data_sessions/`;
 - `config/taxon_resolution_cache.json`.
 
-No se ejecuto modo online. No se genero ranking, salida terapeutica real ni
-dataset versionado.
+Tampoco abre red, importa datos al pipeline ni genera rankings.
 
-## Interpretacion permitida
+## Interpretación científica
 
-`source_type=user_curated` en este paquete solo representa estructura local y
-trazabilidad revisable. No transforma candidatos ficticios en evidencia
-biologica real ni clinica.
+`therapeutic_priority_score` y `evidence_confidence_score` deben permanecer separados.
 
-`therapeutic_priority_score` y `evidence_confidence_score` deben permanecer
-separados en cualquier fase posterior. Una prioridad terapeutica modelada no
-equivale automaticamente a confianza alta, y una confianza limitada no debe
-ocultarse dentro del score terapeutico.
+Evidencia insuficiente no significa bajo riesgo. `evolutionary_escape_risk` actua como modulador interpretativo, no como certeza clinica.
 
-Evidencia insuficiente no significa bajo riesgo. Los faltantes deben leerse
-como incertidumbre o riesgo no resuelto, no como evidencia negativa.
+`demo`, `proxy`, `cache`, `controlled_reference` y `user_curated` no son equivalentes y deben conservar etiquetas de procedencia distintas.
 
-`evolutionary_escape_risk` actua como modulador interpretativo de riesgo, no
-como certeza clinica ni predictor definitivo.
+## Estado
 
-`demo`, `proxy`, `cache`, `controlled_reference` y `user_curated` no son
-equivalentes. Deben permanecer separados en procedencia, lectura y reportes.
-
-## Estado de cierre
-
-Estado: paquete local minimo creado, ignorado por Git y prevalidado por manifest
-con Python y PowerShell. La siguiente fase puede documentar o implementar una
-validacion estructural mas amplia, siempre sin ejecutar scoring hasta que el
-usuario apruebe explicitamente una corrida controlada.
+El paquete mínimo fue preparado fuera del control de versiones y su manifest pasó prevalidación estructural. Cualquier importación, scoring o interpretación posterior requiere revisión humana y autorización explícita.

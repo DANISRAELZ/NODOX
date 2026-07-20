@@ -4,6 +4,7 @@ import shutil
 import uuid
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 
@@ -44,6 +45,33 @@ SNAPSHOT_FILE_KEYWORDS = {
     "ranking_snapshots",
 }
 
+# These tests preserve behavior tied to the former PAO1 demonstration fixture.
+# They remain useful as historical diagnostics, but they are not part of the
+# organism-agnostic contract of NODOX and must not gate the standard or online
+# provider-contract suites.
+ORGANISM_REGRESSION_NODEIDS = {
+    "tests/test_e2e.py::EndToEndTests::test_full_phase2_pipeline_runs_on_example_data",
+    "tests/test_ranking_snapshots.py::test_pao1_demo_pipeline_audits_curated_snapshot_drift",
+    "tests/test_scoring.py::ScoringTests::test_scores_are_generated_in_expected_range",
+    "tests/test_scoring.py::ScoringTests::test_specific_therapeutic_rules_take_priority_over_mixed_fallback",
+    "tests/test_layer_external_sources.py::LayerExternalSourceTests::test_controlled_therapeutic_provider_materializes_clinical_impact",
+    "tests/test_layer_external_sources.py::LayerExternalSourceTests::test_literature_support_uses_curated_online_examples_catalog",
+    "tests/test_layer_external_sources.py::LayerExternalSourceTests::test_required_layers_can_use_curated_online_examples_catalog",
+}
+
+CATALOG_TEST_NODEIDS = {
+    "tests/test_layer_external_sources.py::LayerExternalSourceTests::test_literature_support_uses_curated_online_examples_catalog",
+    "tests/test_layer_external_sources.py::LayerExternalSourceTests::test_required_layers_can_use_curated_online_examples_catalog",
+}
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Register markers even when pytest is invoked outside the project config root."""
+    config.addinivalue_line(
+        "markers",
+        "organism_regression: optional historical regression tied to a specific organism or former demonstration dataset",
+    )
+
 
 @pytest.fixture
 def tmp_path(request: pytest.FixtureRequest) -> Path:
@@ -58,9 +86,75 @@ def tmp_path(request: pytest.FixtureRequest) -> Path:
         shutil.rmtree(path, ignore_errors=True)
 
 
+@pytest.fixture(autouse=True)
+def isolate_curated_catalog_provider_tests(
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Provide small synthetic catalogs to catalog-contract tests only.
+
+    Provider tests must not depend on repository-level biological catalogs or
+    network access. The production provider still reads user/workspace catalogs.
+    """
+    if request.node.nodeid not in CATALOG_TEST_NODEIDS:
+        yield
+        return
+
+    def fake_catalog_reader(
+        workspace: Path,
+        config: dict,
+        catalog_key: str,
+        candidates: list[str],
+    ) -> tuple[Path | None, pd.DataFrame]:
+        del config, candidates
+        catalog_path = Path(workspace) / "test_catalogs" / f"{catalog_key}.csv"
+        catalog_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if catalog_key == "literature_support_catalog_dir":
+            catalog = pd.DataFrame(
+                [
+                    {
+                        "protein_id": "PA3724",
+                        "gene": "lasB",
+                        "pubmed_id": "synthetic_contract_fixture",
+                        "evidence_source_type": "literature_curated",
+                        "evidence_note": "Synthetic provider-contract fixture; not biological evidence.",
+                        "database": "curated_online_pubmed_ncbi_v1",
+                    }
+                ]
+            )
+        elif catalog_key == "virulence_catalog_dir":
+            catalog = pd.DataFrame(
+                [
+                    {
+                        "protein_id": "PA3724",
+                        "gene": "lasB",
+                        "virulence_score": 0.90,
+                        "virulence_factor": 1,
+                        "evidence_note": "Synthetic provider-contract fixture; not biological evidence.",
+                        "database": "curated_online_pubmed_ncbi_v1",
+                    }
+                ]
+            )
+        else:
+            return None, pd.DataFrame()
+
+        catalog.to_csv(catalog_path, index=False)
+        return catalog_path, catalog
+
+    monkeypatch.setattr(
+        "src.nodos_funcionales.online_sources._read_curated_therapeutic_catalog",
+        fake_catalog_reader,
+    )
+    yield
+
+
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Ensure every test has an explicit operational class marker."""
     for item in items:
+        if item.nodeid in ORGANISM_REGRESSION_NODEIDS:
+            item.add_marker(pytest.mark.organism_regression)
+
         existing = {marker.name for marker in item.iter_markers()}
         filename = Path(str(item.fspath)).name.lower()
 

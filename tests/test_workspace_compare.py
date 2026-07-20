@@ -1,28 +1,45 @@
 from __future__ import annotations
 
-import unittest
+import json
+from pathlib import Path
 
 from src.nodos_funcionales.workspace_compare import compare_workspaces
-from tests.helpers import PROJECT_ROOT
 
 
-class WorkspaceCompareTests(unittest.TestCase):
-    def test_compare_workspaces_returns_known_sessions(self) -> None:
-        comparison = compare_workspaces(PROJECT_ROOT)
-        self.assertIn("workspace_name", comparison.columns)
-        self.assertIn("organism_canonical_name", comparison.columns)
-        self.assertIn("online_source", comparison.columns)
-        self.assertIn("online_source_used", comparison.columns)
-        self.assertIn("online_impact_status", comparison.columns)
-        self.assertIn("online_changed_candidate_count", comparison.columns)
-        self.assertIn("online_history_count", comparison.columns)
-        self.assertIn("online_sources_seen", comparison.columns)
-        expected_demo_workspaces = [
-            "corynebacterium_pseudotuberculosis_online_demo",
-            "pao1_demo",
-        ]
-        self.assertTrue(comparison["workspace_name"].isin(expected_demo_workspaces).any())
+def _write_demo_workspace(base_dir: Path, name: str, organism: str) -> None:
+    results_dir = base_dir / "data_sessions" / name / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    (results_dir / "organism_profile.json").write_text(
+        json.dumps(
+            {
+                "organism_canonical_name": organism,
+                "strain_canonical": "demo_strain",
+                "completeness_status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_compare_workspaces_returns_controlled_sessions(tmp_path: Path) -> None:
+    _write_demo_workspace(tmp_path, "corynebacterium_pseudotuberculosis_online_demo", "Corynebacterium pseudotuberculosis")
+    _write_demo_workspace(tmp_path, "pao1_demo", "Pseudomonas aeruginosa")
+
+    comparison = compare_workspaces(tmp_path)
+
+    for column in [
+        "workspace_name",
+        "organism_canonical_name",
+        "online_source",
+        "online_source_used",
+        "online_impact_status",
+        "online_changed_candidate_count",
+        "online_history_count",
+        "online_sources_seen",
+    ]:
+        assert column in comparison.columns
+
+    assert set(comparison["workspace_name"]) == {
+        "corynebacterium_pseudotuberculosis_online_demo",
+        "pao1_demo",
+    }

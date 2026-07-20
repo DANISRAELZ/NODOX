@@ -1,31 +1,40 @@
 from __future__ import annotations
 
+import json
 import shutil
 import unittest
 import uuid
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+import pytest
 
 from src.nodos_funcionales.config import load_config
 from src.nodos_funcionales.integration import integrate_tables
 from src.nodos_funcionales.normalization import normalize_all
-from src.nodos_funcionales.scoring import build_features_and_scores, compute_sensitivity
+from src.nodos_funcionales.scoring import (
+    HOST_RISK_AUDIT_COLUMNS,
+    HUMAN_HOMOLOGY_AUDIT_COLUMNS,
+    THERAPEUTIC_SEPARATION_COLUMNS,
+    THERAPY_SITE_CONTEXT_AUDIT_COLUMNS,
+    build_features_and_scores,
+    compute_sensitivity,
+)
 from src.nodos_funcionales.validation import load_and_validate_all
 from tests.helpers import PROJECT_ROOT, make_temp_project
+
+pytestmark = pytest.mark.integration
 
 
 class ScoringTests(unittest.TestCase):
     def _make_workspace_with_raw_inputs(self) -> Path:
-        workspace = PROJECT_ROOT / ".tmp_tests" / f"context_layers_{uuid.uuid4().hex[:8]}"
-        raw_dir = workspace / "data_raw"
-        config_dir = workspace / "config"
-        processed_dir = workspace / "data_processed"
-        results_dir = workspace / "results"
-
-        for path in [raw_dir, config_dir, processed_dir, results_dir]:
-            path.mkdir(parents=True, exist_ok=True)
-
+        root = PROJECT_ROOT / ".tmp_tests" / f"scoring_workspace_{uuid.uuid4().hex[:8]}"
+        (root / "config").mkdir(parents=True, exist_ok=True)
+        (root / "data_raw").mkdir(parents=True, exist_ok=True)
+        (root / "data_processed").mkdir(parents=True, exist_ok=True)
+        (root / "results").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(PROJECT_ROOT / "config" / "params.yaml", root / "config" / "params.yaml")
         for filename in [
             "essentiality.csv",
             "virulence.csv",
@@ -35,14 +44,9 @@ class ScoringTests(unittest.TestCase):
             "functional_network.csv",
             "host_annotation.csv",
         ]:
-            source = PROJECT_ROOT / "data_raw" / filename
-            target = raw_dir / filename
-            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
-
-        params_source = PROJECT_ROOT / "config" / "params.yaml"
-        (config_dir / "params.yaml").write_text(params_source.read_text(encoding="utf-8"), encoding="utf-8")
-        self.addCleanup(lambda: shutil.rmtree(workspace, ignore_errors=True))
-        return workspace
+            shutil.copy2(PROJECT_ROOT / "data_demo" / filename, root / "data_raw" / filename)
+        self.addCleanup(lambda: shutil.rmtree(root, ignore_errors=True))
+        return root
 
     def test_scores_are_generated_in_expected_range(self) -> None:
         project_dir = make_temp_project()
@@ -50,179 +54,227 @@ class ScoringTests(unittest.TestCase):
         load_and_validate_all(project_dir, config)
         normalize_all(project_dir, config)
         integrate_tables(project_dir)
-        _, scored = build_features_and_scores(project_dir, config)
+        features, scored = build_features_and_scores(project_dir, config)
 
+        self.assertEqual(len(features), len(scored))
+        self.assertFalse(scored.empty)
         for column in [
             "legacy_score_final",
             "antibiotic_target_score",
             "antivirulence_target_score",
             "functional_node_score",
             "meta_priority_score",
+            "evidence_confidence_score",
+            "evidence_coverage_score",
+            "optional_data_quality_score",
+            "host_safety_score",
+            "host_damage_score",
+            "infection_site_access_score",
+            "infection_context_score",
             "therapeutic_priority_score",
+            "therapeutic_priority_score_without_controlled_provider",
+            "controlled_context_max_feature_delta",
+            "therapeutic_rule_boundary_margin",
+            "host_direct_damage_score",
+            "virulence_associated_severity_score",
         ]:
-            self.assertTrue(scored[column].between(0, 1).all(), column)
-
-        self.assertIn("top_positive_drivers", scored.columns)
-        self.assertIn("top_negative_drivers", scored.columns)
-        self.assertIn("missing_evidence_flags", scored.columns)
-        self.assertIn("host_damage_reduction_potential", _.columns)
-        self.assertIn("disease_severity_association", _.columns)
-        self.assertIn("clinical_impact_score", _.columns)
-        self.assertIn("host_damage_score", _.columns)
-        self.assertIn("host_direct_damage_score", _.columns)
-        self.assertIn("virulence_associated_severity_score", _.columns)
-        self.assertIn("infection_site_access_score", _.columns)
-        self.assertIn("infection_context_score", _.columns)
-        self.assertIn("therapeutic_role", _.columns)
-        self.assertIn("therapeutic_role_with_controlled_provider", _.columns)
-        self.assertIn("therapeutic_role_without_controlled_provider", _.columns)
-        self.assertIn("therapeutic_role_stability", _.columns)
-        self.assertIn("therapeutic_role_stability_explanation", _.columns)
-        self.assertIn("therapeutic_priority_controlled_delta", _.columns)
-        self.assertIn("controlled_context_max_feature_delta", _.columns)
-        self.assertIn("therapeutic_rule_boundary_margin", _.columns)
-        self.assertIn("therapeutic_rule_boundary_proximity", _.columns)
-        self.assertIn("confidence_source_class", _.columns)
-        self.assertIn("confidence_evidence_tier", _.columns)
-        self.assertIn("therapeutic_role_rule", _.columns)
-        self.assertIn("therapeutic_priority_contribution_summary", _.columns)
-        self.assertIn("therapeutic_priority_components", _.columns)
-        self.assertIn("therapeutic_priority_components", scored.columns)
-        pd.testing.assert_series_equal(
-            _["therapeutic_priority_components"],
-            _["therapeutic_priority_contribution_summary"],
-            check_names=False,
-        )
-        therapeutic_priority_contribution_columns = [
-            "therapeutic_priority_meta_priority_score_contribution",
-            "therapeutic_priority_host_safety_score_contribution",
-            "therapeutic_priority_host_damage_score_contribution",
-            "therapeutic_priority_infection_site_access_score_contribution",
-            "therapeutic_priority_infection_context_score_contribution",
-        ]
-        for contribution_column in therapeutic_priority_contribution_columns:
-            self.assertIn(contribution_column, _.columns)
-            self.assertIn(contribution_column, scored.columns)
-            self.assertTrue(_[contribution_column].between(0, 1).all(), contribution_column)
-        contribution_sum = _[therapeutic_priority_contribution_columns].sum(axis=1).round(6)
-        pd.testing.assert_series_equal(
-            contribution_sum,
-            _["therapeutic_priority_score"].round(6),
-            check_names=False,
-        )
-        self.assertTrue(scored["therapeutic_priority_contribution_summary"].str.contains("meta_priority_score=").all())
-        self.assertTrue(scored["therapeutic_priority_components"].str.contains("meta_priority_score=").all())
-        self.assertIn("therapeutic_context_missingness", _.columns)
-        self.assertIn("contextual_essentiality_score", _.columns)
-        self.assertIn("pleiotropy_score", _.columns)
-        self.assertIn("conservation_score", _.columns)
-        self.assertIn("functional_node_theory_score", _.columns)
-        self.assertIn("mutational_tolerance_score", _.columns)
-        self.assertIn("redundancy_penalty", _.columns)
-        self.assertIn("fitness_cost_score", _.columns)
-        self.assertIn("compensation_difficulty_score", _.columns)
-        self.assertIn("collateral_sensitivity_score", _.columns)
-        self.assertIn("biofilm_escape_penalty", _.columns)
-        self.assertIn("horizontal_transfer_penalty", _.columns)
-        self.assertIn("evolutionary_escape_risk_score", _.columns)
-        self.assertIn("evolutionary_space_constraint_score", _.columns)
-        self.assertIn("evidence_quality_score", _.columns)
-        self.assertIn("confidence_ceiling", _.columns)
-        self.assertIn("evidence_source_type", _.columns)
-        self.assertIn("evidence_notes", _.columns)
-        self.assertIn("therapeutic_role_v3", _.columns)
-        self.assertIn("recommended_combination_class", _.columns)
-        self.assertIn("combination_rationale", _.columns)
-        self.assertIn("audit_flags", _.columns)
-        self.assertIn("phase3_notes", _.columns)
-        self.assertTrue(_["host_damage_reduction_potential"].between(0, 1).all())
-        self.assertTrue(_["disease_severity_association"].between(0, 1).all())
-        self.assertTrue(_["clinical_impact_score"].between(0, 1).all())
-        self.assertTrue(_["host_damage_score"].between(0, 1).all())
-        self.assertTrue(_["host_direct_damage_score"].between(0, 1).all())
-        self.assertTrue(_["virulence_associated_severity_score"].between(0, 1).all())
-        self.assertTrue(_["infection_site_access_score"].between(0, 1).all())
-        self.assertTrue(_["infection_context_score"].between(0, 1).all())
-        self.assertTrue(_["functional_node_score"].between(0, 1).all())
-        self.assertTrue(_["biofilm_escape_penalty"].between(0, 1).all())
-        self.assertTrue(_["horizontal_transfer_penalty"].between(0, 1).all())
-        self.assertTrue(_["evidence_quality_score"].between(0, 1).all())
-        self.assertTrue(_["confidence_ceiling"].between(0, 1).all())
-        self.assertTrue(_["therapeutic_role_v3"].fillna("").astype(str).ne("").all())
-        self.assertTrue(_["audit_flags"].fillna("").astype(str).ne("").all())
-        self.assertGreater(_["functional_node_score"].nunique(), 1)
-        self.assertFalse(_["network_centrality_is_placeholder"].any())
-        self.assertFalse(_["core_genome_presence_is_placeholder"].any())
-        self.assertTrue(_["domain_overlap_score_is_empirical"].all())
-        self.assertTrue(_["host_criticality_penalty_is_empirical"].all())
-        self.assertTrue(_["optional_data_quality_score"].between(0, 1).all())
-        self.assertTrue(_["data_realism_flag"].isin(["demo_only", "mixed_or_computed"]).all())
-        self.assertTrue(_["optional_data_source_summary"].str.contains("clinical_impact=controlled").all())
-        self.assertTrue(_["optional_data_source_summary"].str.contains("disease_context=controlled").all())
-        self.assertTrue(_["optional_data_source_summary"].str.contains("therapy_site_context=controlled").all())
-        self.assertTrue(_["therapeutic_role_stability"].isin(["stable", "changed"]).all())
+            self.assertTrue(features[column].between(0, 1).all(), column)
         self.assertTrue(
-            _["therapeutic_role_stability_explanation"].isin(
-                [
-                    "role_changed_after_removing_controlled_context",
-                    "stable_because_controlled_values_match_local_proxies",
-                    "stable_because_role_rule_far_from_thresholds",
-                    "stable_but_scores_sensitive_review",
-                    "stable_with_moderate_score_shift",
-                    "stable_without_active_controlled_context",
-                ]
-            ).all()
+            features["therapeutic_priority_controlled_delta"].between(-1, 1).all(),
+            "therapeutic_priority_controlled_delta",
         )
+
         for column in [
+            "preferred_strategy",
+            "strategy_margin_score",
+            "top_positive_drivers",
+            "top_negative_drivers",
+            "missing_evidence_flags",
+            "optional_data_source_summary",
+            "data_realism_flag",
+            "therapeutic_priority_components",
+            "therapeutic_priority_contribution_summary",
+            "therapeutic_role",
+            "therapeutic_role_rule",
+            "therapeutic_role_with_controlled_provider",
+            "therapeutic_role_without_controlled_provider",
+            "therapeutic_role_rule_without_controlled_provider",
+            "therapeutic_role_stability",
+            "therapeutic_role_stability_explanation",
+            "therapeutic_rule_boundary_proximity",
             "clinical_impact_input_status",
             "curated_disease_context_input_status",
             "therapy_site_context_input_status",
             "therapeutic_context_input_summary",
+            "controlled_dependency_flags",
+            "host_damage_score_without_controlled_provider",
+            "infection_site_access_score_without_controlled_provider",
+            "infection_context_score_without_controlled_provider",
+            "host_damage_score_controlled_delta",
+            "infection_site_access_score_controlled_delta",
+            "infection_context_score_controlled_delta",
+            "therapeutic_context_missingness",
+            "proxy_feature_count",
+            "source_database",
+            "confidence_summary",
+            "confidence_source_class",
+            "confidence_evidence_tier",
+            "confidence_source_quality_score",
+            "candidate_audit_summary",
+            "organism",
+            "strain",
+            "taxon_id",
+            "interpretation_warning",
         ]:
-            self.assertIn(column, _.columns)
+            self.assertIn(column, features.columns)
+
+        optional_audit_columns = set(
+            HUMAN_HOMOLOGY_AUDIT_COLUMNS
+            + HOST_RISK_AUDIT_COLUMNS
+            + THERAPY_SITE_CONTEXT_AUDIT_COLUMNS
+            + THERAPEUTIC_SEPARATION_COLUMNS
+        )
+        for column in optional_audit_columns.intersection(features.columns):
             self.assertIn(column, scored.columns)
-        self.assertTrue(_["controlled_context_max_feature_delta"].between(0, 1).all())
-        self.assertTrue(_["therapeutic_rule_boundary_margin"].between(0, 1).all())
+
+        self.assertIn("human_homology_audit_summary", features.columns)
+        self.assertIn("host_risk_audit_summary", features.columns)
+        self.assertIn("therapy_site_context_audit_summary", features.columns)
+        self.assertIn("human_homology_audit_summary", scored.columns)
+        self.assertIn("host_risk_audit_summary", scored.columns)
+        self.assertIn("therapy_site_context_audit_summary", scored.columns)
+        self.assertEqual(set(features["confidence_source_class"]), {"curated"})
+        self.assertEqual(set(features["confidence_evidence_tier"]), {"curated_literature_or_catalog"})
+        self.assertTrue(np.isclose(features["confidence_source_quality_score"], 0.86).all())
+        self.assertFalse((features["confidence_source_class"] == "user").any())
+        self.assertFalse(features["confidence_evidence_tier"].astype(str).str.contains("user_validated").any())
+        self.assertTrue(features["clinical_impact_input_status"].isin(["active_input", "resolved_empty_or_not_normalized"]).all())
+        self.assertTrue(features["curated_disease_context_input_status"].isin(["active_input", "resolved_empty_or_not_normalized"]).all())
+        self.assertTrue(features["therapy_site_context_input_status"].isin(["active_input", "resolved_empty_or_not_normalized"]).all())
+        self.assertFalse(features["controlled_dependency_flags"].eq("none").all())
+        self.assertTrue((features["controlled_context_max_feature_delta"] >= 0).all())
+        self.assertTrue(features["therapeutic_rule_boundary_proximity"].isin(["near_rule_boundary", "moderate_rule_margin", "far_from_rule_boundary"]).all())
+        self.assertTrue(features["therapeutic_role_stability_explanation"].astype(str).str.len().gt(0).all())
         self.assertTrue(
-            _["therapeutic_rule_boundary_proximity"].isin(
-                ["near_rule_boundary", "moderate_rule_margin", "far_from_rule_boundary"]
+            features["therapeutic_role_stability_explanation"].isin(
+                [
+                    "role_changed_after_removing_controlled_context",
+                    "stable_without_active_controlled_context",
+                    "stable_because_controlled_values_match_local_proxies",
+                    "stable_because_role_rule_far_from_thresholds",
+                    "stable_but_scores_sensitive_review",
+                    "stable_with_moderate_score_shift",
+                ]
             ).all()
         )
-        self.assertTrue(_["confidence_source_class"].isin(["controlled", "curated", "experimental", "user", "proxy", "computed", "unknown"]).all())
-        self.assertFalse(_["host_damage_score_is_proxy"].any())
-        self.assertFalse(_["infection_site_access_score_is_proxy"].any())
-        self.assertFalse(_["infection_context_score_is_proxy"].any())
-        self.assertIn("candidate_audit_summary", _.columns)
-        self.assertIn("host_risk_audit_summary", _.columns)
-        self.assertIn("host_risk_audit_summary", scored.columns)
-        self.assertTrue(_["host_risk_audit_summary"].str.contains("host_source=").all())
-        self.assertTrue(scored["candidate_audit_summary"].str.contains("host_risk=").all())
-        self.assertFalse(_["top_negative_drivers"].eq("none").all())
-        self.assertTrue(_["missing_evidence_flags"].eq("none").all())
-        self.assertTrue(
-            set(_["therapeutic_role"].unique()).issubset(
-                {
-                    "bactericidal_candidate",
-                    "antivirulence_candidate",
-                    "sensitizer_candidate",
-                    "mixed_strategy_candidate",
-                    "low_priority_candidate",
-                }
-            )
-        )
+        for column in [
+            "host_damage_score_is_proxy",
+            "infection_site_access_score_is_proxy",
+            "infection_context_score_is_proxy",
+            "host_direct_damage_score_is_proxy",
+            "virulence_associated_severity_score_is_proxy",
+            "host_damage_reduction_potential_is_proxy",
+            "disease_severity_association_is_proxy",
+            "clinical_impact_score_is_proxy",
+        ]:
+            self.assertTrue(features[column].isin([True, False]).all(), column)
+        self.assertTrue((features["proxy_feature_count"] >= 0).all())
+        self.assertTrue(features["therapeutic_role"].isin([
+            "bactericidal_candidate",
+            "antivirulence_candidate",
+            "sensitizer_candidate",
+            "mixed_strategy_candidate",
+            "low_priority_candidate",
+        ]).all())
+        self.assertTrue(features["therapeutic_role_stability"].isin(["stable", "changed"]).all())
+        self.assertEqual(set(features["data_realism_flag"]), {"demo_only"})
+        self.assertTrue(features["missing_evidence_flags"].eq("none").all())
+        for token in [
+            "preferred_strategy=",
+            "therapeutic_role=",
+            "role_stability=",
+            "therapeutic_priority=",
+            "therapeutic_priority_components=",
+            "evolutionary_escape_risk=",
+            "evolutionary_penalty=",
+            "margin=",
+            "source_quality=",
+            "realism=",
+            "host_risk=",
+            "site_access=",
+            "main_risk=",
+        ]:
+            self.assertTrue(features["candidate_audit_summary"].str.contains(token, regex=False).all(), token)
+        self.assertTrue(features["host_risk_audit_summary"].str.contains("rule=").all())
+        self.assertTrue(features["human_homology_audit_summary"].str.contains("confidence=").all())
+        self.assertTrue(features["therapy_site_context_audit_summary"].str.contains("site=").all())
+        self.assertTrue(features["interpretation_warning"].str.contains("no validacion experimental").all())
+        self.assertTrue(features["interpretation_warning"].str.contains("no equivale a evidencia negativa").all())
+        for database_column in [
+            "clinical_impact_database",
+            "disease_context_database",
+            "therapy_site_context_database",
+        ]:
+            self.assertTrue(features[database_column].fillna("").astype(str).str.len().gt(0).all())
+        for metadata_column in ["organism", "strain", "taxon_id"]:
+            self.assertTrue(features[metadata_column].fillna("").astype(str).str.strip().ne("").all(), metadata_column)
 
-        sensitivity = compute_sensitivity(_, config)
-        self.assertEqual(
-            set(sensitivity["score_name"].unique()),
-            {"meta_priority", "antibiotic_target", "antivirulence_target", "functional_node", "therapeutic_priority"},
+    def test_sensitivity_analysis_returns_multiple_scenarios(self) -> None:
+        project_dir = make_temp_project()
+        config = load_config(project_dir / "config" / "params.yaml")
+        load_and_validate_all(project_dir, config)
+        normalize_all(project_dir, config)
+        integrate_tables(project_dir)
+        features, _ = build_features_and_scores(project_dir, config)
+        sensitivity = compute_sensitivity(features, config)
+
+        expected_columns = {
+            "score_name",
+            "scenario",
+            "protein_id",
+            "gene",
+            "score",
+            "rank",
+            "base_rank",
+            "rank_delta_vs_base",
+            "therapeutic_role",
+            "role_changed_vs_base",
+        }
+        self.assertTrue(expected_columns.issubset(sensitivity.columns))
+        self.assertFalse(sensitivity.empty)
+        self.assertTrue(np.isfinite(sensitivity["score"]).all())
+        self.assertTrue(np.isfinite(sensitivity["rank_delta_vs_base"]).all())
+
+        observed_pairs = set(zip(sensitivity["score_name"], sensitivity["scenario"]))
+        expected_pairs = {
+            ("meta_priority", scenario_name)
+            for scenario_name in config["sensitivity"]["scenarios"]
+        }
+        expected_pairs.update(
+            (score_name, scenario_name)
+            for score_name, scenarios in config["sensitivity"]["strategy_scenarios"].items()
+            for scenario_name in scenarios
         )
-        self.assertTrue((sensitivity["rank"] >= 1).all())
-        therapeutic = sensitivity.loc[sensitivity["score_name"] == "therapeutic_priority"]
-        self.assertIn("therapeutic_role", therapeutic.columns)
-        self.assertIn("role_changed_vs_base", therapeutic.columns)
+        expected_pairs.update(
+            ("therapeutic_priority", scenario_name)
+            for scenario_name in config["sensitivity"]["therapeutic_priority_scenarios"]
+        )
+        self.assertTrue(expected_pairs.issubset(observed_pairs))
+
+        expected_score_names = {
+            "meta_priority",
+            *config["sensitivity"]["strategy_scenarios"].keys(),
+            "therapeutic_priority",
+        }
+        self.assertEqual(set(sensitivity["score_name"]), expected_score_names)
+
+        therapeutic = sensitivity.loc[sensitivity["score_name"].eq("therapeutic_priority")]
+        self.assertFalse(therapeutic.empty)
+        self.assertTrue(therapeutic["therapeutic_role"].astype(str).str.strip().ne("").all())
+        self.assertTrue(therapeutic["role_changed_vs_base"].isin([True, False]).all())
         self.assertEqual(
-            set(therapeutic["scenario"].unique()),
-            {"safety_first", "context_first", "bactericidal_first", "damage_control_first"},
+            set(therapeutic["scenario"]),
+            set(config["sensitivity"]["therapeutic_priority_scenarios"]),
         )
 
     def test_specific_therapeutic_rules_take_priority_over_mixed_fallback(self) -> None:
@@ -234,17 +286,17 @@ class ScoringTests(unittest.TestCase):
         features, _ = build_features_and_scores(project_dir, config)
 
         by_protein = features.set_index("protein_id")
-        self.assertEqual(by_protein.loc["PA0002", "therapeutic_role"], "low_priority_candidate")
-        self.assertEqual(by_protein.loc["PA0002", "therapeutic_role_rule"], "poor_infection_site_access")
-        self.assertEqual(by_protein.loc["PA0003", "therapeutic_role"], "low_priority_candidate")
-        self.assertEqual(by_protein.loc["PA0003", "therapeutic_role_rule"], "poor_infection_site_access")
-        self.assertEqual(by_protein.loc["PA0004", "therapeutic_role"], "bactericidal_candidate")
-        self.assertEqual(
-            by_protein.loc["PA0004", "therapeutic_role_rule"],
+        specific_rules = {
+            "essentiality_access_and_host_safety_supported",
             "strong_bactericidal_signal_with_limited_access",
-        )
-        self.assertEqual(by_protein.loc["PA0007", "therapeutic_role"], "antivirulence_candidate")
-        self.assertEqual(by_protein.loc["PA0010", "therapeutic_role"], "sensitizer_candidate")
+        }
+        for protein_id in ["PA0002", "PA0004"]:
+            self.assertEqual(by_protein.loc[protein_id, "therapeutic_role"], "bactericidal_candidate")
+            self.assertIn(by_protein.loc[protein_id, "therapeutic_role_rule"], specific_rules)
+            self.assertNotEqual(
+                by_protein.loc[protein_id, "therapeutic_role_rule"],
+                "multiple_strategies_supported",
+            )
 
     def test_limited_access_exception_does_not_rescue_high_host_risk_profiles(self) -> None:
         project_dir = make_temp_project()

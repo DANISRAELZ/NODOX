@@ -10,21 +10,21 @@ DOC_PATH = PROJECT_ROOT / "docs" / "v0_1_0_publication_release_decision.md"
 def test_v0_1_0_publication_release_decision_content() -> None:
     text = DOC_PATH.read_text(encoding="utf-8").lower()
     required_terms = [
-        "v0.1.0-publication",
-        "final human approval",
-        "dependency license and security review",
+        "final release version: `0.1.0`",
+        "final release tag: `v0.1.0`",
+        "release date: `2026-07-20`",
+        "repository owner approved",
+        "no orcid is included",
         "demo",
-        "final git tag should not be created automatically",
-        "no automatic",
-        "technically close to `v0.1.0-publication`",
-        "core release can proceed only after accepting or completing core dependency/security and sensitive-data review",
-        "docs/final_public_release_audit.md",
-        "docs/sensitive_data_and_secret_scan.md",
-        "docs/core_dependency_review_summary.md",
-        "docs/public_release_file_inclusion_review.md",
+        "strict complete pytest suite",
+        "clean-clone quick start smoke test",
+        "public-release inventory workflow",
         "no clinical validation",
         "no experimental validation",
-        "git tag v0.1.0-publication",
+        "team of collaborators",
+        "project code is licensed under apache license 2.0",
+        "git tag v0.1.0",
+        "merged release commit on `main`",
     ]
     for term in required_terms:
         assert term in text

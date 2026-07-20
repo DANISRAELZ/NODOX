@@ -1,0 +1,11 @@
+protein_id,gene,essential,evidence,database
+PA0001,gyrB,1,TnSeq,example_curated_demo
+PA0002,rpoB,1,Transposon,example_curated_demo
+PA0003,ftsZ,1,TnSeq,example_curated_demo
+PA0004,murA,1,TnSeq,example_curated_demo
+PA0005,fabI,1,CRISPRi,example_curated_demo
+PA0006,acpP,1,TnSeq,example_curated_demo
+PA0007,oprD,0,TnSeq,example_curated_demo
+PA0008,lasB,0,Transposon,example_curated_demo
+PA0009,algD,0,TnSeq,example_curated_demo
+PA0010,pvdA,0,TnSeq,example_curated_demo

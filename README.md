@@ -1,762 +1,179 @@
-# Nodos Funcionales
+# NODOX
 
-Nodos Funcionales es una plataforma bioinformatica multiorganismo para la
-priorizacion explicable de blancos terapeuticos bacterianos. El sistema permite
-que el usuario ingrese informacion genomica, funcional, clinica o curada de
-cualquier organismo bacteriano, y combina esta evidencia con fuentes externas,
-catalogos, redes funcionales y modelos de puntuacion multicapa para identificar
-candidatos terapeuticos con potencial antibacteriano, antivirulencia,
-sensibilizador o de nodo funcional. La plataforma incorpora auditoria de
-procedencia, evaluacion de confiabilidad, clasificacion del rol terapeutico y
-estimacion progresiva del riesgo evolutivo de escape, permitiendo generar
-rankings interpretables y comparables entre organismos.
+**Explainable, evidence-aware prioritization of bacterial therapeutic targets through Functional Node Theory.**
 
-Los organismos mencionados en ejemplos, cache o pruebas son demos/casos de
-validacion; no son organismos obligatorios ni el alcance exclusivo del sistema.
-
-## Enfoque conceptual
-
-El eje central de este proyecto es la Teoria de Nodos Funcionales. El pipeline,
-los organismos ejemplo, la consulta online, los snapshots curados, los
-importadores, las pruebas y los reportes son capas de implementacion destinadas
-a operacionalizar, probar y auditar la teoria. Ningun organismo, base de datos,
-conector o conjunto de datos define por si mismo el alcance conceptual del
-proyecto.
-
-Pipeline reproducible para priorización de blancos terapéuticos bacterianos.
-
-El repositorio conserva la **Fase 1** como baseline interpretable y añade una
-**Fase 2** multicapa con validación más estricta, variables derivadas,
-scores por estrategia terapéutica, análisis de sensibilidad, modos explícitos
-de ejecución y salidas auditables.
-
-Además, ahora incorpora una **capa de discovery por microorganismo** para que el
-usuario pueda iniciar el flujo desde el nombre del organismo y, opcionalmente, una cepa.
-
-## Quick start
-
-Para una ruta minima de lectura y ejecucion, empiece por `START_HERE.md`. Los
-comandos siguientes resumen el flujo basico para un usuario tecnico.
-
-Instalacion en Windows PowerShell:
-
-```powershell
-python -m venv .venv
-.venv\Scripts\activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-Ejecutar el demo de `Pseudomonas aeruginosa` PAO1:
-
-```powershell
-python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare
-```
-
-Este comando usa PAO1 unicamente como organismo demo reproducible. Para analisis
-reales, reemplace `--organism` y `--strain` por el organismo y cepa de interes y
-proporcione datos curados, importados o resueltos por las capas configuradas.
-
-Consultar informacion online general para `Corynebacterium pseudotuberculosis`:
-
-```powershell
-python fetch_online_data.py --organism "Corynebacterium pseudotuberculosis" --workspace data_sessions\corynebacterium_pseudotuberculosis_online_demo --sources uniprot string --mode online_optional --force-refresh
-```
-
-Ejemplos multiorganismo, todos ilustrativos:
-
-```powershell
-python run_pipeline.py --organism "Organism name" --strain "Strain name" --mode compare
-python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare
-python run_pipeline.py --organism "Mycobacterium tuberculosis" --strain H37Rv --workspace data_sessions/mtb_h37rv --mode compare
-python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --workspace data_sessions/corynebacterium_pseudotuberculosis_online_demo --mode compare
-python import_dataset.py --organism "ORGANISM_NAME" --strain "STRAIN_NAME" --workspace data_sessions/my_organism_workspace --dataset essentiality --input-dir path/to/user_data
-```
-
-Estos comandos muestran patrones de uso. Ningun organismo de ejemplo es requisito
-del programa.
-
-Ejecutar pruebas:
-
-```powershell
-python -m pytest -p no:cacheprovider -m "not online" -q
-```
-
-Ese comando valida la suite offline recomendada. Las pruebas online se ejecutan
-por separado cuando se quieren verificar proveedores externos reales.
-
-## Estado de madurez del proyecto
-
-Nodos Funcionales es un prototipo cientifico avanzado orientado a
-priorizacion computacional exploratoria. Ya incluye resolucion de capas,
-procedencia, reportes interpretativos, auditoria de fuentes, plantillas de
-curacion y soporte para workspaces por organismo. No debe leerse como una
-herramienta de validacion terapeutica definitiva.
-
-El ranking generado por Nodos Funcionales debe interpretarse como priorizacion
-computacional exploratoria. No confirma eficacia terapeutica ni reemplaza
-validacion experimental o clinica. Tampoco constituye recomendacion terapeutica
-ni sustituye evaluacion medica, microbiologica o farmacologica.
-
-## Tipos de datos de entrada
-
-Las capas principales son `essentiality`, `virulence`, `human_homologs`,
-`localization`, `strain_conservation`, `functional_network`,
-`clinical_impact`, `curated_disease_context` y `therapy_site_context`.
-Cada archivo debe respetar los encabezados de `data_templates/`.
-
-Para iniciar una validacion con datos reales proporcionados por el usuario, ver
-`docs/user_friendly_onboarding.md` como guia inicial para usuarios nuevos. Luego
-ver `docs/user_curated_validation_protocol.md`. Ese protocolo define
-`user_curated` y lo separa de `controlled_reference`, demo, proxy, cache y
-online. Cada dataset real debe acompanarse de un manifest basado en
-`data_templates/user_curated_dataset_manifest_template.csv`, que puede revisarse
-estructuralmente con `validate_user_curated_manifest()` antes de importar datos.
-El flujo operativo completo, desde copiar la plantilla hasta importar con
-prevalidacion opt-in y detenerse antes de scoring/pipeline, esta en
-`docs/user_curated_operational_flow.md`. El cierre end-to-end del flujo
-resoluble como capa de usuario esta en `docs/user_curated_end_to_end_flow.md`.
-Para preparar un primer dataset real sin versionar datos sensibles, revisar
-`docs/user_curated_real_dataset_readiness.md` antes de importar.
-Como apoyo opcional de onboarding, existe una GUI Streamlit documentada en
-`docs/user_curated_gui_onboarding.md`. Streamlit no es una dependencia
-obligatoria en esta fase; la GUI no ejecuta pipeline, no ejecuta scoring, no
-genera outputs cientificos y no sustituye revision experta.
-Para una demo local controlada de la GUI sin datos reales, usar
-`docs/user_curated_gui_local_demo_checklist.md`.
-El cierre tecnico y operativo de las fases GUI `user_curated` 1-7 esta en
-`docs/user_curated_gui_phase_closure.md`.
-La nota final de cierre integral esta en
-`docs/user_curated_gui_final_closure.md`.
-La especificacion futura de scoring controlado `user_curated` esta en
-`docs/user_curated_controlled_scoring_spec.md`; no habilita scoring por si sola.
-
-La capa opcional `literature_support` permite preparar curacion bibliografica
-manual. Por defecto se valida y normaliza si existe, se reporta como evidencia
-interpretativa en `results/literature_support_summary.*` y no cambia los
-scores ni el ranking.
-
-## Demo, user_curated, controlled_reference, cache, proxy y online
-
-- `data_demo/`: datos pequenos para probar el software; no son evidencia
-  biologica final.
-- `user_curated`: datos reales aportados o revisados por el usuario para el
-  organismo evaluado; deben colocarse en el workspace o importarse segun las
-  instrucciones de adquisicion, con manifest de trazabilidad.
-- `controlled_reference`: referencia o snapshot controlado para verificar
-  estructura y reproducibilidad; no sustituye evidencia real del usuario.
-- cache: reproduce consultas o capas ya resueltas.
-- proxy: valor explicito usado cuando falta una capa; sirve para mantener el
-  flujo, pero reduce la fuerza interpretativa.
-- online: respuesta fresca de proveedores externos; debe tratarse en fases o
-  workspaces auditables separados cuando corresponda.
-
-## Auditoría de procedencia de capas
-
-El proyecto no asume que todas las capas vienen de bases externas reales ni que
-una fuente externa siempre es metodologicamente superior. Cada capa puede venir
-de datos curados por el usuario, evidencia especifica del organismo, archivos
-locales, cache, fuentes externas reales, fuentes externas generales, datos demo,
-valores proxy, proveedores controlados o literatura curada manualmente.
-
-La auditoria completa esta en:
-
-- `docs/layer_source_audit.md`
-- `docs/layer_source_audit.json`
-- `docs/layer_source_summary.csv`
-- `docs/project_scope.md`
-- `docs/multiorganism_architecture.md`
-- `docs/user_data_input_guide.md`
-- `docs/organism_reference_audit.md`
-
-Jerarquia metodologica recomendada:
-
-1. Evidencia curada por el usuario, especifica del organismo y trazable.
-2. Evidencia externa real, verificable y preferentemente cacheada.
-3. Evidencia calculada internamente desde datos del usuario.
-4. Evidencia local/raw.
-5. Evidencia externa general no especifica.
-6. Evidencia proxy o proveedor controlado.
-7. Datos demo.
-
-El ranking debe interpretarse como priorizacion computacional exploratoria. La
-fuerza de cada candidato depende de la procedencia, calidad, especificidad,
-trazabilidad y cobertura de las capas de evidencia.
-
-## Como interpretar los scores
-
-Nodos Funcionales es una plataforma de priorizacion terapeutica basada en
-evidencia. Los scores son una priorizacion computacional exploratoria: un valor
-alto no confirma eficacia terapeutica, seguridad, accesibilidad real ni validez
-clinica. El ranking ayuda a ordenar hipotesis y a decidir que evidencia falta
-revisar o generar experimentalmente.
-
-`therapeutic_priority_score` y `evidence_confidence_score` no significan lo
-mismo. El primero resume la prioridad terapeutica dentro de las reglas del
-modelo; el segundo resume cuanta evidencia trazable sostiene la lectura. Un
-score alto puede coexistir con confianza baja si hay proxies, faltantes,
-procedencia debil o evidencia insuficiente.
-
-Los scores deben interpretarse como evidencia de soporte dentro del modelo, no
-como confirmacion definitiva. Cualquier aplicacion requiere validacion externa y
-revision clinica antes de tomar decisiones terapeuticas.
-
-Antes de concluir que un blanco es prometedor, revisar:
-
-- esencialidad y virulencia.
-- riesgo por homologos humanos.
-- conservacion entre cepas.
-- localizacion y accesibilidad.
-- soporte funcional de red.
-- procedencia de la evidencia: real, demo, cache, proxy o calculo indirecto.
-- confianza y cobertura de evidencia por separado de la prioridad terapeutica.
-- riesgo evolutivo como modulador interpretativo, no sustituto de funcionalidad,
-  selectividad, accesibilidad ni procedencia.
-
-## Uso exploratorio
-
-Nodos Funcionales no reemplaza validacion experimental ni revision
-bibliografica. Los candidatos priorizados deben interpretarse segun calidad,
-cobertura y procedencia de evidencia. Los datos demo o proxy no deben usarse
-para conclusiones biologicas finales.
-
-## Ejemplo generico con Corynebacterium pseudotuberculosis
-
-Corynebacterium pseudotuberculosis puede usarse como organismo de ejemplo para validar el flujo multi-organismo y la consulta online. Este ejemplo no corresponde a una coleccion particular de aislados ni a un proyecto genomico externo.
-
-Para preparar una corrida inicial sin ejecutar scoring:
-
-```powershell
-python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --acquisition-mode semi_auto --workspace data_sessions\corynebacterium_pseudotuberculosis_online_demo --dry-run
-```
-
-Luego revisar los archivos esperados en el reporte de discovery, completar datos reales en el workspace si se desea una corrida completa y ejecutar el pipeline cuando las capas obligatorias esten listas.
-
-La consulta online organism-first se documenta en `docs/online_organism_enrichment.md`.
-
-## Fuerza de evidencia
-
-El proyecto separa el score numerico de la fuerza interpretativa de la
-evidencia. El reporte `results/evidence_strength_audit.csv` clasifica evidencia
-como `strong`, `moderate`, `weak` o `insufficient` sin modificar el ranking.
-
-Ver `docs/evidence_strength_framework.md`.
-
-## Ejecucion en Windows
-
-Si `python` no esta en `PATH`, usa los scripts PowerShell:
-
-- `scripts/run_tests.ps1`
-- `scripts/run_demo.ps1`
-- `scripts/run_cpseudo_dryrun.ps1`
-- `scripts/clean_project.ps1`
-
-La guia completa esta en `docs/windows_execution_guide.md`.
-
-## Validacion biologica
-
-La validacion biologica se organiza con:
-
-- `docs/biological_validation_framework.md`
-- `docs/biological_validation_summary_template.md`
-- `data_templates/biological_validation_targets.csv`
-
-Estos archivos ayudan a curar evidencia, planear experimentos y degradar
-candidatos con soporte debil, pero no alteran scores.
-
-## Diferencia entre Fase 1 y Fase 2
-
-- Fase 1:
-  score lineal único basado en esencialidad, virulencia, homología humana y accesibilidad.
-- Fase 2:
-  separa estrategias terapéuticas, distingue faltante vs negativo, añade confianza
-  de evidencia, refina riesgo del hospedero, prepara arquitectura para red,
-  conservación e impacto clínico, y genera comparación explícita con el baseline.
-
-## Phase 3: Functional Node Theory and Evolutionary Robustness
-
-La Fase 3 ya esta implementada como una capa opcional y funcional. No reemplaza
-Fase 1 ni Fase 2: conserva los scores previos para comparacion y agrega una
-lectura adicional de teoria de nodos funcionales, escape evolutivo, redundancia,
-sensibilidad colateral, oportunidad de combinacion y calidad de evidencia.
-
-La Fase 3 debe interpretarse como una priorizacion computacional exploratoria.
-Su madurez cientifica depende directamente de la calidad de las capas de entrada.
-Si se ejecuta con datos demo, proveedores controlados o defaults inferidos, los
-reportes lo marcan en `audit_flags` y limitan la confianza mediante
-`confidence_ceiling`.
-
-Para ejecutar la salida completa de Fase 3:
-
-```powershell
-python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode phase3
-```
-
-PAO1 se conserva aqui como caso demostrativo/controlado para reproducir salidas.
-El flujo no esta acoplado a PAO1; para organismos reales use los nombres de su
-organismo y cepa y revise la procedencia de cada capa.
-
-Para comparar que Fase 1/Fase 2 siguen funcionando:
-
-```powershell
-python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare
-```
-
-Reportes principales de Fase 3:
-
-- `results/theory_of_nodes_report.md`
-- `results/evolutionary_escape_audit.csv`
-- `results/top10_functional_node_theory_audit.md`
-- `results/therapeutic_role_stability_audit.csv`
-- `results/therapeutic_role_stability_report.md`
-- `results/ranking_nodos_phase3.csv`
-- `results/phase2_vs_phase3_comparison.csv`
-- `data_processed/phase3_features.csv`
-- `data_processed/scored_nodes_phase3.csv`
-- `results/phase3_implementation_audit.md`
-
-Durante la ejecucion por CLI, Fase 3 informa cuando calcula escape evolutivo,
-cuando calcula el score de Teoria de Nodos Funcionales y donde escribe el
-ranking. Si se usan datos demo con `--allow-demo-data`, la salida advierte que
-la confianza queda limitada.
-
-### Como interpretar `meta_priority_score_v3`
-
-`meta_priority_score_v3` combina soporte antibiotico, soporte antivirulencia,
-`functional_node_theory_score`, calidad de evidencia y oportunidad de
-combinacion. Tambien descuenta riesgo de escape, redundancia, biofilm y
-transferencia horizontal.
-
-Un valor alto no confirma eficacia terapeutica. Significa que, bajo las reglas
-actuales y la evidencia disponible, el nodo merece revision prioritaria. Siempre
-debe leerse junto con:
-
-- `functional_node_theory_score`
-- `functional_node_theory_confidence`
-- `evolutionary_escape_risk_score`
-- `redundancy_penalty`
-- `evidence_quality_score`
-- `confidence_ceiling`
-- `audit_flags`
-
-Advertencia importante: cuando `audit_flags` contiene `demo_data_used`,
-`controlled_provider_only`, `*_defaults_used` o `*_inferred*`, la evidencia es
-util para probar el pipeline o generar hipotesis, pero no para sostener una
-conclusion biologica final.
-
-### Entradas curadas para reemplazar demo/defaults
-
-Fase 3 acepta evidencia curada por organismo sin hacerla obligatoria. Las
-plantillas estan vacias salvo encabezados para evitar datos inventados:
-
-- `data_templates/human_homologs_template.csv`: ahora acepta campos de
-  ortologia reproducible como herramienta, version, cobertura, identidad,
-  bitscore y referencia de corrida.
-- `data_templates/redundancy_template.csv`: nueva capa opcional para paralogia,
-  alternativas de via y backups funcionales.
-- `data_templates/evolutionary_escape_template.csv`: ahora acepta mutaciones de
-  escape conocidas, tolerancia funcional inferida, participacion modular y
-  scores de rutas alternativas.
-- `data_templates/collateral_sensitivity_template.csv`: ahora acepta clase de
-  combinacion, pareja terapeutica, referencia y oportunidad de combinacion.
-
-Ver `docs/phase3_curated_evidence_inputs.md`.
-
-## Estructura del proyecto
+NODOX is a multiorganism bioinformatics research platform for the computational prioritization of bacterial therapeutic targets. It integrates heterogeneous evidence about essentiality, virulence, human homology, subcellular localization, conservation, functional networks, clinical context, literature support, provenance, redundancy, and evolutionary escape risk.
+
+The purpose of NODOX is not to produce a definitive list of validated drug targets. Its purpose is to organize complex and incomplete biological evidence into an auditable, interpretable, and reproducible prioritization workflow that helps researchers decide which candidates deserve deeper review, curation, and experimental validation.
+
+> NODOX generates ranked research hypotheses. It does not establish therapeutic efficacy, clinical validity, safety, or experimental confirmation.
+>
+> **Theoretical model status:** The theoretical model underlying NODOX remains under active review by our team of collaborators. Its concepts, assumptions, variables, and scoring interpretation should be considered provisional and may change as that review progresses. Passing software tests confirms implementation consistency and reproducibility; it does not constitute scientific validation of the theoretical model.
+
+## Why NODOX exists
+
+Therapeutic-target discovery often produces long lists of genes or proteins based on a single criterion, such as essentiality, virulence, differential expression, pathway participation, network centrality, or absence of human homologs. These approaches are valuable, but they can become difficult to interpret when evidence comes from different databases, experimental conditions, organisms, strains, proxies, cached queries, manually curated files, or incomplete datasets.
+
+NODOX addresses this problem by treating target prioritization as an evidence-integration and decision-audit problem. Instead of hiding uncertainty inside a single score, the platform preserves:
+
+- where each evidence layer came from;
+- whether it is user-curated, external, cached, controlled, inferred, proxy-based, demo, unresolved, or missing;
+- how much evidence supports each candidate;
+- which variables increased or decreased its ranking;
+- whether a high therapeutic-priority score is supported by strong or weak evidence;
+- which biological and methodological questions remain unresolved.
+
+The result is an explainable ranking that can be inspected, challenged, compared, and reproduced.
+
+## Functional Node Theory
+
+The conceptual center of NODOX is the **Theory of Functional Nodes**.
+
+A functional node is not defined only by whether a gene is essential. It is interpreted as a biological point whose perturbation may affect one or more relevant dimensions of pathogen survival, pathogenicity, adaptability, transmission, or therapeutic vulnerability.
+
+Under this framework, a candidate may be relevant because it acts as:
+
+- a direct antibacterial target;
+- an antivirulence target;
+- a sensitizing target that increases susceptibility to another intervention;
+- a functional bottleneck;
+- a network dependency;
+- a low-redundancy biological node;
+- a candidate for combination therapy;
+- a node with a favorable or unfavorable evolutionary escape profile.
+
+NODOX therefore does not assume that all promising candidates must fit the same therapeutic strategy. It calculates and reports multiple complementary interpretations rather than forcing every candidate into a single biological category.
+
+## What NODOX does
+
+NODOX can:
+
+- initialize an analysis from an organism and optional strain;
+- create an isolated workspace for each analysis;
+- validate and normalize user-supplied evidence files;
+- resolve evidence layers from local, cached, curated, controlled, or online providers;
+- integrate heterogeneous protein-level evidence;
+- calculate legacy, therapeutic-strategy, functional-node, confidence, and evolutionary-risk scores;
+- distinguish missing evidence from negative evidence;
+- generate candidate-level explanations and audit flags;
+- compare analysis phases and scoring strategies;
+- preserve provenance and retrieval metadata;
+- produce publication-oriented tables, reports, figures, manifests, and audit files;
+- run offline for reproducibility or use optional online enrichment when explicitly enabled.
+
+## Scientific architecture
+
+The platform is organized around independent evidence layers that are resolved, validated, integrated, scored, and audited.
+
+### Core layers
+
+The minimum core evidence layers are:
+
+- `essentiality`
+- `virulence`
+- `human_homologs`
+- `localization`
+
+These layers support the basic interpretation of whether a candidate is important to the pathogen, relevant to pathogenicity, potentially selective against the pathogen, and physically accessible or biologically positioned for therapeutic intervention.
+
+### Extended layers
+
+NODOX can also integrate:
+
+- `strain_conservation`
+- `functional_network`
+- `host_annotation`
+- `clinical_impact`
+- `curated_disease_context`
+- `therapy_site_context`
+- `literature_support`
+- `redundancy`
+- `collateral_sensitivity`
+- `evolutionary_escape_risk`
+- `contextual_essentiality`
+- curated therapeutic catalogs
+- organism and taxonomic metadata
+
+Not every layer is required for every analysis. Missing layers remain visible and reduce interpretive confidence rather than being silently converted into favorable evidence.
+
+## Evidence provenance
+
+NODOX separates biological values from evidence provenance.
+
+A layer may be resolved from:
+
+1. user-curated, organism-specific evidence;
+2. reproducible local calculations;
+3. curated snapshots;
+4. real external online providers;
+5. cache from previous external resolution;
+6. controlled reference providers;
+7. inferred proxies;
+8. demonstration data;
+9. unresolved or missing evidence.
+
+A high score built mainly from proxies or demonstration data is not interpreted in the same way as a high score supported by convergent, organism-specific evidence.
+
+The recommended interpretive hierarchy is:
 
 ```text
-nodos/
-├── config/
-│   └── params.yaml
-│   ├── taxon_aliases.json
-│   └── demo_organisms.json
-├── data_sessions/
-│   └── <slug_microorganismo>/
-│       ├── config/
-│       ├── data_raw/
-│       ├── data_processed/
-│       └── results/
-├── data_templates/
-│   ├── strain_conservation_template.csv
-│   ├── functional_network_template.csv
-│   ├── host_annotation_template.csv
-│   ├── essentiality_template.csv
-│   ├── virulence_template.csv
-│   ├── human_homologs_template.csv
-│   └── localization_template.csv
-├── data_raw/
-│   ├── essentiality.csv
-│   ├── strain_conservation.csv         # opcional
-│   ├── functional_network.csv          # opcional
-│   ├── host_annotation.csv             # opcional
-│   ├── virulence.csv
-│   ├── human_homologs.csv
-│   └── localization.csv
-├── data_processed/
-│   ├── validated_*.csv
-│   ├── normalized_*.csv
-│   ├── integrated_nodes.csv
-│   ├── validation_summary.csv
-│   ├── phase2_features.csv
-│   └── scored_nodes.csv
-├── docs/
-│   ├── methodology.md
-│   ├── scoring.md
-│   └── data_model.md
-├── results/
-│   ├── ranking_nodos.csv
-│   ├── ranking_nodos_legacy.csv
-│   ├── phase_comparison.csv
-│   ├── sensitivity_analysis.csv
-│   └── report_phase2.md
-├── scripts/
-│   ├── 01_load_and_validate.py
-│   ├── 02_normalize_ids.py
-│   ├── 03_integrate_data.py
-│   ├── 04_score_nodes.py
-│   └── 05_export_ranking.py
-├── src/
-│   └── nodos_funcionales/
-├── tests/
-├── Snakefile
-├── run_pipeline.py
-└── requirements.txt
+user_curated
+  > organism_specific_external
+  > reproducible_local_calculation
+  > curated_snapshot
+  > general_external
+  > controlled_provider
+  > inferred_proxy
+  > demo
+  > missing
 ```
 
-## Nuevo flujo centrado en microorganismo
+This hierarchy is not used to claim that external evidence is automatically superior. Its purpose is to make provenance explicit and auditable.
 
-El proyecto ahora tiene dos puertas de entrada complementarias:
+## Analysis workflow
 
-- flujo clásico:
-  colocar CSVs en `data_raw/` y correr `scripts/01..05`
-- flujo discovery-driven:
-  iniciar con `run_pipeline.py --organism ...` y dejar que el sistema genere
-  el workspace, el perfil del organismo y el manifest de adquisición
+A typical NODOX analysis follows these stages:
 
-Además, ahora existe una primera integración online opcional para enriquecer
-la capa de red funcional mediante **STRING**.
-
-Ejemplos:
-
-```bash
-python run_pipeline.py --organism "Organism name" --strain "Strain name" --workspace data_sessions/my_organism_workspace --mode compare
-python run_pipeline.py --organism "Corynebacterium pseudotuberculosis" --dry-run
-python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data
-python run_pipeline.py --organism "Mycobacterium tuberculosis" --acquisition-mode semi_auto --mode compare
-python run_pipeline.py --organism "Mycobacterium tuberculosis" --strain H37Rv --taxon-resolution-mode cache_first --dry-run
-python run_pipeline.py --organism "Pseudomonas aeruginosa" --taxon-resolution-mode online_optional --refresh-taxon-cache --dry-run
+```text
+Organism / strain
+        |
+        v
+Workspace initialization
+        |
+        v
+Evidence acquisition or import
+        |
+        v
+Validation and normalization
+        |
+        v
+Layer resolution and provenance audit
+        |
+        v
+Evidence integration by protein or gene
+        |
+        v
+Feature derivation
+        |
+        v
+Scoring and sensitivity analysis
+        |
+        v
+Candidate explanations and audits
+        |
+        v
+Rankings, reports, tables, figures, and manifests
 ```
 
-## Modos de adquisición
+Each workspace is designed to preserve the inputs, configuration, intermediate tables, resolved layers, outputs, and provenance associated with one organism-specific analysis.
 
-Los nombres concretos son ejemplos reproducibles o casos de validacion. El
-usuario puede proporcionar cualquier organismo bacteriano compatible con las
-capas de evidencia disponibles.
+## Scoring model
 
-- `manual`:
-  crea o reutiliza el workspace y espera que el usuario coloque los CSVs
-- `semi_auto`:
-  crea el workspace, genera plantillas y un checklist reproducible
-- `auto`:
-  hoy es una arquitectura preparada; si existe un demo local compatible puede usarlo,
-  pero no simula APIs reales ni descargas externas inexistentes
+NODOX separates therapeutic priority from evidence confidence.
 
-## Qué hace el discovery layer
+### Therapeutic priority
 
-La nueva capa:
-
-- resuelve el nombre del microorganismo con un catálogo local configurable
-- puede consultar opcionalmente una API taxonómica pública real con fallback seguro
-- preserva el nombre original y produce un nombre canónico interno
-- crea un workspace en `data_sessions/<slug>/`
-- clasifica datasets obligatorios, opcionales enriquecedores y futuros
-- genera `organism_profile.json`, `acquisition_manifest.json` y `discovery_report.md`
-- indica explícitamente si el pipeline puede correr ya o qué falta
-
-## Datasets mínimos que necesita el motor
-
-Obligatorios:
-
-- `essentiality.csv`
-- `virulence.csv`
-- `human_homologs.csv`
-- `localization.csv`
-
-Opcionales enriquecedores:
-
-- `strain_conservation.csv`
-- `functional_network.csv`
-- `host_annotation.csv`
-
-Futuros:
-
-- `clinical_impact.csv`
-- `curated_disease_context.csv`
-- `therapy_site_context.csv`
-
-## Inputs esperados
-
-Todos los archivos van en `data_raw/` y deben contener al menos `protein_id`.
-
-- `essentiality.csv`: `protein_id`, `gene`, `essential`, opcionalmente `evidence`, `database`
-- `virulence.csv`: `protein_id`, `gene`, `virulence_score`, opcionalmente `virulence_factor`, `database`
-- `human_homologs.csv`: `protein_id`, `gene`, `human_homolog`, `evalue`, opcionalmente `human_gene`
-- `localization.csv`: `protein_id`, `gene`, `localization`, opcionalmente `database`
-- `strain_conservation.csv` opcional: `protein_id`, `gene`, `core_genome_presence`, `strain_coverage_score`, `allelic_conservation`, `variant_burden`, opcionalmente `database`
-- `functional_network.csv` opcional: `protein_id`, `gene`, `network_centrality`, `pathway_bottleneck_score`, `redundancy_penalty`, `functional_dependency_score`, opcionalmente `database`
-- `host_annotation.csv` opcional: `protein_id`, `gene`, `domain_overlap_score`, `host_criticality_penalty`, opcionalmente `database`
-
-El repositorio incluye tablas opcionales de ejemplo con origen `example_curated_demo`.
-Sirven para demostrar la arquitectura de Fase 2 y no deben leerse como una validación
-biológica exhaustiva.
-
-Si dispones de datos curados reales, puedes reemplazar esas tablas manteniendo el mismo
-esquema y declarando una procedencia más informativa en la columna `database`, por ejemplo:
-
-- `curated_pangenome_pa14_v1`
-- `lit_string_network_pa01_v2`
-- `exp_host_domain_overlap_2026`
-
-## Qué valida el pipeline
-
-La validación ya no se limita a columnas presentes. También revisa:
-
-- archivos vacíos
-- `protein_id` vacíos
-- duplicados
-- tipos numéricos
-- rangos válidos
-- localizaciones permitidas
-- inconsistencias semánticas básicas
-- resumen de faltantes por columna
-
-El reporte queda en `data_processed/validation_summary.csv`.
-
-## Cómo correr el pipeline
-
-### Opción recomendada: paso a paso
-
-```bash
-python scripts/01_load_and_validate.py
-python scripts/02_normalize_ids.py
-python scripts/03_integrate_data.py
-python scripts/04_score_nodes.py --mode compare
-python scripts/05_export_ranking.py --mode compare
-```
-
-Modos disponibles para `scripts/04_score_nodes.py` y `scripts/05_export_ranking.py`:
-
-- `--mode default`: alias conservador de `compare`
-- `--mode legacy`: ranking principal igual al baseline Fase 1
-- `--mode phase2`: ranking principal igual a `meta_priority_score`
-- `--mode phase3`: ejecuta Fase 2 y agrega las capas opcionales de Fase 3,
-  `meta_priority_score_v3`, ranking Fase 3 y reportes cientificos
-- `--mode compare`: ranking principal Fase 2 más comparación explícita con legacy
-
-### Con Snakemake
-
-```bash
-snakemake --dry-run
-snakemake --cores 1
-```
-
-El `Snakefile` usa el mismo intérprete de Python que ejecuta Snakemake, para evitar
-problemas de PATH entre entornos.
-
-### Con discovery por microorganismo
-
-`run_pipeline.py` genera un workspace de organismo y, si hay datos suficientes,
-llama internamente al motor actual.
-
-Flags principales:
-
-- `--organism`
-- `--strain`
-- `--strategy`
-- `--acquisition-mode`
-- `--taxon-resolution-mode`
-- `--online-source-mode`
-- `--refresh-taxon-cache`
-- `--no-write-taxon-cache`
-- `--offline-only`
-- `--mode`
-- `--workspace`
-- `--allow-demo-data`
-- `--dry-run`
-
-Para una ejecucion completamente offline/cache segura, use:
-
-```bash
-python run_pipeline.py --organism "Pseudomonas aeruginosa" --strain PAO1 --allow-demo-data --mode compare --taxon-resolution-mode offline_only
-```
-
-Este ejemplo usa PAO1 solo como demo offline controlado. Para un analisis nuevo,
-reemplace el organismo/cepa y prepare un workspace con datos propios o fuentes
-externas permitidas.
-
-`--taxon-resolution-mode` controla solo la resolucion taxonomica. `--online-source-mode`
-controla las fuentes externas de capas como `human_homologs`, `functional_network`,
-`localization` y `host_annotation`. Por seguridad, `--offline-only`,
-`--taxon-resolution-mode offline_only`, `local` y `api_stub` fuerzan
-`online_source_mode=offline_only` para todo el pipeline.
-
-### Con enriquecimiento online opcional
-
-La primera fuente online conectada es **STRING**, elegida antes que UniProt
-porque fortalece directamente una capa ya existente y metodológicamente débil
-del modelo actual: `functional_network.csv`.
-
-Ejemplo:
-
-```bash
-python fetch_online_data.py --organism "Pseudomonas aeruginosa" --workspace data_sessions/pao1_demo --source string --mode online_optional
-```
-
-PAO1 se muestra aqui como ejemplo reproducible de enriquecimiento. El mismo
-patron aplica a otros organismos cuando la fuente externa y la configuracion de
-resolucion lo permiten.
-
-Modos soportados:
-
-- `offline_only`
-- `local`
-- `api_stub`
-- `cache_first`
-- `auto`
-- `online_optional`
-
-Solo `online_optional` puede abrir red. `offline_only`, `local` y `api_stub`
-no llaman UniProt, STRING, DEG, VFDB, BV-BRC, InterPro ni ningun proveedor
-basado en `urllib.request.urlopen`.
-
-El enriquecimiento:
-
-- usa caché local reproducible por workspace
-- puede funcionar sin red si ya existe caché
-- genera `results/online_source_manifest.json`
-- genera `results/online_source_report.md`
-- toma un snapshot previo del ranking cuando el workspace ya tiene resultados
-- reejecuta el pipeline del workspace por defecto tras el fetch
-- genera `results/online_enrichment_impact.csv` y `.md` con comparación antes/después si existe un ranking previo
-- guarda histórico por workspace en `results/online_source_history.jsonl`
-- genera `results/online_source_comparison.csv` y `.md` para comparar fuentes online dentro del workspace
-- permite auditoría limpia por fuente en workspaces clonados con `audit_online_sources.py`
-- puede escribir `data_raw/functional_network.csv` si el reemplazo es seguro
-
-Ejemplo de auditoría fresh/cache:
-
-```bash
-python audit_online_sources.py --organism "Pseudomonas aeruginosa" --strain PAO1 --workspace data_sessions/pao1_demo --sources string uniprot --compare-fresh-vs-cache
-```
-
-La auditoria anterior es un caso de validacion controlada, no el organismo base
-del proyecto.
-
-Nota:
-
-- `--force-refresh` sirve para corridas online frescas, pero no debe combinarse con `--compare-fresh-vs-cache` porque invalidaría el control basado en caché
-
-Modos taxonómicos soportados:
-
-- `offline_only`
-- `cache_first`
-- `online_optional`
-- `api_stub`
-- `auto`
-
-Compatibilidad hacia atrás:
-
-- `local` sigue aceptado como alias de `offline_only`
-
-## Importación semiautomática de exports del usuario
-
-Además del discovery, ahora existe un importador pragmático para convertir CSVs
-exportados por el usuario al esquema interno del workspace:
-
-```bash
-python import_dataset.py --workspace data_sessions/organism_demo --dataset virulence --input exported_virulence.csv
-```
-
-El importador:
-
-- conserva una copia del export original en `data_raw/source_exports/`
-- intenta mapear columnas frecuentes como `locus_tag -> protein_id` o `score -> virulence_score`
-- escribe el dataset interno listo para validación en `data_raw/`
-
-## Comparación entre workspaces
-
-También existe un comparador de sesiones discovery-driven:
-
-```bash
-python compare_workspaces.py
-```
-
-Genera:
-
-- `results/workspace_comparison.csv`
-- `results/workspace_comparison.md`
-
-Ahora también resume, cuando existe un enriquecimiento online previo:
-
-- fuente online usada
-- cache hit / miss
-- éxito de API en la corrida actual
-- si el enriquecimiento cambió el ranking o solo añadió anotación/procedencia
-- cuántas corridas online tiene el workspace y qué fuentes se usaron
-
-## Salidas principales
-
-- `data_processed/integrated_nodes.csv`: tabla maestra integrada
-- `data_processed/phase2_features.csv`: features derivadas y flags de placeholder
-- `data_processed/scored_nodes.csv`: scores legacy y de Fase 2 por proteína
-- `results/ranking_nodos.csv`: ranking principal Fase 2 con rol terapeutico, procedencia y descomposicion de `therapeutic_priority_score`
-- `results/ranking_nodos_legacy.csv`: baseline Fase 1
-- `results/phase_comparison.csv`: comparación de ranking Fase 1 vs Fase 2
-- `results/sensitivity_analysis.csv`: escenarios de sensibilidad
-- `results/report_phase2.md`: resumen interpretable
-- `results/data_provenance_summary.csv`: procedencia y calidad de datasets opcionales
-- `results/candidate_audit.csv`: auditoría por candidato
-- `results/candidate_audit.md`: auditoría por candidato en formato legible
-- `results/top10_candidate_review.csv`: revisión priorizada del top 10
-- `results/top10_candidate_review.md`: revisión priorizada del top 10 en Markdown
-- `results/top10_scientific_audit.csv`: auditoría científica estricta del top 10
-- `results/top10_scientific_audit.md`: lectura biológica y metodológica del top 10
-- `results/top10_scientific_summary.md`: resumen corto de la auditoría científica
-- `results/online_source_manifest.json`: trazabilidad del enriquecimiento online
-- `results/online_source_report.md`: resumen legible de lo recuperado desde la fuente online
-- `results/online_enrichment_impact.csv`: comparación antes/después del ranking tras enriquecer el workspace
-- `results/online_enrichment_impact.md`: resumen legible del impacto del enriquecimiento online
-- `results/online_source_history.jsonl`: histórico append-only de enriquecimientos online por workspace
-- `results/online_source_comparison.csv`: comparación de fuentes online usadas dentro del workspace
-- `results/online_source_comparison.md`: resumen legible de comparación entre fuentes online del workspace
-- `results/online_source_clean_audit.csv`: comparación limpia por fuente usando clones temporales del workspace
-- `results/online_source_clean_audit.md`: resumen legible de la comparación limpia por fuente
-- `results/online_source_fresh_audit.csv`: auditoría experimental por escenarios fresh/cache
-- `results/online_source_fresh_audit.md`: resumen legible de la auditoría experimental fresh/cache
-- `results/online_source_fresh_vs_cache.csv`: contraste directo entre escenarios fresh y cache
-- `results/online_source_fresh_vs_cache.md`: resumen legible del contraste fresh vs cache
-- `results/online_source_candidate_shifts_fresh.csv`: shifts de ranking por candidato en la auditoría fresh/cache
-- `results/workspace_comparison.csv`: comparación entre workspaces
-- `results/workspace_comparison.md`: comparación entre workspaces en Markdown
-- `results/theory_of_nodes_report.md`: reporte cientifico de Fase 3 con top candidatos, subidas/bajadas y advertencias
-- `results/evolutionary_escape_audit.csv`: auditoria evolutiva por nodo para Fase 3
-- `results/evolutionary_escape_risk_audit.csv`: auditoria de la subcapa `evolutionary_escape_risk`, variables faltantes, confianza y penalizacion aplicada
-- `results/top10_functional_node_theory_audit.md`: explicacion detallada de los mejores candidatos por teoria de nodos
-- `results/therapeutic_role_stability_audit.csv`: auditoria de estabilidad del rol terapeutico v2/v3
-- `results/therapeutic_role_stability_report.md`: resumen legible de estabilidad del rol terapeutico
-- `results/ranking_nodos_phase3.csv`: ranking opcional Fase 3
-- `results/phase2_vs_phase3_comparison.csv`: comparacion entre ranking Fase 2 y Fase 3
-- `results/phase3_implementation_audit.md`: auditoria final de implementacion y madurez de Fase 3
-- `data_processed/phase3_features.csv`: features completas de Fase 3
-- `data_processed/scored_nodes_phase3.csv`: tabla compacta de scores de Fase 3
-
-Dentro de cada workspace discovery-driven también se generan:
-
-- `results/organism_profile.json`
-- `results/acquisition_manifest.json`
-- `results/discovery_report.md`
-
-## Scores implementados
+Therapeutic-priority scores summarize how strongly a candidate fits the biological rules of a particular prioritization strategy. Depending on the execution mode, the platform can report:
 
 - `legacy_score_final`
 - `antibiotic_target_score`
@@ -764,237 +181,359 @@ Dentro de cada workspace discovery-driven también se generan:
 - `functional_node_score`
 - `meta_priority_score`
 - `therapeutic_priority_score`
-- `evolutionary_escape_risk_score`
+- `functional_node_theory_score`
+- `meta_priority_score_v3`
 - `evolutionary_adjusted_meta_priority_score`
 
-## Explicabilidad por candidato
+### Evidence confidence
 
-Las salidas incluyen columnas como:
+Evidence-confidence outputs evaluate how much traceable evidence supports the interpretation. They may include:
 
-- `top_positive_drivers`
-- `top_negative_drivers`
-- `missing_evidence_flags`
-- `confidence_summary`
 - `evidence_confidence_score`
 - `evidence_coverage_score`
-- `functional_node_types`
-- `therapeutic_priority_contribution_summary`
-- `therapeutic_priority_*_contribution`
-- `provenance_status`
-- `retrieval_mode`
-- `cache_status`
+- evidence-strength classifications;
+- provenance status;
+- missing-evidence flags;
+- confidence ceilings;
+- unresolved-layer indicators;
+- demo, proxy, cache, or controlled-provider flags.
 
-Además, la Fase 2 ya usa datos observados o proxies explícitas cuando están disponibles:
+A candidate can therefore have high therapeutic priority and low evidence confidence. Such a candidate may be interesting, but it requires additional evidence before stronger conclusions can be made.
 
-- `domain_overlap_score` y `host_criticality_penalty` desde `host_annotation.csv` si existe, con fallback derivado de homología humana
-- `core_genome_presence`, `strain_coverage_score`, `allelic_conservation` y `variant_burden` desde `strain_conservation.csv`
-- `network_centrality`, `pathway_bottleneck_score`, `redundancy_penalty` y `functional_dependency_score` desde `functional_network.csv`
-- `infection_site_access` a partir de localización subcelular
-- `host_damage_reduction_potential` como proxy basada en virulencia y accesibilidad
-- `disease_severity_association` como proxy basada en señal de virulencia
-- `clinical_impact_score` como proxy derivada de impacto y acceso
+## Evolutionary escape risk
 
-## Configuración editable
+NODOX includes an explicit evolutionary-risk layer intended to estimate how easily a pathogen might escape or compensate for perturbation of a candidate node.
 
-El comportamiento del pipeline se controla desde `config/params.yaml`.
-Ahí puedes ajustar:
+Potential factors include:
 
-- pesos legacy y Fase 2
-- `runtime.pipeline_mode`
-- reglas de procedencia y calidad de fuentes en `provenance`
-- reglas por localización subcelular
-- defaults neutros para desconocido
-- placeholders para variables futuras
-- pesos y penalizacion de `evolutionary_escape_risk`
-- escenarios de sensibilidad para `meta_priority_score` y para cada score estratégico
-- umbrales globales
+- known resistance-associated mutations;
+- sequence conservation;
+- functional constraint;
+- mutation tolerance;
+- paralogs and pathway redundancy;
+- alternative pathways;
+- recombination context;
+- horizontal gene-transfer context;
+- mobile genetic context;
+- biofilm-related adaptability;
+- collateral sensitivity or combination opportunities.
 
-### Riesgo de escape evolutivo
+The resulting `evolutionary_escape_risk_score` is interpreted as a risk dimension, not as proof that resistance will or will not emerge. When explicit evidence is unavailable, NODOX can use conservative proxies and lowers confidence accordingly.
 
-La subcapa `evolutionary_escape_risk` agrega una lectura explicita de riesgo de
-resistencia o escape frente a un candidato. Usa datos curados si existe
-`evolutionary_escape_risk.csv`; si no, deriva proxies auditables desde capas ya
-resueltas y baja la confianza cuando la evidencia explicita es escasa.
+## Candidate-level explainability
 
-`evolutionary_escape_risk_score` va de 0 a 1: valores altos significan mayor
-riesgo de escape. El pipeline conserva `meta_priority_score` y agrega
-`evolutionary_adjusted_meta_priority_score`, que aplica por defecto una
-penalizacion moderada de hasta 15%. Los datos demo se marcan como
-`source_type=demo` y no deben interpretarse como evidencia biologica real.
+NODOX produces explanations for individual candidates rather than only a final ranking.
 
-## Tests
+Depending on the analysis mode, outputs can include:
 
-El repositorio incluye pruebas mínimas para validación, integración,
-scoring, exportación y un flujo end-to-end con datos de ejemplo.
+- positive ranking drivers;
+- negative ranking drivers;
+- missing evidence;
+- evidence-confidence summaries;
+- therapeutic-role classification;
+- functional-node classification;
+- provenance summaries;
+- contribution of each scoring component;
+- evolutionary-risk interpretation;
+- confidence ceilings;
+- audit flags;
+- reasons for ranking changes between phases or scenarios.
 
-```bash
-python -m unittest discover -s tests -v
-```
+This makes it possible to understand not only which candidate ranked highly, but why.
 
-## Limitaciones actuales
+## Multiorganism design
 
-- La resolución taxonómica online es opcional y depende de conectividad real.
-- Si la API pública falla, el sistema degrada a caché o catálogo local y lo deja
-  explícito en `taxon_resolution_status`, `source_used`, `api_attempted` y `fallback_reason`.
-- La resolución taxonómica no debe interpretarse como validación de cepa cuando el
-  proveedor solo devuelve un taxón a nivel de especie.
-- La integración con STRING produce métricas de red **derivadas** a partir del grafo
-  recuperado; no deben interpretarse como mediciones experimentales directas.
-- Si STRING devuelve nombres preferidos inconsistentes con la columna `gene` local,
-  el manifest lo marca explícitamente; eso puede revelar problemas de mapeo o
-  inconsistencias previas en los datos del workspace.
-- `auto` no implementa adquisición real online. Solo prepara arquitectura y puede usar
-  un demo empaquetado cuando el organismo coincide exactamente con el ejemplo local.
-- Las capas de conservación, red funcional y anotación de hospedero ya aceptan
-  datos observados, pero el ejemplo incluido sigue siendo un dataset curado pequeño.
-- El pipeline ahora descuenta parcialmente la confianza de Fase 2 cuando las capas
-  opcionales provienen de fuentes marcadas como `demo`; eso mejora la honestidad
-  metodológica, pero no sustituye una curación biológica real.
-- Mientras las capas opcionales sigan como `demo_only`, el `meta_priority_score`
-  favorece un poco más la señal antibiótica y reduce la dependencia del score
-  funcional en la integración final.
-- `host_damage_reduction_potential`, `disease_severity_association` y `clinical_impact_score`
-  ya no son placeholders, pero siguen siendo **proxies derivadas** de la evidencia
-  disponible; no sustituyen una medición clínica o experimental directa.
-- El `functional_node_score` mejora cuando hay red funcional real, pero sigue siendo
-  metodológicamente sensible a cómo se definan centralidad, cuello de botella y redundancia.
+NODOX is not limited to a specific bacterial species.
 
-## Roadmap sugerido
+The examples involving *Pseudomonas aeruginosa*, *Helicobacter pylori*, *Mycobacterium tuberculosis*, or *Corynebacterium pseudotuberculosis* are demonstration and validation cases. They do not define the conceptual scope of the platform.
 
-- conectar matrices de homología/dominios para refinar seguridad del hospedero
-- incorporar datos reales de centralidad/red y redundancia funcional
-- añadir conservación multi-cepa o pangenoma
-- integrar severidad clínica y reducción de daño al hospedero
-- sumar exportación HTML si se necesita un reporte más visual
+A new analysis can be initialized from any bacterial organism for which compatible evidence can be supplied or resolved.
 
-## Documentación adicional
+## Execution modes
 
-- [Metodología](docs/methodology.md)
-- [Scoring](docs/scoring.md)
-- [Modelo de datos](docs/data_model.md)
-- [Auditoría metodológica](docs/audit_scoring.md)
-- [Ingesta de datos reales](docs/real_data_ingestion.md)
-- [Discovery layer](docs/discovery_layer.md)
-- [Acquisition modes](docs/acquisition_modes.md)
-- [Organism workflow](docs/organism_workflow.md)
-- [Taxonomy resolution](docs/taxonomy_resolution.md)
-- [Taxonomy API integration](docs/taxonomy_api_integration.md)
-- [Taxon cache policy](docs/taxon_cache_policy.md)
-- [Online source integration](docs/online_source_integration.md)
-- [Online source fresh audit](docs/online_source_fresh_audit.md)
-- [Source cache policy](docs/source_cache_policy.md)
-- [Therapeutic expansion phase 1](docs/therapeutic_expansion_phase1.md)
-- [Theory of Functional Nodes](docs/theory_of_functional_nodes.md)
-- [Evolutionary escape model](docs/evolutionary_escape_model.md)
-- [Contextual essentiality](docs/contextual_essentiality.md)
-- [Redundancy and compensation](docs/redundancy_and_compensation.md)
-- [Collateral sensitivity](docs/collateral_sensitivity.md)
-- [Phase 3 scoring](docs/phase3_scoring.md)
-- [Dataset import](docs/dataset_import.md)
-- [User-friendly onboarding](docs/user_friendly_onboarding.md)
-- [User-curated GUI phase closure](docs/user_curated_gui_phase_closure.md)
-- [User-curated validation protocol](docs/user_curated_validation_protocol.md)
-- [Workspace comparison](docs/workspace_comparison.md)
+NODOX supports several complementary modes:
 
-### User-curated approval JSON templates
+- `legacy`: reproduces the interpretable baseline model;
+- `phase2`: applies the multicriteria therapeutic-prioritization model;
+- `phase3`: adds Functional Node Theory and evolutionary-robustness analysis;
+- `compare`: preserves and compares legacy and newer models;
+- `dry-run`: prepares and audits a workspace without running the full scoring workflow.
 
-Manual approval JSON examples for future controlled scoring review are available in docs/templates/scoring_approval/. These files can be uploaded in the GUI approval-review section to verify approved, rejected and additional-curation outcomes without running scoring, pipeline execution or ranking generation.
+The platform can also operate in:
 
-## Publication package
+- offline-only mode;
+- cache-first mode;
+- optional online mode;
+- user-curated workflows;
+- controlled reproducible demonstration workflows.
 
-Nodos Funcionales can generate a reproducible publication package from local consolidated results. The package is intended for academic review of computationally prioritized hypotheses, not for clinical recommendation or experimental, pharmacological or clinical confirmation.
+## Online and offline evidence
 
-Run:
+The core workflow can run without network access when the required inputs or caches are available.
 
-```powershell
-.venv\Scripts\python.exe -m src.nodos_funcionales.publication_package_builder --results-dir results --output-dir results/publication_package
-```
+Optional providers can be used for evidence enrichment, including sources such as:
 
-Main outputs:
+- UniProt;
+- STRING;
+- InterPro;
+- NCBI taxonomy services;
+- DEG;
+- VFDB;
+- BV-BRC;
+- public human-essentiality resources;
+- DIAMOND-based comparison against a human reference proteome.
 
-- `results/publication_package/`: tables, reports, manifest and manuscript-facing summaries.
-- `results/publication_package/figures/`: PNG and SVG interpretative figures.
-- `docs/software_paper_draft.md`: draft manuscript text.
-- `docs/manuscript_tables.md` and `docs/manuscript_figures.md`: table and figure descriptions for manuscript preparation.
+Online access is explicit and auditable. Provider failures, empty responses, fallback behavior, cache use, and unresolved layers are recorded rather than hidden.
 
-The model keeps `therapeutic_priority_score` separate from `evidence_confidence_score` and reports `evolutionary_escape_risk_score` explicitly. Labels such as `demo_only`, `preliminary`, `proxy`, `missing`, `not_assessed` and `insufficient_evidence` must remain visible during interpretation.
+## Installation
 
-## Minimum publication release candidate
+Python 3.10 or later is required.
 
-Target release: `v0.1.0-publication`.
-
-Nodos Funcionales / Functional Nodes is a theory-first computational framework for prioritizing functional biological nodes using curated evidence layers and conservative interpretation. This release candidate is a prioritization and research workflow, not a clinical predictor.
-
-Main capabilities for the minimum publication-ready release candidate:
-
-- `user_curated` input workflow with explicit provenance and quality checks.
-- Offline reproducible pipeline execution for local curated inputs and demos.
-- Conservative scoring interpretation with visible uncertainty and missing-evidence flags.
-- Separation of `therapeutic_priority_score` from `evidence_confidence_score`.
-- GUI-assisted onboarding, controlled execution and run review.
-- Isolated GUI runs under `results/gui_runs/<run_id>/`.
-- Run-local `publication_package/` generation for isolated GUI runs.
-- Review comparison output restricted to `review/`.
-- Publication-readiness documentation for evidence indexing, demo readiness, manuscript artifacts and release checks.
-
-Minimal installation remains:
+### Windows PowerShell
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-The core install does not require Snakemake. Snakemake is an optional workflow dependency for users who intentionally want workflow-engine execution:
+### Linux or WSL
 
-```powershell
-python -m pip install -r requirements-workflow.txt
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-Optional workflow dependencies have separate transitive license/security review requirements. UNKNOWN Snakemake transitive dependency metadata does not block the core release if Snakemake is not installed as a core dependency. Public workflow distribution remains blocked until optional workflow dependency review is completed.
+### Development dependencies
 
-Minimal offline validation:
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider -m "not online" -q
+```bash
+python -m pip install -r requirements-dev.txt
 ```
 
-The recommended reproducible demo is the existing Pseudomonas aeruginosa publication demo:
+## Start here
+
+For a guided introduction, installation, execution, interpretation, and testing workflow, read:
+
+- [`START_HERE.md`](START_HERE.md)
+
+## Reproducible publication demonstration
+
+A controlled offline demonstration is available at:
 
 ```text
 examples/pseudomonas_aeruginosa_publication_demo/
 ```
 
-Release-readiness documentation map:
+### PowerShell
 
-- [Theory of Functional Nodes](docs/theory_of_functional_nodes.md)
+```powershell
+.\examples\pseudomonas_aeruginosa_publication_demo\run_demo.ps1
+```
+
+### Bash
+
+```bash
+bash examples/pseudomonas_aeruginosa_publication_demo/run_demo.sh
+```
+
+The demonstration verifies workspace preparation, provenance handling, expected output structures, and reporting behavior. It is not experimental or clinical validation.
+
+## Basic pipeline examples
+
+### Reproducible demonstration case
+
+```bash
+python run_pipeline.py \
+  --organism "Pseudomonas aeruginosa" \
+  --strain PAO1 \
+  --allow-demo-data \
+  --mode compare
+```
+
+### Initialize a new organism workspace
+
+```bash
+python run_pipeline.py \
+  --organism "Organism name" \
+  --strain "Strain name" \
+  --workspace data_sessions/my_organism_workspace \
+  --dry-run \
+  --offline-only
+```
+
+### Run with organism-specific data
+
+```bash
+python run_pipeline.py \
+  --organism "Organism name" \
+  --strain "Strain name" \
+  --workspace data_sessions/my_organism_workspace \
+  --mode compare \
+  --taxon-resolution-mode cache_first
+```
+
+## User-curated evidence
+
+NODOX supports real evidence supplied or reviewed by the user.
+
+User-curated datasets should:
+
+- be specific to the organism or analysis;
+- follow the schemas in `data_templates/`;
+- include provenance and quality metadata;
+- avoid private or sensitive information;
+- be accompanied by a dataset manifest;
+- distinguish observed values from inferred or proxy values;
+- be reviewed before scientific interpretation.
+
+The recommended starting documents are:
+
+- [`docs/user_friendly_onboarding.md`](docs/user_friendly_onboarding.md)
+- [`docs/user_curated_validation_protocol.md`](docs/user_curated_validation_protocol.md)
+- [`docs/user_curated_operational_flow.md`](docs/user_curated_operational_flow.md)
+- [`docs/user_curated_real_dataset_readiness.md`](docs/user_curated_real_dataset_readiness.md)
+
+## Main outputs
+
+Depending on the execution mode, NODOX can generate:
+
+- integrated evidence tables;
+- normalized and validated layer files;
+- candidate rankings;
+- legacy versus updated model comparisons;
+- sensitivity analyses;
+- evidence-strength audits;
+- candidate-level scientific audits;
+- provenance summaries;
+- layer-resolution manifests;
+- online-source manifests;
+- evolutionary-risk audits;
+- functional-node reports;
+- therapeutic-role stability reports;
+- publication-oriented tables;
+- manuscript-facing summaries;
+- figures in PNG and SVG formats;
+- reproducibility manifests.
+
+Common output files include:
+
+```text
+results/ranking_nodos.csv
+results/ranking_nodos_phase3.csv
+results/report_phase2.md
+results/theory_of_nodes_report.md
+results/candidate_audit.csv
+results/evidence_strength_audit.csv
+results/evolutionary_escape_risk_audit.csv
+results/data_provenance_summary.csv
+results/layer_resolution_manifest.json
+```
+
+## Interpretation rules
+
+A high-ranking candidate should be interpreted as a candidate for prioritized scientific review.
+
+It should not be interpreted as:
+
+- a validated drug target;
+- proof of antibacterial efficacy;
+- proof of host safety;
+- proof that resistance will not emerge;
+- a clinical recommendation;
+- a substitute for microbiological, pharmacological, toxicological, or experimental evaluation.
+
+Before drawing conclusions, review:
+
+- essentiality and virulence evidence;
+- human-homology and host-safety signals;
+- localization and accessibility;
+- strain conservation;
+- network dependency and redundancy;
+- disease and infection-site context;
+- evolutionary escape risk;
+- evidence provenance;
+- evidence coverage and confidence;
+- unresolved layers;
+- demo, proxy, cache, and controlled-provider flags.
+
+## Testing
+
+Recommended offline suite:
+
+```bash
+python -m pytest -p no:cacheprovider -m "not online" -q
+```
+
+Online provider tests should be run separately because they depend on external availability, provider behavior, and network access.
+
+## Project maturity
+
+NODOX is an advanced scientific prototype and publication-oriented research workflow.
+
+It already includes:
+
+- multiorganism workspaces;
+- user-curated data workflows;
+- provenance-aware layer resolution;
+- multiple scoring phases;
+- candidate-level explainability;
+- evolutionary-risk modeling;
+- optional online providers;
+- extensive automated tests;
+- publication-package generation;
+- conservative scientific disclaimers.
+
+However, scientific maturity depends on the quality of the input evidence. The software cannot convert weak, incomplete, or proxy-based evidence into biological certainty.
+
+## Documentation
+
+### Core concepts
+
 - [Methodology](docs/methodology.md)
+- [Scoring](docs/scoring.md)
+- [Data model](docs/data_model.md)
+- [Theory of Functional Nodes](docs/theory_of_functional_nodes.md)
+- [Evolutionary escape model](docs/evolutionary_escape_model.md)
+- [Contextual essentiality](docs/contextual_essentiality.md)
+- [Redundancy and compensation](docs/redundancy_and_compensation.md)
+- [Collateral sensitivity](docs/collateral_sensitivity.md)
+
+### Workflows and evidence
+
+- [Getting started](START_HERE.md)
+- [User-curated validation protocol](docs/user_curated_validation_protocol.md)
+- [Real data ingestion](docs/real_data_ingestion.md)
+- [Discovery layer](docs/discovery_layer.md)
+- [Online source integration](docs/online_source_integration.md)
+- [Workspace comparison](docs/workspace_comparison.md)
+
+### Publication and release
+
 - [Publication evidence index](docs/publication_evidence_index.md)
-- [Final reproducible demo readiness](docs/final_reproducible_demo_readiness.md)
-- [Software release readiness checklist](docs/software_release_readiness_checklist.md)
-- [Manuscript artifact map](docs/manuscript_artifact_map.md)
 - [Publication readiness master index](docs/publication_readiness_master_index.md)
-- [GUI run-review publication validation](docs/gui_run_review_publication_validation.md)
+- [Public release checklist](docs/public_release_checklist.md)
 - [Pre-publication repository audit](docs/pre_publication_repository_audit.md)
-- [AI-use transparency statement](docs/ai_use_transparency_statement.md)
-- [Final public release audit](docs/final_public_release_audit.md)
 - [Sensitive data and secret scan](docs/sensitive_data_and_secret_scan.md)
-- [Core dependency review summary](docs/core_dependency_review_summary.md)
-- [Public release file inclusion review](docs/public_release_file_inclusion_review.md)
+- [Security policy](SECURITY.md)
+- [Contribution guidelines](CONTRIBUTING.md)
 
-Release limitations:
+## Citation
 
-- No clinical validation is provided.
-- No experimental validation is provided.
-- `user_curated` evidence is curator-provided and is not automatic external validation.
-- Scoring requires downstream biological and experimental validation before therapeutic target claims.
-- Ranked candidates are computationally prioritized hypotheses and do not confirm therapeutic validity.
+Citation metadata is provided in [`CITATION.cff`](CITATION.cff).
 
-Citation metadata is available in `CITATION.cff`.
+Software author:
 
-Project code is licensed under Apache License 2.0. Dependency license and security review remain release requirements.
+**Dan Israel Zavala Vargas, PhD**
 
-Before any public release or final tag, the pre-publication repository audit must be reviewed. The audit is a publication-safety requirement and does not imply additional biological, clinical or experimental validation.
+Bibliographic metadata records the author as `Dan Israel Zavala Vargas`, without academic titles, following citation-metadata conventions.
 
-`v0.1.0-publication` is technically close, but the public tag remains blocked until final human approval. Optional workflow public distribution requires separate dependency review, and the core release can proceed only after accepting or completing core dependency/security and sensitive-data review.
+## License
+
+NODOX is distributed under the [Apache License 2.0](LICENSE).
+
+## Scientific and clinical disclaimer
+
+NODOX is a computational research workflow. It does not replace experimental validation, microbiological assessment, pharmacological evaluation, toxicological studies, clinical judgment, or regulatory review. Ranked candidates are hypotheses that require independent validation before therapeutic claims can be made.
