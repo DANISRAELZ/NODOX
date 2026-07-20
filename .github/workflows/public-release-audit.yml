@@ -204,7 +204,6 @@ jobs:
   organism-regressions:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    continue-on-error: true
 
     steps:
       - name: Checkout repository
@@ -222,11 +221,29 @@ jobs:
           python -m pip install -r requirements-dev.txt
 
       - name: Run optional organism regressions
+        id: organism_tests
         shell: bash
+        continue-on-error: true
         run: |
           set -o pipefail
           python -m pytest -p no:cacheprovider -m "organism_regression" -q \
             2>&1 | tee pytest_organism_regression_report.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize organism-regression status
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Optional organism regressions"
+            echo
+            if [ "${{ steps.organism_tests.outputs.exit_code }}" = "0" ]; then
+              echo "All organism-specific regressions matched their historical references."
+            else
+              echo "One or more organism-specific historical regressions did not match."
+              echo "This is diagnostic only and does not affect the organism-agnostic NODOX validation."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload organism-regression report
         if: always()
