@@ -1,0 +1,11 @@
+protein_id,gene,core_genome_presence,strain_coverage_score,allelic_conservation,variant_burden,database
+PA0001,gyrB,1.0,0.98,0.95,0.05,synthetic_public_fixture_v1
+PA0002,dnaA,1.0,0.99,0.97,0.03,synthetic_public_fixture_v1
+PA0003,ftsZ,1.0,0.99,0.96,0.04,synthetic_public_fixture_v1
+PA0004,murA,1.0,0.99,0.98,0.02,synthetic_public_fixture_v1
+PA0005,lasR,0.80,0.85,0.70,0.30,synthetic_public_fixture_v1
+PA0006,algD,0.75,0.80,0.68,0.32,synthetic_public_fixture_v1
+PA0007,oprF,0.95,0.96,0.90,0.10,synthetic_public_fixture_v1
+PA0008,secA,1.0,0.98,0.94,0.06,synthetic_public_fixture_v1
+PA0009,folA,1.0,0.99,0.95,0.05,synthetic_public_fixture_v1
+PA0010,rpoB,1.0,0.99,0.90,0.10,synthetic_public_fixture_v1
