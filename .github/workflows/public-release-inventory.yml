@@ -60,6 +60,7 @@ jobs:
               "test",
               "test_user",
               "testuser",
+              "x",
               "runner",
               "runneradmin",
               "admin",
@@ -94,7 +95,7 @@ jobs:
                   line = url_pattern.sub("", raw_line)
                   for label, pattern in path_patterns:
                       for match in pattern.finditer(line):
-                          username = match.group("username").strip("`'\"()[]{}<>").lower()
+                          username = match.group("username").strip("`'\"()[]{}<>,;:").lower()
                           if username in generic_usernames or username.startswith("$") or username.startswith("{"):
                               continue
                           findings.append((label, username))
