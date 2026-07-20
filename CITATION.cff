@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it. The theoretical model remains under active review by our project collaborators and should be considered provisional."
+message: "If you use this software, please cite it. The theoretical model remains under active review by our team of collaborators and should be considered provisional."
 type: software
 title: "NODOX"
 abstract: >-
@@ -7,7 +7,7 @@ abstract: >-
   prioritizing bacterial therapeutic-target hypotheses through Functional Node
   Theory, explicit provenance, evidence-confidence assessment, and evolutionary
   escape-risk analysis. The theoretical model underlying NODOX remains under
-  active review by our project collaborators; its assumptions, variables, and
+  active review by our team of collaborators; its assumptions, variables, and
   interpretation are provisional and may change as that review progresses.
 version: "0.1.0-publication"
 date-released: "2026-06-11"
