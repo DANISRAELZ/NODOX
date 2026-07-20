@@ -65,6 +65,14 @@ CATALOG_TEST_NODEIDS = {
 }
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    """Register markers even when pytest is invoked outside the project config root."""
+    config.addinivalue_line(
+        "markers",
+        "organism_regression: optional historical regression tied to a specific organism or former demonstration dataset",
+    )
+
+
 @pytest.fixture
 def tmp_path(request: pytest.FixtureRequest) -> Path:
     """Workspace-local tmp path to avoid locked Windows/OneDrive temp roots."""
