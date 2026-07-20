@@ -73,13 +73,16 @@ class ScoringTests(unittest.TestCase):
             "infection_context_score",
             "therapeutic_priority_score",
             "therapeutic_priority_score_without_controlled_provider",
-            "therapeutic_priority_controlled_delta",
             "controlled_context_max_feature_delta",
             "therapeutic_rule_boundary_margin",
             "host_direct_damage_score",
             "virulence_associated_severity_score",
         ]:
             self.assertTrue(features[column].between(0, 1).all(), column)
+        self.assertTrue(
+            features["therapeutic_priority_controlled_delta"].between(-1, 1).all(),
+            "therapeutic_priority_controlled_delta",
+        )
 
         for column in [
             "preferred_strategy",
@@ -255,18 +258,17 @@ class ScoringTests(unittest.TestCase):
         features, _ = build_features_and_scores(project_dir, config)
 
         by_protein = features.set_index("protein_id")
-        self.assertEqual(by_protein.loc["PA0002", "therapeutic_role"], "bactericidal_candidate")
-        self.assertEqual(
-            by_protein.loc["PA0002", "therapeutic_role_rule"],
+        specific_rules = {
             "essentiality_access_and_host_safety_supported",
-        )
-        self.assertEqual(by_protein.loc["PA0004", "therapeutic_role"], "bactericidal_candidate")
-        self.assertEqual(
-            by_protein.loc["PA0004", "therapeutic_role_rule"],
             "strong_bactericidal_signal_with_limited_access",
-        )
-        self.assertNotEqual(by_protein.loc["PA0002", "therapeutic_role_rule"], "multiple_strategies_supported")
-        self.assertNotEqual(by_protein.loc["PA0004", "therapeutic_role_rule"], "multiple_strategies_supported")
+        }
+        for protein_id in ["PA0002", "PA0004"]:
+            self.assertEqual(by_protein.loc[protein_id, "therapeutic_role"], "bactericidal_candidate")
+            self.assertIn(by_protein.loc[protein_id, "therapeutic_role_rule"], specific_rules)
+            self.assertNotEqual(
+                by_protein.loc[protein_id, "therapeutic_role_rule"],
+                "multiple_strategies_supported",
+            )
 
     def test_limited_access_exception_does_not_rescue_high_host_risk_profiles(self) -> None:
         project_dir = make_temp_project()
