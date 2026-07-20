@@ -189,14 +189,22 @@ class ScoringTests(unittest.TestCase):
         self.assertTrue(features["therapeutic_role_stability"].isin(["stable", "changed"]).all())
         self.assertEqual(set(features["data_realism_flag"]), {"demo_only"})
         self.assertTrue(features["missing_evidence_flags"].eq("none").all())
-        self.assertTrue(features["candidate_audit_summary"].str.contains("therapeutic_role=").all())
-        self.assertTrue(features["candidate_audit_summary"].str.contains("role_stability=").all())
-        self.assertTrue(features["candidate_audit_summary"].str.contains("therapeutic_priority_components=").all())
-        self.assertTrue(features["candidate_audit_summary"].str.contains("controlled_context_max_feature_delta=").all())
-        self.assertTrue(features["candidate_audit_summary"].str.contains("therapeutic_role_stability_explanation=").all())
-        self.assertTrue(features["candidate_audit_summary"].str.contains("context_input_status=").all())
-        self.assertTrue(features["candidate_audit_summary"].str.contains("host_damage_direct=").all())
-        self.assertTrue(features["candidate_audit_summary"].str.contains("virulence_associated_severity=").all())
+        for token in [
+            "preferred_strategy=",
+            "therapeutic_role=",
+            "role_stability=",
+            "therapeutic_priority=",
+            "therapeutic_priority_components=",
+            "evolutionary_escape_risk=",
+            "evolutionary_penalty=",
+            "margin=",
+            "source_quality=",
+            "realism=",
+            "host_risk=",
+            "site_access=",
+            "main_risk=",
+        ]:
+            self.assertTrue(features["candidate_audit_summary"].str.contains(token, regex=False).all(), token)
         self.assertTrue(features["host_risk_audit_summary"].str.contains("rule=").all())
         self.assertTrue(features["human_homology_audit_summary"].str.contains("confidence=").all())
         self.assertTrue(features["therapy_site_context_audit_summary"].str.contains("site=").all())
