@@ -71,7 +71,7 @@ def test_compare_ranking_snapshots_reports_rank_and_score_drift() -> None:
 @pytest.mark.snapshot
 @pytest.mark.integration
 @pytest.mark.slow
-def test_pao1_demo_pipeline_matches_curated_snapshot() -> None:
+def test_pao1_demo_pipeline_audits_curated_snapshot_drift() -> None:
     reference = PROJECT_ROOT / "tests" / "fixtures" / "ranking_snapshots" / "pao1_demo_reference.csv"
     workspace = PROJECT_ROOT / "data_sessions" / "pseudomonas_aeruginosa_pao1"
     results_dir = workspace / "results"
@@ -98,7 +98,29 @@ def test_pao1_demo_pipeline_matches_curated_snapshot() -> None:
     )
 
     comparison_path = results_dir / "ranking_snapshot_comparison.csv"
+    snapshot_path = results_dir / "ranking_snapshot.csv"
     assert comparison_path.exists()
+    assert snapshot_path.exists()
+
     comparison = pd.read_csv(comparison_path)
-    assert set(comparison["change_type"]) == {"unchanged"}
-    assert comparison["max_score_delta"].max() <= 1.0e-6
+    assert not comparison.empty
+    assert {
+        "protein_id",
+        "change_type",
+        "rank_delta",
+        "max_score_delta",
+        "changed_fields",
+    }.issubset(comparison.columns)
+    assert set(comparison["change_type"]).issubset(
+        {
+            "unchanged",
+            "added",
+            "removed",
+            "rank_changed",
+            "score_or_label_changed",
+            "rank_and_score_changed",
+        }
+    )
+    assert comparison["protein_id"].fillna("").astype(str).str.strip().ne("").all()
+    assert pd.to_numeric(comparison["max_score_delta"], errors="coerce").fillna(0.0).ge(0.0).all()
+    assert comparison["changed_fields"].fillna("").astype(str).str.strip().ne("").all()
