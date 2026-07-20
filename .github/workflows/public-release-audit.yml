@@ -191,3 +191,45 @@ jobs:
         shell: bash
         run: |
           test "${{ steps.portable_tests.outputs.exit_code }}" = "0"
+
+  full-suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install development dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Run complete pytest suite
+        id: complete_tests
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pytest -p no:cacheprovider -q 2>&1 | tee pytest_complete_report.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload complete-suite report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: complete-pytest-suite-report
+          path: pytest_complete_report.txt
+          if-no-files-found: error
+
+      - name: Enforce complete-suite result
+        if: always()
+        shell: bash
+        run: |
+          test "${{ steps.complete_tests.outputs.exit_code }}" = "0"
