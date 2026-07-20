@@ -245,24 +245,23 @@ class ScoringTests(unittest.TestCase):
         self.assertTrue(np.isfinite(sensitivity["score"]).all())
         self.assertTrue(np.isfinite(sensitivity["rank_delta_vs_base"]).all())
 
-        scenarios = set(sensitivity["scenario"])
-        for scenario in [
-            "baseline_like",
-            "antivirulence_focus",
-            "network_focus",
-            "antibiotic_target__safety_first",
-            "antibiotic_target__penetration_first",
-            "antivirulence_target__accessibility_first",
-            "antivirulence_target__damage_reduction_first",
-            "functional_node__centrality_first",
-            "functional_node__dependency_first",
-            "safety_first",
-            "context_first",
-            "bactericidal_first",
-            "damage_control_first",
-        ]:
-            self.assertIn(scenario, scenarios)
-
+        observed_pairs = set(zip(sensitivity["score_name"], sensitivity["scenario"]))
+        expected_pairs = {
+            ("meta_priority_score", "baseline_like"),
+            ("meta_priority_score", "antivirulence_focus"),
+            ("meta_priority_score", "network_focus"),
+            ("antibiotic_target_score", "safety_first"),
+            ("antibiotic_target_score", "penetration_first"),
+            ("antivirulence_target_score", "accessibility_first"),
+            ("antivirulence_target_score", "damage_reduction_first"),
+            ("functional_node_score", "centrality_first"),
+            ("functional_node_score", "dependency_first"),
+            ("therapeutic_priority_score", "safety_first"),
+            ("therapeutic_priority_score", "context_first"),
+            ("therapeutic_priority_score", "bactericidal_first"),
+            ("therapeutic_priority_score", "damage_control_first"),
+        }
+        self.assertTrue(expected_pairs.issubset(observed_pairs))
         self.assertEqual(
             set(sensitivity["score_name"]),
             {
