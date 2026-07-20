@@ -5,18 +5,21 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nodos-funcionales"
 version = "0.1.0"
-description = "Pipeline reproducible para priorizacion computacional exploratoria de nodos funcionales bacterianos."
+description = "NODOX: explainable, multi-organism prioritization of bacterial therapeutic targets."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "pandas>=2.0.0",
     "Pillow>=10.0.0",
-    "pytest>=8.0.0",
+    "certifi>=2024.0.0",
 ]
 
 [project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
 # Optional workflow execution dependencies. These require separate
-# transitive license/security review before public workflow distribution.
+# transitive license and security review before public workflow distribution.
 workflow = [
     "snakemake>=7.32.0",
 ]
