@@ -42,4 +42,5 @@ def test_readme_publication_release_readiness_terms() -> None:
         assert expected_term in path.read_text(encoding="utf-8").lower()
 
     final_check = (PROJECT_ROOT / "docs" / "final_publication_release_check.md").read_text(encoding="utf-8").lower()
-    assert "public tag remains blocked until final human approval" in final_check
+    assert "do not create the final tag until manually approved" in final_check
+    assert "human approval is given" in final_check
