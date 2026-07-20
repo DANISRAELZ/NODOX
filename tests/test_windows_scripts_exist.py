@@ -53,7 +53,7 @@ class WindowsScriptsExistTests(unittest.TestCase):
         ]:
             with self.subTest(script=script_name):
                 text = (PROJECT_ROOT / "scripts" / script_name).read_text(encoding="utf-8")
-                self.assertNotIn("C:\\Users\\danis", text)
+                self.assertNotIn("C:\\Users\\example_user", text)
                 self.assertIn("$env:USERPROFILE", text)
 
     def test_run_tests_script_uses_stable_offline_suite(self) -> None:
@@ -110,7 +110,7 @@ class WindowsScriptsExistTests(unittest.TestCase):
         self.assertIn("validate_user_curated_manifest.py", text)
         self.assertIn("validate_user_curated_manifest.ps1", text)
         self.assertIn("<RUTA_DEL_REPOSITORIO>", text)
-        self.assertNotIn("C:\\Users\\danis", text)
+        self.assertNotIn("C:\\Users\\example_user", text)
 
     def test_user_curated_helper_scripts_are_generic_and_safe(self) -> None:
         forbidden_defaults = [
