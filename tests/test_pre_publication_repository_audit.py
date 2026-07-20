@@ -13,7 +13,7 @@ def test_pre_publication_repository_audit_content() -> None:
         "license",
         "dependencies",
         "dependency license compatibility",
-        "security/vulnerability review",
+        "security and vulnerability considerations",
         "third-party code",
         "prompts",
         "logs",
@@ -28,9 +28,12 @@ def test_pre_publication_repository_audit_content() -> None:
         "ai-use transparency",
         "no clinical validation",
         "no experimental validation",
-        "no therapeutic target validation",
+        "no therapeutic-target validation",
         "scoring is prioritization only",
-        "final public tag `v0.1.0-publication` remains blocked",
+        "team of collaborators",
+        "final human approval is given",
+        "final public tag `v0.1.0` remains blocked until",
+        "do not create the final public release tag before those checks are complete",
     ]
     for term in required_terms:
         assert term in text
