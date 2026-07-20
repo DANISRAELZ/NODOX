@@ -9,8 +9,8 @@ abstract: >-
   escape-risk analysis. The theoretical model underlying NODOX remains under
   active review by our team of collaborators; its assumptions, variables, and
   interpretation are provisional and may change as that review progresses.
-version: "0.1.0-publication"
-date-released: "2026-06-11"
+version: "0.1.0"
+date-released: "2026-07-20"
 license: "Apache-2.0"
 repository-code: "https://github.com/DANISRAELZ/NODOX"
 url: "https://github.com/DANISRAELZ/NODOX"
