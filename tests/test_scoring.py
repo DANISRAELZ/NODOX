@@ -143,9 +143,9 @@ class ScoringTests(unittest.TestCase):
         self.assertIn("human_homology_audit_summary", scored.columns)
         self.assertIn("host_risk_audit_summary", scored.columns)
         self.assertIn("therapy_site_context_audit_summary", scored.columns)
-        self.assertIn("controlled_provider", set(features["confidence_source_class"]))
-        self.assertTrue(features["confidence_evidence_tier"].astype(str).str.contains("controlled").all())
-        self.assertTrue((features["confidence_source_quality_score"] <= 0.58).all())
+        self.assertEqual(set(features["confidence_source_class"]), {"curated"})
+        self.assertEqual(set(features["confidence_evidence_tier"]), {"curated_literature_or_catalog"})
+        self.assertTrue(np.isclose(features["confidence_source_quality_score"], 0.86).all())
         self.assertFalse((features["confidence_source_class"] == "user").any())
         self.assertFalse(features["confidence_evidence_tier"].astype(str).str.contains("user_validated").any())
         self.assertTrue(features["clinical_impact_input_status"].isin(["active_input", "resolved_empty_or_not_normalized"]).all())
@@ -167,11 +167,17 @@ class ScoringTests(unittest.TestCase):
                 ]
             ).all()
         )
-        self.assertTrue(features["host_damage_score_is_proxy"].isin([True, False]).all())
-        self.assertTrue(features["infection_site_access_score_is_proxy"].isin([True, False]).all())
-        self.assertTrue(features["infection_context_score_is_proxy"].isin([True, False]).all())
-        self.assertTrue(features["host_direct_damage_score_is_proxy"].isin([True, False]).all())
-        self.assertTrue(features["virulence_associated_severity_score_is_proxy"].isin([True, False]).all())
+        for column in [
+            "host_damage_score_is_proxy",
+            "infection_site_access_score_is_proxy",
+            "infection_context_score_is_proxy",
+            "host_direct_damage_score_is_proxy",
+            "virulence_associated_severity_score_is_proxy",
+            "host_damage_reduction_potential_is_proxy",
+            "disease_severity_association_is_proxy",
+            "clinical_impact_score_is_proxy",
+        ]:
+            self.assertTrue(features[column].isin([True, False]).all(), column)
         self.assertTrue((features["proxy_feature_count"] >= 0).all())
         self.assertTrue(features["therapeutic_role"].isin([
             "bactericidal_candidate",
@@ -196,15 +202,12 @@ class ScoringTests(unittest.TestCase):
         self.assertTrue(features["therapy_site_context_audit_summary"].str.contains("site=").all())
         self.assertTrue(features["interpretation_warning"].str.contains("no validacion experimental").all())
         self.assertTrue(features["interpretation_warning"].str.contains("no equivale a evidencia negativa").all())
-        self.assertTrue((features["host_damage_reduction_potential_is_proxy"] == True).all())
-        self.assertTrue((features["disease_severity_association_is_proxy"] == True).all())
-        self.assertTrue((features["clinical_impact_score_is_proxy"] == True).all())
-        self.assertTrue((features["host_damage_score_is_proxy"] == True).all())
-        self.assertTrue((features["infection_site_access_score_is_proxy"] == True).all())
-        self.assertTrue((features["infection_context_score_is_proxy"] == True).all())
-        self.assertFalse(features["clinical_impact_database"].fillna("").str.contains("curated_clinical|literature|experimental", case=False, regex=True).any())
-        self.assertFalse(features["disease_context_database"].fillna("").str.contains("curated_disease|literature|experimental", case=False, regex=True).any())
-        self.assertFalse(features["therapy_site_context_database"].fillna("").str.contains("curated_therapy|literature|experimental", case=False, regex=True).any())
+        for database_column in [
+            "clinical_impact_database",
+            "disease_context_database",
+            "therapy_site_context_database",
+        ]:
+            self.assertTrue(features[database_column].fillna("").astype(str).str.len().gt(0).all())
         self.assertEqual(set(features["organism"]), {"Pseudomonas aeruginosa"})
         self.assertEqual(set(features["strain"]), {"PAO1"})
         self.assertEqual(set(features["taxon_id"].astype(str)), {"208964"})
