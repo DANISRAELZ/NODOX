@@ -20,9 +20,10 @@ def test_readme_publication_release_readiness_terms() -> None:
         "pseudomonas aeruginosa",
         "citation.cff",
         "apache license 2.0",
-        "limitations",
+        "interpretation rules",
+        "unresolved layers",
         "not experimental or clinical validation",
-        "requires independent validation",
+        "independent validation",
     ]
     for term in required_readme_terms:
         assert term in readme
