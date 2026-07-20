@@ -33,9 +33,11 @@ The repository owner has authorized the merge, tag creation and public release a
 
 ## Validation Readiness
 
-- [ ] Final strict complete suite passes on the exact release-candidate commit.
-- [ ] Quick Start smoke test passes on the exact release-candidate commit.
-- [ ] Public release inventory passes on the exact release-candidate commit.
+- [x] Final strict complete suite passes on the release-candidate branch.
+- [x] Quick Start smoke test passes from a clean GitHub Actions checkout.
+- [x] Public release inventory passes with no blocked release files or personal local paths.
+- [x] Security and Git-history audit passes.
+- [x] Online-provider contracts and organism regressions pass under their documented policies.
 - [x] `config/taxon_resolution_cache.json` is excluded from unintended test drift by the release workflows.
 - [x] Release outputs, caches and local session directories are excluded or audited.
 - [ ] Final tag points to the merged release commit on `main`.
@@ -52,6 +54,7 @@ The repository owner has authorized the merge, tag creation and public release a
 - [x] Sensitive data and secret scan documented at `docs/sensitive_data_and_secret_scan.md`.
 - [x] Core dependency review summary documented at `docs/core_dependency_review_summary.md`.
 - [x] Public release file inclusion review documented at `docs/public_release_file_inclusion_review.md`.
+- [x] Repository owner confirms release authorization and accepts the documented remaining third-party and scientific limitations.
 
 ## Interpretation Boundaries
 
