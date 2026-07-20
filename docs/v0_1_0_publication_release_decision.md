@@ -1,12 +1,16 @@
-# v0.1.0-publication Release Decision
+# v0.1.0 Release Decision
 
 ## Release Candidate
 
-Release candidate: `v0.1.0-publication`
+Final release version: `0.1.0`
 
-## Current Readiness Status
+Final release tag: `v0.1.0`
 
-The project is technically close to `v0.1.0-publication` and ready for final human approval review as a minimum publication-ready software package. The final git tag should not be created automatically. No automatic tag creation is approved in this phase.
+Release date: `2026-07-20`
+
+## Approval Status
+
+The repository owner approved the final release version, publication date, merge, tag creation and public release. No ORCID is included because one is not yet available.
 
 ## Completed Components
 
@@ -19,39 +23,34 @@ The project is technically close to `v0.1.0-publication` and ready for final hum
 - Publication evidence index.
 - Final demo execution validation documentation.
 - Demo expected outputs manifest.
-- Manuscript figure/table specifications.
+- Manuscript figure and table specifications.
 - Release notes and final release checklist.
-- Final public release audit.
-- Sensitive data and secret scan documentation.
+- Final public release audit workflow.
+- Sensitive-data and secret scanning.
 - Core dependency review summary.
-- Public release file inclusion review.
-- Offline deterministic test coverage for release-readiness documents.
+- Public-release file inclusion review.
+- Strict complete pytest suite.
+- Clean-clone Quick Start smoke test.
+- Public-release inventory workflow.
 
-## Pending Components
+## Scientific Status
 
-- Dependency license and security review before public distribution.
-- Optional workflow dependency review for Snakemake and its transitive dependencies before public workflow distribution.
-- Core release can proceed only after accepting or completing core dependency/security and sensitive-data review.
-- Optional final manual demo run using `examples/pseudomonas_aeruginosa_publication_demo`.
-- Optional manuscript figure generation from the figure/table specifications.
-- Final human approval before tag creation.
+This release is a publication-oriented research software package. It provides no clinical validation, no experimental validation and no biological validation by itself. It does not validate therapeutic targets or confirm therapeutic validity for ranked candidates.
 
-## Release Boundary
+The theoretical model underlying NODOX remains under active review by our team of collaborators. Its concepts, assumptions, variables and scoring interpretation are provisional and may change as that review progresses.
 
-This release is a minimum publication-ready software package. It provides no clinical validation, no experimental validation and no biological validation by itself. It does not validate therapeutic targets or confirm therapeutic validity for ranked candidates.
+## Dependency Boundary
 
-The core release does not require Snakemake by default. Snakemake remains available as an optional workflow dependency through `requirements-workflow.txt` and the `workflow` optional dependency group. UNKNOWN Snakemake transitive dependency metadata does not block the core release when Snakemake is not installed as core, but public workflow distribution remains blocked until optional workflow dependency review is completed.
+The core release does not require Snakemake by default. Snakemake remains an optional workflow dependency through `requirements-workflow.txt` and the `workflow` optional dependency group. Optional workflow dependencies remain subject to their own transitive license and security review.
 
-Project code is licensed under Apache License 2.0. Dependency license and security review remain release requirements.
+Project code is licensed under Apache License 2.0. Third-party databases, provider content and external tools remain governed by their respective licenses and terms of use.
 
-See `docs/final_public_release_audit.md`, `docs/sensitive_data_and_secret_scan.md`, `docs/core_dependency_review_summary.md` and `docs/public_release_file_inclusion_review.md` before manual tag approval.
+## Tagging Instruction
 
-## Tagging Instruction After Approval
-
-After final human approval only, the suggested tag command is:
+After the final release-candidate checks pass and the pull request is merged into `main`, create the tag:
 
 ```bash
-git tag v0.1.0-publication
+git tag v0.1.0
 ```
 
-Do not run this command automatically.
+The tag must point to the merged release commit on `main`.
