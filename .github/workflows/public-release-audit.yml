@@ -153,13 +153,14 @@ jobs:
           diagnostic_events=0
 
           mapfile -t nodeids < <(
-            python -m pytest -p no:cacheprovider --collect-only -q \
-              -m "online and not organism_regression" 2>/dev/null | grep '::' || true
+            python -m pytest -p no:cacheprovider -o addopts="" --collect-only -q \
+              -m "online and not organism_regression" 2>/dev/null \
+              | grep -E '^tests/.*::' || true
           )
 
           echo "Collected ${#nodeids[@]} online tests" | tee -a pytest_online_provider_report.txt
           if [ ${#nodeids[@]} -eq 0 ]; then
-            echo "No online tests were collected." | tee -a pytest_online_provider_report.txt
+            echo "No online tests were collected; collection configuration is invalid." | tee -a pytest_online_provider_report.txt
             exit 1
           fi
 
@@ -173,7 +174,7 @@ jobs:
             echo "===== $nodeid =====" | tee -a pytest_online_provider_report.txt
             set +e
             timeout --signal=TERM --kill-after=10s 90s \
-              python -m pytest -p no:cacheprovider -q "$nodeid" \
+              python -m pytest -p no:cacheprovider -o addopts="" -q "$nodeid" \
               >> pytest_online_provider_report.txt 2>&1
             rc=$?
             set -e
@@ -193,6 +194,7 @@ jobs:
           {
             echo "## Online provider validation"
             echo
+            echo "Collected tests: ${#nodeids[@]}"
             echo "Contract failures: $contract_failures"
             echo "Live-provider diagnostic events: $diagnostic_events"
           } >> "$GITHUB_STEP_SUMMARY"
