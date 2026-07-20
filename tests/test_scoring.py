@@ -247,38 +247,34 @@ class ScoringTests(unittest.TestCase):
 
         observed_pairs = set(zip(sensitivity["score_name"], sensitivity["scenario"]))
         expected_pairs = {
-            ("meta_priority_score", "baseline_like"),
-            ("meta_priority_score", "antivirulence_focus"),
-            ("meta_priority_score", "network_focus"),
-            ("antibiotic_target", "safety_first"),
-            ("antibiotic_target", "penetration_first"),
-            ("antivirulence_target", "accessibility_first"),
-            ("antivirulence_target", "damage_reduction_first"),
-            ("functional_node", "centrality_first"),
-            ("functional_node", "dependency_first"),
-            ("therapeutic_priority_score", "safety_first"),
-            ("therapeutic_priority_score", "context_first"),
-            ("therapeutic_priority_score", "bactericidal_first"),
-            ("therapeutic_priority_score", "damage_control_first"),
+            ("meta_priority", scenario_name)
+            for scenario_name in config["sensitivity"]["scenarios"]
         }
-        self.assertTrue(expected_pairs.issubset(observed_pairs))
-        self.assertEqual(
-            set(sensitivity["score_name"]),
-            {
-                "meta_priority_score",
-                "antibiotic_target",
-                "antivirulence_target",
-                "functional_node",
-                "therapeutic_priority_score",
-            },
+        expected_pairs.update(
+            (score_name, scenario_name)
+            for score_name, scenarios in config["sensitivity"]["strategy_scenarios"].items()
+            for scenario_name in scenarios
         )
-        therapeutic = sensitivity.loc[sensitivity["score_name"].eq("therapeutic_priority_score")]
+        expected_pairs.update(
+            ("therapeutic_priority", scenario_name)
+            for scenario_name in config["sensitivity"]["therapeutic_priority_scenarios"]
+        )
+        self.assertTrue(expected_pairs.issubset(observed_pairs))
+
+        expected_score_names = {
+            "meta_priority",
+            *config["sensitivity"]["strategy_scenarios"].keys(),
+            "therapeutic_priority",
+        }
+        self.assertEqual(set(sensitivity["score_name"]), expected_score_names)
+
+        therapeutic = sensitivity.loc[sensitivity["score_name"].eq("therapeutic_priority")]
         self.assertFalse(therapeutic.empty)
         self.assertTrue(therapeutic["therapeutic_role"].astype(str).str.strip().ne("").all())
         self.assertTrue(therapeutic["role_changed_vs_base"].isin([True, False]).all())
         self.assertEqual(
             set(therapeutic["scenario"]),
-            {"safety_first", "context_first", "bactericidal_first", "damage_control_first"},
+            set(config["sensitivity"]["therapeutic_priority_scenarios"]),
         )
 
     def test_specific_therapeutic_rules_take_priority_over_mixed_fallback(self) -> None:
