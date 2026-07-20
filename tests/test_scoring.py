@@ -229,36 +229,56 @@ class ScoringTests(unittest.TestCase):
         sensitivity = compute_sensitivity(features, config)
 
         expected_columns = {
-            "protein_id",
+            "score_name",
             "scenario",
-            "meta_priority_score",
-            "score_delta_vs_base",
+            "protein_id",
+            "gene",
+            "score",
             "rank",
+            "base_rank",
             "rank_delta_vs_base",
-            "preferred_strategy",
-            "strategy_changed_vs_base",
-            "sensitivity_flag",
-            "experiment_family",
+            "therapeutic_role",
+            "role_changed_vs_base",
         }
         self.assertTrue(expected_columns.issubset(sensitivity.columns))
-        self.assertGreater(sensitivity["scenario"].nunique(), 1)
-        self.assertIn("baseline", set(sensitivity["scenario"]))
-        self.assertIn("no_conservation", set(sensitivity["scenario"]))
-        self.assertIn("no_network", set(sensitivity["scenario"]))
-        self.assertIn("no_host_annotation", set(sensitivity["scenario"]))
-        self.assertIn("no_clinical_impact", set(sensitivity["scenario"]))
-        self.assertIn("no_disease_context", set(sensitivity["scenario"]))
-        self.assertIn("no_therapy_site_context", set(sensitivity["scenario"]))
-        component = sensitivity.loc[sensitivity["experiment_family"] == "component_removal"]
-        self.assertFalse(component.empty)
-        self.assertTrue(np.isfinite(component["score_delta_vs_base"]).all())
+        self.assertFalse(sensitivity.empty)
+        self.assertTrue(np.isfinite(sensitivity["score"]).all())
+        self.assertTrue(np.isfinite(sensitivity["rank_delta_vs_base"]).all())
 
-        therapeutic = sensitivity.loc[sensitivity["experiment_family"] == "therapeutic_scenario"]
-        self.assertFalse(therapeutic.empty)
-        self.assertIn("therapeutic_role", therapeutic.columns)
-        self.assertIn("role_changed_vs_base", therapeutic.columns)
+        scenarios = set(sensitivity["scenario"])
+        for scenario in [
+            "baseline_like",
+            "antivirulence_focus",
+            "network_focus",
+            "antibiotic_target__safety_first",
+            "antibiotic_target__penetration_first",
+            "antivirulence_target__accessibility_first",
+            "antivirulence_target__damage_reduction_first",
+            "functional_node__centrality_first",
+            "functional_node__dependency_first",
+            "safety_first",
+            "context_first",
+            "bactericidal_first",
+            "damage_control_first",
+        ]:
+            self.assertIn(scenario, scenarios)
+
         self.assertEqual(
-            set(therapeutic["scenario"].unique()),
+            set(sensitivity["score_name"]),
+            {
+                "meta_priority_score",
+                "antibiotic_target_score",
+                "antivirulence_target_score",
+                "functional_node_score",
+                "therapeutic_priority_score",
+            },
+        )
+        therapeutic = sensitivity.loc[sensitivity["score_name"].eq("therapeutic_priority_score")]
+        self.assertFalse(therapeutic.empty)
+        self.assertTrue(therapeutic["therapeutic_role"].astype(str).str.strip().ne("").all())
+        self.assertTrue(therapeutic["role_changed_vs_base"].isin([True, False]).all())
+        self.assertEqual(
+            set(therapeutic["scenario"]),
             {"safety_first", "context_first", "bactericidal_first", "damage_control_first"},
         )
 
