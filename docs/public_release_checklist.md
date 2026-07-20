@@ -13,35 +13,41 @@ This checklist must be completed before changing the repository visibility from 
 
 ## Security and privacy
 
-- [ ] No API keys, tokens, passwords, private keys, cookies, or authorization headers are tracked.
+- [x] No high-confidence API keys, tokens, passwords, private keys, cookies, or authorization headers were detected by the automated current-tree and Git-history scan.
 - [ ] No `.env` or local configuration containing secrets is tracked.
 - [ ] No personal Windows, WSL, Linux, or OneDrive paths are tracked.
 - [ ] No patient, employee, collaborator, or other personal data are tracked.
 - [ ] No private user-curated datasets or unpublished restricted datasets are tracked.
-- [ ] Git history has been scanned, not only the current files.
-- [ ] Any previously committed credential has been revoked and removed from history.
+- [x] Git history has been scanned, not only the current files.
+- [ ] Any previously committed credential has been revoked and removed from history, or the item has been confirmed not applicable.
 
 ## Reproducibility
 
-- [ ] Installation succeeds in a clean supported Python environment.
-- [ ] Runtime and development dependencies are separated.
+- [x] Installation of development dependencies succeeds in a clean GitHub Actions Python 3.12 environment.
+- [x] Runtime and development dependencies are separated.
 - [ ] The documented Quick Start succeeds from a clean clone.
-- [ ] Required demo or controlled-reference data are actually included.
-- [ ] Offline tests pass.
-- [ ] Online tests are clearly separated and tolerate provider outages.
-- [ ] External tools such as DIAMOND are documented as optional system dependencies.
+- [ ] Required demo or controlled-reference data are actually included and redistributable.
+- [x] The organism-agnostic offline tests pass.
+- [x] Online tests are separated and tolerate provider outages through individual hard time limits and diagnostic classification.
+- [x] External tools such as DIAMOND are documented as optional system dependencies.
+- [ ] The strict complete suite passes with `python -m pytest -p no:cacheprovider -q` on the final release candidate commit.
 
 ## Scientific communication
 
-- [ ] README clearly labels NODOX as exploratory scientific software.
-- [ ] Demo, proxy, cache, controlled-reference, online, and user-curated evidence are distinguished.
-- [ ] Limitations and validation requirements are visible near the beginning of the README.
+- [ ] The root README clearly labels NODOX as exploratory scientific software.
+- [ ] Demo, proxy, cache, controlled-reference, online, and user-curated evidence are distinguished in the root README.
+- [ ] Limitations and validation requirements are visible near the beginning of the root README.
 - [ ] Example rankings are not presented as experimentally validated therapeutic claims.
 - [ ] Third-party databases and their licensing or terms of use have been reviewed.
 
 ## GitHub release preparation
 
 - [ ] A pull request from `public-release-review` to `main` has been reviewed.
-- [ ] Automated tests pass on the final commit.
+- [ ] Automated tests pass on the final commit, including the strict complete suite.
 - [ ] A clean release tag is created after merging.
-- [ ] The repository remains private until all blocking items are complete.
+- [x] The repository remains private until all blocking items are complete.
+
+## Current automated evidence
+
+- Public release audit run 41 passed the security audit, organism-agnostic offline suite, online-provider contracts, and organism-regression jobs.
+- A new required `strict-complete-suite` job has been added and must pass before release.
