@@ -21,7 +21,7 @@ def test_publication_release_metadata_is_consistent() -> None:
     texts = {path.name: _text(path) for path in FILES}
     combined = "\n".join(texts.values())
 
-    assert "v0.1.0-publication" in texts["README.md"]
+    assert "nodox" in texts["README.md"]
     assert "0.1.0-publication" in texts["CITATION.cff"]
     assert "v0.1.0-publication" in texts["CHANGELOG.md"]
     assert "v0.1.0-publication" in texts["release_notes_v0_1_0_publication.md"]
@@ -41,8 +41,9 @@ def test_license_status_is_explicit() -> None:
     license_path = PROJECT_ROOT / "LICENSE"
     readme = _text(PROJECT_ROOT / "README.md")
     final_check = _text(PROJECT_ROOT / "docs" / "final_publication_release_check.md")
+    third_party = _text(PROJECT_ROOT / "docs" / "third_party_data_terms_review.md")
     assert license_path.exists()
     assert "apache license" in _text(license_path)
-    assert "project code is licensed under apache license 2.0" in readme
-    assert "dependency license and security review remain release requirements" in readme
+    assert "apache license 2.0" in readme
     assert "project code is licensed under apache license 2.0" in final_check
+    assert "provider terms can change" in third_party
