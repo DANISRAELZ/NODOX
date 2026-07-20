@@ -15,15 +15,17 @@ from src.nodos_funcionales.online_audit import (
     run_experimental_online_audit,
     write_clean_online_audit,
 )
+from tests.helpers import PROJECT_ROOT, make_temp_project
 
 pytestmark = pytest.mark.online
-from tests.helpers import PROJECT_ROOT
 
 
 class OnlineAuditTests(unittest.TestCase):
     def make_workspace(self, name: str) -> Path:
+        source = make_temp_project()
         root = PROJECT_ROOT / ".tmp_tests" / f"{name}_{uuid.uuid4().hex[:8]}"
-        shutil.copytree(PROJECT_ROOT / "data_sessions" / "pao1_demo", root)
+        shutil.copytree(source, root)
+        shutil.rmtree(source, ignore_errors=True)
         self.addCleanup(lambda: shutil.rmtree(root, ignore_errors=True))
         return root
 
@@ -57,8 +59,8 @@ class OnlineAuditTests(unittest.TestCase):
             csv_path, md_path, df = write_clean_online_audit(
                 project_root=PROJECT_ROOT,
                 workspace=workspace,
-                organism_name="Pseudomonas aeruginosa",
-                strain="PAO1",
+                organism_name="Test bacterium",
+                strain="test_strain",
                 sources=["string", "uniprot"],
             )
         self.assertTrue(csv_path.exists())
@@ -130,13 +132,13 @@ class OnlineAuditTests(unittest.TestCase):
         self.assertEqual(comparison.iloc[0]["comparison_label"], "api_failed_fallback_used")
 
     def test_force_refresh_conflicts_with_fresh_vs_cache_comparison(self) -> None:
-        workspace = PROJECT_ROOT / "data_sessions" / "pao1_demo"
+        workspace = self.make_workspace("online_audit_conflict")
         with self.assertRaisesRegex(ValueError, "force_refresh"):
             run_experimental_online_audit(
                 project_root=PROJECT_ROOT,
                 workspace=workspace,
-                organism_name="Pseudomonas aeruginosa",
-                strain="PAO1",
+                organism_name="Test bacterium",
+                strain="test_strain",
                 sources=["string"],
                 force_refresh=True,
                 compare_fresh_vs_cache=True,
