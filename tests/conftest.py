@@ -44,6 +44,16 @@ SNAPSHOT_FILE_KEYWORDS = {
     "ranking_snapshots",
 }
 
+# These tests preserve the behavior of the former PAO1 demonstration dataset.
+# They are useful as historical diagnostics, but they are not part of the
+# organism-agnostic contract of NODOX and must not gate the standard suite.
+ORGANISM_REGRESSION_NODEIDS = {
+    "tests/test_e2e.py::EndToEndTests::test_full_phase2_pipeline_runs_on_example_data",
+    "tests/test_ranking_snapshots.py::test_pao1_demo_pipeline_matches_curated_snapshot",
+    "tests/test_scoring.py::ScoringTests::test_scores_are_generated_in_expected_range",
+    "tests/test_scoring.py::ScoringTests::test_specific_therapeutic_rules_take_priority_over_mixed_fallback",
+}
+
 
 @pytest.fixture
 def tmp_path(request: pytest.FixtureRequest) -> Path:
@@ -61,6 +71,9 @@ def tmp_path(request: pytest.FixtureRequest) -> Path:
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Ensure every test has an explicit operational class marker."""
     for item in items:
+        if item.nodeid in ORGANISM_REGRESSION_NODEIDS:
+            item.add_marker(pytest.mark.organism_regression)
+
         existing = {marker.name for marker in item.iter_markers()}
         filename = Path(str(item.fspath)).name.lower()
 
