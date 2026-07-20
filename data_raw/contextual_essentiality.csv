@@ -1,0 +1,11 @@
+protein_id,gene,contextual_essentiality_score,pleiotropy_score,conservation_score,functional_node_theory_score,therapeutic_role_v3,evidence_quality_score,confidence_ceiling,evidence_source_type,evidence_notes,audit_flags,phase3_notes,database
+PA0001,gyrB,0.80,0.70,0.95,0.80,antibiotic_target,0.70,0.70,synthetic_test,synthetic_non_biological_fixture,synthetic_data,phase3_test_fixture,synthetic_public_fixture_v1
+PA0002,dnaA,0.82,0.75,0.97,0.84,antibiotic_target,0.70,0.70,synthetic_test,synthetic_non_biological_fixture,synthetic_data,phase3_test_fixture,synthetic_public_fixture_v1
+PA0003,ftsZ,0.88,0.80,0.96,0.88,functional_node_candidate,0.72,0.72,synthetic_test,synthetic_non_biological_fixture,synthetic_data,phase3_test_fixture,synthetic_public_fixture_v1
+PA0004,murA,0.95,0.82,0.98,0.94,functional_node_candidate,0.78,0.78,synthetic_test,synthetic_non_biological_fixture,synthetic_data,phase3_test_fixture,synthetic_public_fixture_v1
+PA0005,lasR,0.55,0.65,0.70,0.72,antivirulence_target,0.68,0.68,synthetic_test,synthetic_non_biological_fixture,synthetic_data,phase3_test_fixture,synthetic_public_fixture_v1
+PA0006,algD,0.50,0.60,0.68,0.66,antivirulence_target,0.65,0.65,synthetic_test,synthetic_non_biological_fixture,synthetic_data,phase3_test_fixture,synthetic_public_fixture_v1
+PA0007,oprF,0.62,0.68,0.90,0.76,mixed_candidate,0.68,0.68,synthetic_test,synthetic_non_biological_fixture,synthetic_data,phase3_test_fixture,synthetic_public_fixture_v1
+PA0008,secA,0.84,0.76,0.94,0.86,functional_node_candidate,0.72,0.72,synthetic_test,synthetic_non_biological_fixture,synthetic_data,phase3_test_fixture,synthetic_public_fixture_v1
+PA0009,folA,0.75,0.70,0.95,0.70,host_risk_candidate,0.62,0.62,synthetic_test,synthetic_non_biological_fixture,synthetic_data,phase3_test_fixture,synthetic_public_fixture_v1
+PA0010,rpoB,0.82,0.72,0.90,0.78,antibiotic_target,0.68,0.68,synthetic_test,synthetic_non_biological_fixture,synthetic_data,phase3_test_fixture,synthetic_public_fixture_v1
