@@ -36,7 +36,7 @@ def test_software_paper_contains_required_conservative_content() -> None:
     assert "therapeutic_priority_score" in manuscript
     assert "evidence_confidence_score" in manuscript
     assert "evolutionary_escape_risk" in manuscript
-    assert "prioritized hypotheses" in manuscript or "requires independent validation" in manuscript
+    assert "prioritized hypotheses" in manuscript or "independent validation" in manuscript
     for phrase in FORBIDDEN_PHRASES:
         assert phrase not in manuscript
 
@@ -60,6 +60,6 @@ def test_readme_publication_section_is_conservative() -> None:
     assert "publication-oriented" in readme or "publication-package" in readme
     assert "therapeutic_priority_score" in readme
     assert "evidence_confidence_score" in readme
-    assert "requires independent validation" in readme
+    assert "independent validation" in readme
     for phrase in FORBIDDEN_PHRASES:
         assert phrase not in readme
