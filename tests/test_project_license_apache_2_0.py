@@ -6,6 +6,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
+EXPECTED_COPYRIGHT = "copyright 2026 dan israel zavala vargas and nodox contributors"
+
+
 def test_project_license_is_apache_2_0() -> None:
     license_path = PROJECT_ROOT / "LICENSE"
     readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8").lower()
@@ -16,7 +19,7 @@ def test_project_license_is_apache_2_0() -> None:
     license_text = license_path.read_text(encoding="utf-8").lower()
     assert "apache license" in license_text
     assert "version 2.0, january 2004" in license_text
-    assert "copyright 2026 the nodos funcionales contributors" in license_text
+    assert EXPECTED_COPYRIGHT in license_text
     assert "apache license 2.0" in readme
     assert "distributed under" in readme
     assert "project code is licensed under apache license 2.0" in final_check
