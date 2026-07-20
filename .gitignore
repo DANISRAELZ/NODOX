@@ -1,4 +1,3 @@
-﻿
 # Python / pytest
 __pycache__/
 *.py[cod]
@@ -11,9 +10,28 @@ pytest_tmp_single/
 .tmp_tests/
 .tmp_source_audit/
 .cache/
+.coverage
+htmlcov/
 
-# Local/generated data
+# Virtual environments and local package metadata
+.venv/
+.venv-wsl/
+.venv*/
+.env
+.env.*
+!.env.example
+src/nodos_funcionales.egg-info/
+
+# Local, generated, or user-provided data
 data_cache/
+data_raw/
+data_sessions/
+data_user/
+user_curated_staging/
+local_user_curated_data/
+private_user_curated_data/
+
+# External data: keep only approved curated snapshots
 data_external/
 !data_external/
 data_external/*
@@ -25,53 +43,33 @@ data_external/curated_snapshots/*
 !data_external/curated_snapshots/corynebacterium_pseudotuberculosis_biovar_ovis/**
 !data_external/curated_snapshots/mycobacterium_tuberculosis_h37rv/
 !data_external/curated_snapshots/mycobacterium_tuberculosis_h37rv/**
-data_raw/
-data_sessions/
-data_user/
-user_curated_staging/
-local_user_curated_data/
-private_user_curated_data/
 
 # Generated outputs
 results/
 data_processed/
 logs/
 *.log
-.coverage
-htmlcov/
 build/
 dist/
+*.zip
 
-# OS / editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
+# Demo data are currently kept out of the repository unless explicitly force-added
 data_demo/
 
 # Vendored/local dependencies
 .vendor/
 
-.venv/
+# OS and editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
 
-# Entorno virtual WSL
-.venv-wsl/
-
-# Corridas locales antiguas
+# Local historical runs
 pseudomonas_aeruginosa_20260612_*/
 
-# Copias de seguridad temporales
+# Temporary backups and accidental files
 *.before_*
 *.before-*
-
-# Metadatos locales de instalación
-src/nodos_funcionales.egg-info/
-
-# Resultados y comprimidos
-results/
-*.zip
-
-# Archivos temporales accidentales
 sp
 tr
