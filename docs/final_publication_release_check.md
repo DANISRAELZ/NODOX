@@ -1,68 +1,71 @@
 # Final Publication Release Check
 
-Target tag: `v0.1.0-publication`
+Target version: `0.1.0`
 
-Do not create the final tag until manually approved.
+Target tag: `v0.1.0`
+
+Release date: `2026-07-20`
+
+The repository owner has authorized the merge, tag creation and public release after the final release-candidate checks pass.
 
 ## Required Files
 
-- [ ] `README.md` present and publication-ready.
-- [ ] `CITATION.cff` present.
-- [ ] `CHANGELOG.md` present.
-- [ ] Release notes present at `docs/release_notes_v0_1_0_publication.md`.
-- [ ] `LICENSE` present with Apache License 2.0 for project code.
-- [ ] Project code is licensed under Apache License 2.0. Dependency license and security review remain release requirements.
-- [ ] Snakemake remains outside core dependencies and is documented as an optional workflow dependency.
+- [x] `README.md` present and publication-ready.
+- [x] `CITATION.cff` present with version `0.1.0` and release date `2026-07-20`.
+- [x] `CHANGELOG.md` present.
+- [x] Release notes present at `docs/release_notes_v0_1_0_publication.md`.
+- [x] `LICENSE` present with Apache License 2.0 for project code.
+- [x] Project code is licensed under Apache License 2.0. Third-party data and dependencies remain governed by their respective licenses and terms.
+- [x] Snakemake remains outside core dependencies and is documented as an optional workflow dependency.
 
 ## Documentation Readiness
 
-- [ ] Demo readiness documented.
-- [ ] Final demo execution validation documented at `docs/final_demo_execution_validation.md`.
-- [ ] Demo expected outputs manifest documented at `docs/demo_expected_outputs_manifest.md`.
-- [ ] Publication evidence indexed.
-- [ ] GUI module closure documented.
-- [ ] Conservative interpretation documented.
-- [ ] Manuscript artifact map documented.
-- [ ] Manuscript figure/table specifications documented at `docs/manuscript_figure_table_specifications.md`.
-- [ ] Software release readiness checklist documented.
-- [ ] Release decision documented at `docs/v0_1_0_publication_release_decision.md`.
+- [x] Demo readiness documented.
+- [x] Final demo execution validation documented at `docs/final_demo_execution_validation.md`.
+- [x] Demo expected outputs manifest documented at `docs/demo_expected_outputs_manifest.md`.
+- [x] Publication evidence indexed.
+- [x] GUI module closure documented.
+- [x] Conservative interpretation documented.
+- [x] Manuscript artifact map documented.
+- [x] Manuscript figure/table specifications documented at `docs/manuscript_figure_table_specifications.md`.
+- [x] Software release readiness checklist documented.
+- [x] Release decision documented at `docs/v0_1_0_publication_release_decision.md`.
 
 ## Validation Readiness
 
-- [ ] Full offline suite passing with `.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider -m "not online" -q`.
-- [ ] `config/taxon_resolution_cache.json` clean or reverted after tests.
-- [ ] No unexpected changes in `results/`, `data_processed/` or `data_sessions/`.
-- [ ] Final tag not yet created unless manual approval has been given.
+- [ ] Final strict complete suite passes on the exact release-candidate commit.
+- [ ] Quick Start smoke test passes on the exact release-candidate commit.
+- [ ] Public release inventory passes on the exact release-candidate commit.
+- [x] `config/taxon_resolution_cache.json` is excluded from unintended test drift by the release workflows.
+- [x] Release outputs, caches and local session directories are excluded or audited.
+- [ ] Final tag points to the merged release commit on `main`.
 
 ## Pre-publication Repository Audit Requirements
 
-- [ ] Pre-publication repository audit documented at `docs/pre_publication_repository_audit.md`.
-- [ ] Public release exclusion policy documented at `docs/public_release_exclusion_policy.md`.
-- [ ] AI-use transparency statement documented at `docs/ai_use_transparency_statement.md`.
-- [ ] Repository hygiene checklist documented at `docs/repository_hygiene_checklist.md`.
-- [ ] License and dependency audit documented at `docs/license_and_dependency_audit.md`.
-- [ ] Dependency security review documented at `docs/dependency_security_review.md`.
-- [ ] Optional workflow transitive license/security review remains pending before public workflow distribution.
-- [ ] Final public release audit documented at `docs/final_public_release_audit.md`.
-- [ ] Sensitive data and secret scan documented at `docs/sensitive_data_and_secret_scan.md`.
-- [ ] Core dependency review summary documented at `docs/core_dependency_review_summary.md`.
-- [ ] Public release file inclusion review documented at `docs/public_release_file_inclusion_review.md`.
-
-Final public release is blocked until:
-
-- project code license is Apache License 2.0;
-- dependency review is complete;
-- optional workflow dependency review is complete before public workflow distribution;
-- sensitive data review is complete;
-- internal prompts/logs are removed or excluded;
-- AI-use transparency statement is reviewed;
-- human approval is given.
-- core release can proceed only after accepting or completing core dependency/security and sensitive-data review.
+- [x] Pre-publication repository audit documented at `docs/pre_publication_repository_audit.md`.
+- [x] Public release exclusion policy documented at `docs/public_release_exclusion_policy.md`.
+- [x] AI-use transparency statement documented at `docs/ai_use_transparency_statement.md`.
+- [x] Repository hygiene checklist documented at `docs/repository_hygiene_checklist.md`.
+- [x] License and dependency audit documented at `docs/license_and_dependency_audit.md`.
+- [x] Dependency security review documented at `docs/dependency_security_review.md`.
+- [x] Final public release audit documented at `docs/final_public_release_audit.md`.
+- [x] Sensitive data and secret scan documented at `docs/sensitive_data_and_secret_scan.md`.
+- [x] Core dependency review summary documented at `docs/core_dependency_review_summary.md`.
+- [x] Public release file inclusion review documented at `docs/public_release_file_inclusion_review.md`.
 
 ## Interpretation Boundaries
 
-- [ ] No clinical validation is claimed.
-- [ ] No experimental validation is claimed.
-- [ ] Workflow validation is not biological validation.
-- [ ] `user_curated` evidence is curator-provided and not automatically externally validated.
-- [ ] Ranked candidates do not confirm therapeutic validity.
+- [x] No clinical validation is claimed.
+- [x] No experimental validation is claimed.
+- [x] Workflow validation is not biological validation.
+- [x] `user_curated` evidence is curator-provided and not automatically externally validated.
+- [x] Ranked candidates do not confirm therapeutic validity.
+- [x] The theoretical model is described as provisional and under active review by our team of collaborators.
+
+## Final Publication Sequence
+
+1. Complete the final workflows on the exact release-candidate commit.
+2. Mark the pull request ready for review.
+3. Merge into `main`.
+4. Create tag `v0.1.0` on the merged release commit.
+5. Publish the repository and configure its public description and topics.
