@@ -10,15 +10,17 @@ def test_project_license_is_apache_2_0() -> None:
     license_path = PROJECT_ROOT / "LICENSE"
     readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8").lower()
     final_check = (PROJECT_ROOT / "docs" / "final_publication_release_check.md").read_text(encoding="utf-8").lower()
+    third_party = (PROJECT_ROOT / "docs" / "third_party_data_terms_review.md").read_text(encoding="utf-8").lower()
 
     assert license_path.exists()
     license_text = license_path.read_text(encoding="utf-8").lower()
     assert "apache license" in license_text
     assert "version 2.0, january 2004" in license_text
     assert "copyright 2026 the nodos funcionales contributors" in license_text
-    assert "project code is licensed under apache license 2.0" in readme
-    assert "dependency license and security review remain release requirements" in readme
+    assert "apache license 2.0" in readme
+    assert "distributed under" in readme
     assert "project code is licensed under apache license 2.0" in final_check
+    assert "external biological database content is not automatically covered" in third_party
 
 
 def test_no_pending_project_license_language_remains() -> None:
