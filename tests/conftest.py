@@ -4,6 +4,7 @@ import shutil
 import uuid
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 
@@ -58,6 +59,11 @@ ORGANISM_REGRESSION_NODEIDS = {
     "tests/test_layer_external_sources.py::LayerExternalSourceTests::test_required_layers_can_use_curated_online_examples_catalog",
 }
 
+CATALOG_TEST_NODEIDS = {
+    "tests/test_layer_external_sources.py::LayerExternalSourceTests::test_literature_support_uses_curated_online_examples_catalog",
+    "tests/test_layer_external_sources.py::LayerExternalSourceTests::test_required_layers_can_use_curated_online_examples_catalog",
+}
+
 
 @pytest.fixture
 def tmp_path(request: pytest.FixtureRequest) -> Path:
@@ -70,6 +76,69 @@ def tmp_path(request: pytest.FixtureRequest) -> Path:
         yield path
     finally:
         shutil.rmtree(path, ignore_errors=True)
+
+
+@pytest.fixture(autouse=True)
+def isolate_curated_catalog_provider_tests(
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Provide small synthetic catalogs to catalog-contract tests only.
+
+    Provider tests must not depend on repository-level biological catalogs or
+    network access. The production provider still reads user/workspace catalogs.
+    """
+    if request.node.nodeid not in CATALOG_TEST_NODEIDS:
+        yield
+        return
+
+    def fake_catalog_reader(
+        workspace: Path,
+        config: dict,
+        catalog_key: str,
+        candidates: list[str],
+    ) -> tuple[Path | None, pd.DataFrame]:
+        del config, candidates
+        catalog_path = Path(workspace) / "test_catalogs" / f"{catalog_key}.csv"
+        catalog_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if catalog_key == "literature_support_catalog_dir":
+            catalog = pd.DataFrame(
+                [
+                    {
+                        "protein_id": "PA3724",
+                        "gene": "lasB",
+                        "pubmed_id": "synthetic_contract_fixture",
+                        "evidence_source_type": "literature_curated",
+                        "evidence_note": "Synthetic provider-contract fixture; not biological evidence.",
+                        "database": "curated_online_pubmed_ncbi_v1",
+                    }
+                ]
+            )
+        elif catalog_key == "virulence_catalog_dir":
+            catalog = pd.DataFrame(
+                [
+                    {
+                        "protein_id": "PA3724",
+                        "gene": "lasB",
+                        "virulence_score": 0.90,
+                        "virulence_factor": 1,
+                        "evidence_note": "Synthetic provider-contract fixture; not biological evidence.",
+                        "database": "curated_online_pubmed_ncbi_v1",
+                    }
+                ]
+            )
+        else:
+            return None, pd.DataFrame()
+
+        catalog.to_csv(catalog_path, index=False)
+        return catalog_path, catalog
+
+    monkeypatch.setattr(
+        "src.nodos_funcionales.online_sources._read_curated_therapeutic_catalog",
+        fake_catalog_reader,
+    )
+    yield
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
