@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import shutil
+import tempfile
 import unittest
-import uuid
 from pathlib import Path
 from unittest.mock import patch
 
@@ -15,17 +15,14 @@ from src.nodos_funcionales.online_audit import (
     run_experimental_online_audit,
     write_clean_online_audit,
 )
-from tests.helpers import PROJECT_ROOT, make_temp_project
+from tests.helpers import PROJECT_ROOT
 
 pytestmark = pytest.mark.online
 
 
 class OnlineAuditTests(unittest.TestCase):
     def make_workspace(self, name: str) -> Path:
-        source = make_temp_project()
-        root = PROJECT_ROOT / ".tmp_tests" / f"{name}_{uuid.uuid4().hex[:8]}"
-        shutil.copytree(source, root)
-        shutil.rmtree(source, ignore_errors=True)
+        root = Path(tempfile.mkdtemp(prefix=f"nodox_{name}_"))
         self.addCleanup(lambda: shutil.rmtree(root, ignore_errors=True))
         return root
 
