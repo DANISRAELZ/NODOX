@@ -38,7 +38,7 @@ This checklist must be completed before changing the repository visibility from 
 - [x] Demo, proxy, cache, controlled-reference, online, and user-curated evidence are distinguished in the root README.
 - [x] Limitations and validation requirements are visible near the beginning of the root README.
 - [x] Example rankings are not presented as experimentally validated therapeutic claims.
-- [ ] Third-party databases and their licensing or terms of use have been reviewed.
+- [x] Third-party databases and their licensing or terms of use have been reviewed and documented in `docs/third_party_data_terms_review.md`, including unresolved or conditional restrictions.
 
 ## GitHub release preparation
 
@@ -52,3 +52,4 @@ This checklist must be completed before changing the repository visibility from 
 - Public release audit run 41 passed the security audit, organism-agnostic offline suite, online-provider contracts, and organism-regression jobs.
 - A new required `strict-complete-suite` job has been added and must pass before release.
 - `README_PUBLIC.md` was promoted to `README.md`; the previous technical README is preserved as `README_TECHNICAL.md`.
+- Third-party data use and redistribution rules are documented, with conservative handling for VFDB, DEG, InterPro member components, and NCBI third-party rights.
