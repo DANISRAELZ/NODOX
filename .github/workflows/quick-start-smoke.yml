@@ -1,0 +1,52 @@
+name: Quick Start smoke test
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quick-start-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run documented offline publication demo
+        shell: bash
+        run: |
+          set -o pipefail
+          bash examples/pseudomonas_aeruginosa_publication_demo/run_demo.sh --run-discovery-dry-run \
+            2>&1 | tee quick_start_smoke_report.txt
+
+      - name: Verify expected demo outputs
+        shell: bash
+        run: |
+          test -f examples/pseudomonas_aeruginosa_publication_demo/output/DEMO_RUN_NOTES.md
+          test -f examples/pseudomonas_aeruginosa_publication_demo/output/workspace/results/organism_profile.json
+          test -f examples/pseudomonas_aeruginosa_publication_demo/output/workspace/results/acquisition_manifest.json
+          test -f examples/pseudomonas_aeruginosa_publication_demo/output/workspace/results/discovery_report.md
+
+      - name: Upload Quick Start report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quick-start-smoke-report
+          path: quick_start_smoke_report.txt
+          if-no-files-found: error
