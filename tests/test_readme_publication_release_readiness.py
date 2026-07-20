@@ -24,6 +24,8 @@ def test_readme_publication_release_readiness_terms() -> None:
         "unresolved layers",
         "not experimental or clinical validation",
         "independent validation",
+        "team of collaborators",
+        "provisional",
     ]
     for term in required_readme_terms:
         assert term in readme
@@ -42,5 +44,6 @@ def test_readme_publication_release_readiness_terms() -> None:
         assert expected_term in path.read_text(encoding="utf-8").lower()
 
     final_check = (PROJECT_ROOT / "docs" / "final_publication_release_check.md").read_text(encoding="utf-8").lower()
-    assert "do not create the final tag until manually approved" in final_check
-    assert "human approval is given" in final_check
+    assert "repository owner has authorized" in final_check
+    assert "target tag: `v0.1.0`" in final_check
+    assert "final tag points to the merged release commit" in final_check
