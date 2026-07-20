@@ -51,7 +51,7 @@ SNAPSHOT_FILE_KEYWORDS = {
 # provider-contract suites.
 ORGANISM_REGRESSION_NODEIDS = {
     "tests/test_e2e.py::EndToEndTests::test_full_phase2_pipeline_runs_on_example_data",
-    "tests/test_ranking_snapshots.py::test_pao1_demo_pipeline_matches_curated_snapshot",
+    "tests/test_ranking_snapshots.py::test_pao1_demo_pipeline_audits_curated_snapshot_drift",
     "tests/test_scoring.py::ScoringTests::test_scores_are_generated_in_expected_range",
     "tests/test_scoring.py::ScoringTests::test_specific_therapeutic_rules_take_priority_over_mixed_fallback",
     "tests/test_layer_external_sources.py::LayerExternalSourceTests::test_controlled_therapeutic_provider_materializes_clinical_impact",
