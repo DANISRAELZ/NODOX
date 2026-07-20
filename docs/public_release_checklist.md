@@ -35,6 +35,8 @@ This checklist must be completed before changing the repository visibility from 
 ## Scientific communication
 
 - [x] The root README clearly labels NODOX as exploratory scientific software.
+- [x] The root README states that the theoretical model remains under active review by project collaborators, is provisional, and may change.
+- [x] The documentation distinguishes software-test validation from scientific validation of the theoretical model.
 - [x] Demo, proxy, cache, controlled-reference, online, and user-curated evidence are distinguished in the root README.
 - [x] Limitations and validation requirements are visible near the beginning of the root README.
 - [x] Example rankings are not presented as experimentally validated therapeutic claims.
@@ -55,3 +57,4 @@ This checklist must be completed before changing the repository visibility from 
 - `README_PUBLIC.md` was promoted to `README.md`; the previous technical README is preserved as `README_TECHNICAL.md`.
 - Third-party data use and redistribution rules are documented, with conservative handling for VFDB, DEG, InterPro member components, and NCBI third-party rights.
 - The Apache-2.0 attribution is `Copyright 2026 Dan Israel Zavala Vargas and NODOX contributors`.
+- The public README and `CITATION.cff` state that the theoretical model is provisional and remains under active collaborator review.
