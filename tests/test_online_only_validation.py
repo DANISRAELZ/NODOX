@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import json
 import ssl
 import shutil
@@ -15,6 +16,7 @@ from src.nodos_funcionales.human_homology_diamond import materialize_candidate_f
 from src.nodos_funcionales.online_sources import fetch_layer_external_source
 from src.nodos_funcionales.online_http import get_ssl_context
 from src.nodos_funcionales.online_only_validation import (
+    build_explicit_diamond_run_config,
     build_online_only_candidate_interpretation,
     build_online_only_provider_audit,
     build_online_only_provenance_summary,
@@ -112,31 +114,86 @@ def test_online_only_config_preserves_complete_diamond_execution_settings(tmp_pa
     assert after_config["layer_resolution"]["layers"]["human_homologs"]["external_provider"] == "human_homology_diamond"
 
 
+def test_explicit_diamond_cache_only_profile_requires_existing_tsv(tmp_path: Path) -> None:
+    cached_tsv = tmp_path / "cached_diamond.tsv"
+    cached_tsv.write_text(
+        "P12345|SEEDA_BACT\tsp|Q02880|TOP2B_HUMAN\t30.0\t4\t4\t150\t1\t4\t1\t4\t1e-20\t80\n",
+        encoding="utf-8",
+    )
+
+    profile = build_explicit_diamond_run_config(
+        tmp_path,
+        enabled=True,
+        execution_mode="cache_only",
+        cached_tsv_path=cached_tsv,
+    )
+
+    assert profile is not None
+    assert profile["enabled"] is True
+    assert profile["execution_mode"] == "cache_only"
+    assert profile["allow_execution"] is False
+    assert profile["allow_download"] is False
+    assert profile["reference_fasta_path"] == ""
+    assert profile["database_prefix"] == ""
+    assert profile["cached_tsv_path"] == str(cached_tsv.resolve())
+
+
+def test_explicit_diamond_profile_rejects_implicit_or_incomplete_activation(tmp_path: Path) -> None:
+    cached_tsv = tmp_path / "cached_diamond.tsv"
+    cached_tsv.write_text("cached\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="explicit enable_diamond"):
+        build_explicit_diamond_run_config(
+            tmp_path,
+            enabled=False,
+            cached_tsv_path=cached_tsv,
+        )
+
+    with pytest.raises(ValueError, match="requires reference_fasta_path and database_prefix"):
+        build_explicit_diamond_run_config(
+            tmp_path,
+            enabled=True,
+            execution_mode="execute",
+        )
+
+
 def test_online_only_materializer_then_explicit_diamond_execution(tmp_path: Path) -> None:
     workspace = _workspace(tmp_path)
     config_path = workspace / "config" / "params.yaml"
-    _write_online_only_config(config_path, "online_optional")
+    reference_fasta = workspace / "data_external" / "human_reference_UP000005640.faa.gz"
+    fixture_text = (
+        PROJECT_ROOT
+        / "tests"
+        / "fixtures"
+        / "human_homology_synthetic"
+        / "synthetic_human_reference_fixture.faa"
+    ).read_text(encoding="utf-8")
+    with gzip.open(reference_fasta, "wt", encoding="utf-8") as handle:
+        handle.write(fixture_text)
+
+    diamond_run_config = build_explicit_diamond_run_config(
+        workspace,
+        enabled=True,
+        execution_mode="execute",
+        reference_fasta_path=reference_fasta,
+        database_prefix=workspace / "data_external" / "human_reference_UP000005640.dmnd",
+    )
+    assert diamond_run_config is not None
+    _write_online_only_config(
+        config_path,
+        "online_optional",
+        diamond_run_config=diamond_run_config,
+    )
     config = load_config(config_path)
     diamond_cfg = config["online_sources"]["human_homology_diamond"]
-    diamond_cfg.update(
-        {
-            "enabled": True,
-            "execution_mode": "execute",
-            "allow_execution": True,
-            "reuse_cache": False,
-            "reference_fasta_path": str(
-                PROJECT_ROOT
-                / "tests"
-                / "fixtures"
-                / "human_homology_synthetic"
-                / "synthetic_human_reference_fixture.faa"
-            ),
-            "database_prefix": str(workspace / "data_external" / "human_reference_UP000005640"),
-        }
-    )
     assert diamond_cfg["enabled"] is True
     assert diamond_cfg["execution_mode"] == "execute"
     assert diamond_cfg["allow_execution"] is True
+    assert diamond_cfg["allow_download"] is False
+    assert diamond_cfg["reference_fasta_path"] == str(reference_fasta.resolve())
+    assert diamond_cfg["database_prefix"] == str(
+        (workspace / "data_external" / "human_reference_UP000005640").resolve()
+    )
 
     candidates = pd.DataFrame([{"protein_id": "P12345", "gene": "seedA", "candidate_seed_accession": "P12345"}])
     candidate_manifest = materialize_candidate_fasta(

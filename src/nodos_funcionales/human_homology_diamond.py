@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import gzip
 import subprocess
 import re
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 from urllib.parse import urlencode
 from urllib.request import urlopen, urlretrieve
 
@@ -163,9 +164,19 @@ def default_candidate_fasta_path(workspace: Path) -> Path:
     return workspace / "data_external" / "candidate_proteins.faa"
 
 
+def _open_fasta_text(path: Path) -> TextIO:
+    """Open plain-text or gzip-compressed FASTA input after inspecting its magic bytes."""
+    with path.open("rb") as raw_handle:
+        is_gzip = raw_handle.read(2) == b"\x1f\x8b"
+    if is_gzip:
+        return gzip.open(path, mode="rt", encoding="utf-8", errors="ignore")
+    return path.open("r", encoding="utf-8", errors="ignore")
+
+
 def count_fasta_records(path: Path) -> int:
     validate_fasta_has_sequences(path)
-    return sum(1 for line in path.read_text(encoding="utf-8", errors="ignore").splitlines() if line.strip().startswith(">"))
+    with _open_fasta_text(path) as handle:
+        return sum(1 for line in handle if line.strip().startswith(">"))
 
 
 def _chunked(values: list[str], size: int) -> list[list[str]]:
@@ -398,14 +409,15 @@ def validate_fasta_has_sequences(path: Path) -> None:
         raise FileNotFoundError(f"FASTA no encontrado: {path}")
     sequence_count = 0
     has_residues = False
-    for raw_line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
-        if line.startswith(">"):
-            sequence_count += 1
-        else:
-            has_residues = True
+    with _open_fasta_text(path) as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line:
+                continue
+            if line.startswith(">"):
+                sequence_count += 1
+            else:
+                has_residues = True
     if sequence_count == 0 or not has_residues:
         raise ValueError(f"FASTA sin secuencias utilizables: {path}")
 
@@ -433,7 +445,7 @@ def parse_fasta_records(path: Path) -> dict[str, dict[str, Any]]:
             "sequence_length": len(sequence),
         }
 
-    with path.open("r", encoding="utf-8") as handle:
+    with _open_fasta_text(path) as handle:
         for raw_line in handle:
             line = raw_line.strip()
 

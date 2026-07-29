@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import shutil
 from io import StringIO
 import uuid
@@ -14,6 +15,7 @@ from src.nodos_funcionales.human_homology_diamond import (
     build_human_homologs_with_diamond,
     config_from_mapping,
     classify_hit,
+    count_fasta_records,
     diamond_is_available,
     materialize_candidate_fasta,
     parse_diamond_tsv,
@@ -62,6 +64,18 @@ def test_repository_defaults_keep_diamond_disabled_and_unbound(tmp_path: Path) -
     assert df.empty
     assert manifest["status"] == "diamond_provider_disabled"
     assert manifest["diamond_version"] == "not_checked_provider_disabled"
+
+
+def test_gzip_fasta_is_validated_counted_and_parsed_by_content(tmp_path: Path) -> None:
+    fasta = tmp_path / "reference_without_required_extension.data"
+    with gzip.open(fasta, "wt", encoding="utf-8") as handle:
+        handle.write(">sp|P12345|SEEDA_HUMAN GN=GENEA\nMAAA\n")
+
+    validate_fasta_has_sequences(fasta)
+    assert count_fasta_records(fasta) == 1
+    records = parse_fasta_records(fasta)
+    assert set(records) == {"P12345"}
+    assert records["P12345"]["gene"] == "GENEA"
 
 
 class FastaFakeResponse:

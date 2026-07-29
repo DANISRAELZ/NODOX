@@ -51,6 +51,8 @@ Tambien puede instalarse desde binarios oficiales de DIAMOND si se necesita una 
 
 La referencia recomendada es el proteoma humano de UniProt `UP000005640`, pero debe suministrarse de forma explicita. El repositorio no incluye ni simula un proteoma humano completo en rutas de ejecucion.
 
+`reference_fasta_path` acepta FASTA de texto plano (`.faa`, `.fasta`) o comprimido con gzip (`.faa.gz`). NODOX reconoce gzip por sus bytes magicos, no solo por la extension, y usa la misma apertura segura para validar, contar y analizar registros. El archivo comprimido se entrega directamente a DIAMOND: su [documentacion oficial de opciones](https://github.com/bbuchfink/diamond/wiki/3.-Command-line-options) permite entradas FASTA gzip en `makedb --in` y en las consultas.
+
 La configuracion permite ajustar `reference_fasta_path`, `database_prefix`, `reference_proteome_accession` y `allow_download`. El proveedor DIAMOND esta desactivado por defecto, sus rutas de referencia estan vacias y tanto `allow_download` como `allow_execution` son `false`. Por ello una ejecucion normal no consulta la red, no crea una base y no invoca el binario DIAMOND.
 
 Los unicos datos DIAMOND incluidos en el repositorio son fixtures sinteticos pequenos ubicados en `tests/fixtures/human_homology_synthetic/`. Se usan exclusivamente en pruebas automatizadas: no representan el proteoma humano real y no constituyen evidencia cientifica.
@@ -71,9 +73,56 @@ DIAMOND entrega identidad (`pident`) en porcentaje de 0 a 100, pero las cobertur
 
 Al reutilizar datos, las cuatro columnas de cobertura se normalizan de forma idempotente: valores de 0 a 1 se conservan, valores mayores que 1 y hasta 100 se dividen entre 100, y valores negativos o mayores que 100 pasan a NA con una bandera `invalid_<columna>` en `homology_missing_flags`. Esto evita conversiones dobles en cache.
 
+## Activacion explicita por ejecucion
+
+La forma recomendada es activar DIAMOND solo para una validacion aislada. Este comando no modifica `config/params.yaml` del repositorio; escribe el perfil efectivo dentro del workspace de la ejecucion:
+
+```bash
+python scripts/run_online_only_validation.py \
+  --organism-key helicobacter_pylori \
+  --run-dir results/helicobacter_pylori_diamond \
+  --max-candidates 200 \
+  --enable-diamond \
+  --diamond-execution-mode execute \
+  --diamond-reference-fasta data_external/human_homology_real/human_reference_proteome_UP000005640.faa.gz \
+  --diamond-database-prefix data_external/human_homology_real/human_reference_UP000005640
+```
+
+En modo `execute` son obligatorios `--diamond-reference-fasta` y `--diamond-database-prefix`. Las rutas relativas se resuelven desde la raiz del proyecto, la referencia debe existir y un prefijo terminado en `.dmnd` se normaliza automaticamente. `allow_download` permanece en `false`; `allow_execution` solo pasa a `true` en esta ejecucion explicitamente activada.
+
+`--diamond-candidate-fasta` permite reutilizar un FASTA candidato existente. Si se omite, el flujo online intenta materializar `workspace/data_external/candidate_proteins.faa` desde las accesiones candidatas segun `online_source_mode`. `--diamond-executable` permite seleccionar un binario o comando distinto de `diamond`.
+
+El perfil YAML equivalente, util para una ejecucion manual avanzada, es:
+
+```yaml
+online_sources:
+  human_homology_diamond:
+    enabled: true
+    execution_mode: execute
+    diamond_executable: diamond
+    allow_download: false
+    allow_execution: true
+    reference_fasta_path: /ruta/al/proteoma_humano_UP000005640.faa.gz
+    database_prefix: data_external/human_reference_UP000005640
+```
+
 ## Reutilizar cache
 
-Si ya existe un TSV DIAMOND validado, configurar:
+Para reutilizar un TSV DIAMOND validado sin reconstruir la base ni ejecutar el binario:
+
+```bash
+python scripts/run_online_only_validation.py \
+  --organism-key helicobacter_pylori \
+  --run-dir results/helicobacter_pylori_diamond_cache \
+  --enable-diamond \
+  --diamond-execution-mode cache_only \
+  --diamond-cached-tsv data_external/human_homology_real/human_homology_diamond.tsv \
+  --diamond-candidate-fasta data_external/human_homology_real/candidate_proteins.faa
+```
+
+En `cache_only`, `--diamond-cached-tsv` es obligatorio y debe existir. No se aceptan referencia ni prefijo de base en ese modo, y `allow_execution` queda en `false`. El FASTA candidato debe ser compatible con el TSV para que NODOX pueda representar tambien candidatos sin hit.
+
+La configuracion YAML equivalente es:
 
 ```yaml
 online_sources:
@@ -83,27 +132,11 @@ online_sources:
     cached_tsv_path: data_external/human_homology_diamond.tsv
     execution_mode: cache_only
     allow_execution: false
+    allow_download: false
     reuse_cache: true
 ```
 
-Con esa configuracion no se reconstruye la base ni se ejecuta DIAMOND.
-
-## Ejecutar la capa
-
-DIAMOND solo se ejecuta tras una activacion explicita con recursos reales o controlados:
-
-```yaml
-online_sources:
-  human_homology_diamond:
-    enabled: true
-    execution_mode: execute
-    allow_execution: true
-    allow_download: false
-    reference_fasta_path: /ruta/al/proteoma_humano_UP000005640.faa
-    database_prefix: data_external/human_reference_UP000005640
-```
-
-`candidate_fasta_path` puede indicarse de forma explicita o materializarse en el workspace por el flujo online. Si DIAMOND falla o faltan recursos, se escriben filas no resueltas cuando hay candidatos disponibles; no se inventan valores 0 o 1.
+En ambos modos se requiere activacion explicita. Si faltan recursos o DIAMOND falla, se escriben filas no resueltas cuando hay candidatos disponibles; no se inventan valores 0 o 1.
 
 ## Auditar resultados
 
