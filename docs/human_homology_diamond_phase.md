@@ -49,13 +49,11 @@ Tambien puede instalarse desde binarios oficiales de DIAMOND si se necesita una 
 
 ## Preparar el proteoma humano
 
-El proteoma de referencia esperado por defecto es UniProt `UP000005640`. Puede descargarse manualmente y guardarse como:
+La referencia recomendada es el proteoma humano de UniProt `UP000005640`, pero debe suministrarse de forma explicita. El repositorio no incluye ni simula un proteoma humano completo en rutas de ejecucion.
 
-```text
-data_external/human_reference_proteome_UP000005640.faa
-```
+La configuracion permite ajustar `reference_fasta_path`, `database_prefix`, `reference_proteome_accession` y `allow_download`. El proveedor DIAMOND esta desactivado por defecto, sus rutas de referencia estan vacias y tanto `allow_download` como `allow_execution` son `false`. Por ello una ejecucion normal no consulta la red, no crea una base y no invoca el binario DIAMOND.
 
-La configuracion permite ajustar `reference_fasta_path`, `database_prefix`, `reference_proteome_accession` y `allow_download`. Por defecto `allow_download` y `allow_execution` estan desactivados para que el pipeline degrade de forma reproducible si no hay recursos locales.
+Los unicos datos DIAMOND incluidos en el repositorio son fixtures sinteticos pequenos ubicados en `tests/fixtures/human_homology_synthetic/`. Se usan exclusivamente en pruebas automatizadas: no representan el proteoma humano real y no constituyen evidencia cientifica.
 
 ## Materializacion del FASTA candidato en validaciones online
 
@@ -80,9 +78,11 @@ Si ya existe un TSV DIAMOND validado, configurar:
 ```yaml
 online_sources:
   human_homology_diamond:
-    candidate_fasta_path: data_external/human_homology_phase9B/hpylori_priority_6.faa
-    cached_tsv_path: data_external/human_homology_phase9B/hpylori_vs_human_ultrasensitive.tsv
+    enabled: true
+    candidate_fasta_path: data_external/candidate_proteins.faa
+    cached_tsv_path: data_external/human_homology_diamond.tsv
     execution_mode: cache_only
+    allow_execution: false
     reuse_cache: true
 ```
 
@@ -90,7 +90,20 @@ Con esa configuracion no se reconstruye la base ni se ejecuta DIAMOND.
 
 ## Ejecutar la capa
 
-La capa se ejecuta de forma normal al correr el pipeline porque `human_homologs` mantiene el contrato del resolvedor. Si DIAMOND falla o faltan recursos, se escriben filas no resueltas cuando hay candidatos disponibles; no se inventan valores 0 o 1.
+DIAMOND solo se ejecuta tras una activacion explicita con recursos reales o controlados:
+
+```yaml
+online_sources:
+  human_homology_diamond:
+    enabled: true
+    execution_mode: execute
+    allow_execution: true
+    allow_download: false
+    reference_fasta_path: /ruta/al/proteoma_humano_UP000005640.faa
+    database_prefix: data_external/human_reference_UP000005640
+```
+
+`candidate_fasta_path` puede indicarse de forma explicita o materializarse en el workspace por el flujo online. Si DIAMOND falla o faltan recursos, se escriben filas no resueltas cuando hay candidatos disponibles; no se inventan valores 0 o 1.
 
 ## Auditar resultados
 
