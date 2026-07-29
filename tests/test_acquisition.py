@@ -26,6 +26,7 @@ class AcquisitionTests(unittest.TestCase):
             organism_name="Corynebacterium pseudotuberculosis",
             acquisition_mode="semi_auto",
             workspace=workspace,
+            no_write_taxon_cache=True,
         )
         source = workspace / "virulence_export.csv"
         pd.DataFrame(

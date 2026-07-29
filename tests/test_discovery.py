@@ -6,7 +6,7 @@ import shutil
 from unittest.mock import patch
 
 from src.nodos_funcionales.discovery import prepare_discovery_workspace, resolve_taxon
-from tests.helpers import PROJECT_ROOT
+from tests.helpers import PROJECT_ROOT, make_temp_project
 
 
 class DiscoveryTests(unittest.TestCase):
@@ -33,6 +33,7 @@ class DiscoveryTests(unittest.TestCase):
             organism_name="Corynebacterium pseudotuberculosis",
             acquisition_mode="semi_auto",
             workspace=workspace,
+            no_write_taxon_cache=True,
         )
         self.assertTrue(result["profile_path"].exists())
         self.assertTrue(result["manifest_path"].exists())
@@ -50,6 +51,7 @@ class DiscoveryTests(unittest.TestCase):
             acquisition_mode="manual",
             workspace=workspace,
             allow_demo_data=True,
+            no_write_taxon_cache=True,
         )
         self.assertTrue(result["manifest"]["can_run_pipeline"])
         datasets = {entry["filename"]: entry for entry in result["manifest"]["datasets"]}
@@ -65,6 +67,7 @@ class DiscoveryTests(unittest.TestCase):
             acquisition_mode="manual",
             workspace=workspace,
             allow_demo_data=True,
+            no_write_taxon_cache=True,
         )
         self.assertFalse(result["manifest"]["can_run_pipeline"])
         self.assertEqual(result["manifest"]["demo_files_copied"], [])
@@ -75,8 +78,20 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIn("no hay demo empaquetado", " | ".join(result["manifest"]["warnings"]))
 
     def test_cache_first_resolution_uses_local_cache(self) -> None:
-        profile_first = resolve_taxon(PROJECT_ROOT, "Mycobacterium tuberculosis", "H37Rv", resolution_mode="local")
-        profile_cached = resolve_taxon(PROJECT_ROOT, "Mycobacterium tuberculosis", "H37Rv", resolution_mode="cache_first")
+        project_root = make_temp_project()
+        profile_first = resolve_taxon(
+            project_root,
+            "Mycobacterium tuberculosis",
+            "H37Rv",
+            resolution_mode="local",
+            refresh_cache=True,
+        )
+        profile_cached = resolve_taxon(
+            project_root,
+            "Mycobacterium tuberculosis",
+            "H37Rv",
+            resolution_mode="cache_first",
+        )
         self.assertEqual(profile_first["organism_canonical_name"], profile_cached["organism_canonical_name"])
         self.assertEqual(profile_cached["taxon_resolution_status"], "cache_hit")
 
