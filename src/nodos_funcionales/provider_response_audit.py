@@ -5,7 +5,7 @@ import json
 import os
 import ssl
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -20,6 +20,7 @@ class ProviderResponse:
     payload_type: str
     rejection_reason: str
     error_status: str
+    headers: dict[str, str] = field(default_factory=dict)
 
 
 def request_provider_payload(url: str, *, timeout: float, user_agent: str, accept: str, opener: Any = urlopen) -> ProviderResponse:
@@ -38,6 +39,7 @@ def request_provider_payload(url: str, *, timeout: float, user_agent: str, accep
             status = _response_status(response)
             content_type = _response_content_type(response)
             final_url = _response_url(response, url)
+            response_headers = _response_headers(response)
         payload, payload_type, reason = classify_payload(raw, content_type)
         return ProviderResponse(
             payload=payload,
@@ -47,6 +49,7 @@ def request_provider_payload(url: str, *, timeout: float, user_agent: str, accep
             payload_type=payload_type,
             rejection_reason=reason,
             error_status="",
+            headers=response_headers,
         )
     except HTTPError as exc:
         content_type = ""
@@ -58,7 +61,16 @@ def request_provider_payload(url: str, *, timeout: float, user_agent: str, accep
             pass
         _, payload_type, reason = classify_payload(raw, content_type)
         status = "not_found" if exc.code == 404 else ("auth_or_permission_error" if exc.code in {401, 403} else "http_error")
-        return ProviderResponse(None, url, int(exc.code), content_type, payload_type, reason or f"HTTP {exc.code}", status)
+        return ProviderResponse(
+            None,
+            url,
+            int(exc.code),
+            content_type,
+            payload_type,
+            reason or f"HTTP {exc.code}",
+            status,
+            headers={str(key).lower(): str(value) for key, value in (exc.headers.items() if exc.headers else [])},
+        )
     except ssl.SSLError as exc:
         return ProviderResponse(None, url, "", "", "ssl_error", f"ssl_error:{exc}", "ssl_error")
     except URLError as exc:
@@ -101,6 +113,7 @@ def response_audit_fields(response: ProviderResponse, *, affects_score: bool = F
         "content_type": response.content_type,
         "payload_type": response.payload_type,
         "rejection_reason": response.rejection_reason,
+        "content_range": response.headers.get("content-range", ""),
         "affects_score": bool(affects_score),
     }
 
@@ -131,3 +144,18 @@ def _response_url(response: Any, fallback: str) -> str:
         value = response.geturl()
         return str(value) if value else fallback
     return fallback
+
+
+def _response_headers(response: Any) -> dict[str, str]:
+    if hasattr(response, "headers") and response.headers:
+        try:
+            return {str(key).lower(): str(value) for key, value in response.headers.items()}
+        except AttributeError:
+            pass
+    headers = {}
+    if hasattr(response, "getheader"):
+        for name in ("Content-Range", "Content-Length", "ETag"):
+            value = response.getheader(name, "")
+            if value:
+                headers[name.lower()] = str(value)
+    return headers

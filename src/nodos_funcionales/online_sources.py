@@ -38,6 +38,15 @@ NETWORK_PROVIDERS = {
     "vfdb_real",
     "bvbrc_real",
 }
+PROVIDER_CONFIG_SECTIONS = {
+    "uniprot_real": "uniprot",
+    "string_real": "string",
+    "uniprot_human_gene_lookup": "human_homologs_lookup",
+    "interpro_domain_overlap": "interpro",
+    "deg_real": "deg",
+    "vfdb_real": "vfdb",
+    "bvbrc_real": "bvbrc",
+}
 
 
 def effective_online_source_mode(config: dict[str, Any]) -> str:
@@ -54,6 +63,15 @@ def effective_online_source_mode(config: dict[str, Any]) -> str:
 
 def _network_is_blocked(config: dict[str, Any]) -> bool:
     return effective_online_source_mode(config) in NETWORK_BLOCKED_MODES
+
+
+def _provider_is_enabled(config: dict[str, Any], provider_name: str) -> bool:
+    """Honor the provider switch before consulting cache, files, or the network."""
+    section = PROVIDER_CONFIG_SECTIONS.get(provider_name)
+    if section is None:
+        return True
+    provider_cfg = config.get("online_sources", {}).get(section, {})
+    return bool(provider_cfg.get("enabled", True))
 
 
 def _workspace_context(workspace: Path) -> dict[str, str | None]:
@@ -1469,6 +1487,18 @@ def fetch_layer_external_source(
     taxon_id = context["taxon_id"]
     online_mode = effective_online_source_mode(config)
 
+    if not _provider_is_enabled(config, provider_name):
+        return {
+            "layer_key": layer_key,
+            "provider_name": provider_name,
+            "source_name": provider_name,
+            "path": None,
+            "status": "provider_disabled_by_configuration",
+            "confidence": 0.0,
+            "notes": ["provider_disabled_before_file_cache_or_network_lookup"],
+            "provenance": "provider switch from the isolated run configuration",
+        }
+
     if provider_name in NETWORK_PROVIDERS and _network_is_blocked(config):
         if external_path.exists():
             return {
@@ -2029,7 +2059,7 @@ def fetch_layer_external_source(
                 "provider_name": provider_name,
                 "source_name": "provider_not_found" if status == "not_found" else "deg_real",
                 "path": None,
-                "status": status if status == "not_found" else "external_api_empty_response",
+                "status": status,
                 "confidence": 0.0,
             }
         written_path = _write_external_layer(external_path, df)
@@ -2039,7 +2069,7 @@ def fetch_layer_external_source(
             "source_name": "deg_database",
             "path": written_path,
             "status": str(result["manifest"].get("source_used", "deg_external")),
-            "confidence": 0.85 if result["manifest"].get("api_success") else 0.75,
+            "confidence": 0.85 if result["manifest"].get("provider_success") else 0.0,
         }
 
     # === PROVEEDOR: vfdb_real -> virulence ===
@@ -2080,7 +2110,7 @@ def fetch_layer_external_source(
                 "provider_name": provider_name,
                 "source_name": "provider_not_found" if status == "not_found" else "vfdb_real",
                 "path": None,
-                "status": status if status == "not_found" else "external_api_empty_response",
+                "status": status,
                 "confidence": 0.0,
             }
         written_path = _write_external_layer(external_path, df)
@@ -2090,7 +2120,7 @@ def fetch_layer_external_source(
             "source_name": "vfdb_database",
             "path": written_path,
             "status": str(result["manifest"].get("source_used", "vfdb_external")),
-            "confidence": 0.82 if result["manifest"].get("api_success") else 0.72,
+            "confidence": 0.82 if result["manifest"].get("provider_success") else 0.0,
         }
 
     # === PROVEEDOR: bvbrc_real -> strain_conservation ===
@@ -2131,7 +2161,7 @@ def fetch_layer_external_source(
                 "provider_name": provider_name,
                 "source_name": "provider_not_found" if status == "not_found" else "bvbrc_real",
                 "path": None,
-                "status": status if status == "not_found" else "external_api_empty_response",
+                "status": status,
                 "confidence": 0.0,
             }
         written_path = _write_external_layer(external_path, df)
@@ -2141,7 +2171,7 @@ def fetch_layer_external_source(
             "source_name": "bvbrc_api",
             "path": written_path,
             "status": str(result["manifest"].get("source_used", "bvbrc_external")),
-            "confidence": 0.80 if result["manifest"].get("api_success") else 0.70,
+            "confidence": 0.80 if result["manifest"].get("provider_success") else 0.0,
         }
 
     if provider_name == "workspace_stub" and external_path.exists():

@@ -285,6 +285,47 @@ Optional providers can be used for evidence enrichment, including sources such a
 
 Online access is explicit and auditable. Provider failures, empty responses, fallback behavior, cache use, and unresolved layers are recorded rather than hidden.
 
+### External-provider runtime controls
+
+The universal online-only runner now propagates every provider switch into the isolated pipeline configuration. A disabled provider is stopped before local-file, cache, or network lookup:
+
+```bash
+python scripts/run_online_only_validation.py \
+  --organism-key helicobacter_pylori \
+  --disable-string \
+  --disable-interpro \
+  --disable-literature \
+  --disable-vfdb \
+  --disable-deg \
+  --disable-bvbrc
+```
+
+STRING, InterPro, literature metadata, VFDB, DEG, and BV-BRC are enabled by default for an online-only run. “Enabled” means that NODOX may attempt the configured contract; it does not guarantee that a remote service is available or that a candidate matches.
+
+BV-BRC uses its structured API with `eq(taxon_id,...)`, a bounded candidate-gene filter, and a separate genome query for the coverage denominator. A truncated or malformed response remains unresolved.
+
+VFDB and DEG use versioned local datasets because their public delivery routes are not equivalent to stable query APIs. Supply them per run:
+
+```bash
+python scripts/run_online_only_validation.py \
+  --organism-key helicobacter_pylori \
+  --vfdb-dataset /path/to/vfdb.csv \
+  --deg-dataset /path/to/deg.csv
+```
+
+For DEG, place the manually obtained official archive under a temporary raw directory and normalize it without committing the third-party database:
+
+```bash
+python scripts/build_deg_csv.py \
+  --raw-dir /path/to/deg_raw \
+  --output /path/to/deg.csv \
+  --version-output /path/to/deg.version.txt
+```
+
+A local VFDB or DEG table needs at least one supported identifier (`gene`, `protein_id`, `locus_tag`, or provider ID); organism or taxon columns are used when present. Missing datasets and unmatched candidates stay unresolved. They are never converted to `virulence_factor=0` or `essential=0`.
+
+`online_only_provider_audit.csv` preserves both API-specific fields and provider-neutral fields: `provider_mode`, `provider_attempted`, `provider_success`, and `affects_score=false`. Final dedicated manifests take precedence over preliminary “disabled” or “deferred” markers. See [external-provider runtime contracts](docs/external_provider_runtime_controls.md).
+
 ### DIAMOND human-homology safety
 
 The DIAMOND provider is integrated but intentionally disabled in the repository defaults. A normal NODOX run does not probe the DIAMOND executable, download a human reference, build a database, or run `blastp`. The provider manifest reports `diamond_provider_disabled` until the user opts in.

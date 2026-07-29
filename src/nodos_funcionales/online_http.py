@@ -12,8 +12,10 @@ import certifi
 
 
 def get_ssl_context() -> ssl.SSLContext:
-    """Return a verified SSL context using certifi's CA bundle."""
-    return ssl.create_default_context(cafile=certifi.where())
+    """Return a verified context that trusts both the system store and certifi."""
+    context = ssl.create_default_context()
+    context.load_verify_locations(cafile=certifi.where())
+    return context
 
 
 def urlopen_json(url: str, timeout: float = 30, headers: dict[str, str] | None = None) -> Any:

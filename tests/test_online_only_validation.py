@@ -52,10 +52,11 @@ def _block_unmocked_candidate_fasta_network():
 def test_online_http_ssl_context_uses_certifi_ca_bundle() -> None:
     with patch("src.nodos_funcionales.online_http.certifi.where", return_value="C:/certifi/cacert.pem") as where_mock:
         with patch("src.nodos_funcionales.online_http.ssl.create_default_context") as context_mock:
-            get_ssl_context()
+            context = get_ssl_context()
 
     where_mock.assert_called_once_with()
-    context_mock.assert_called_once_with(cafile="C:/certifi/cacert.pem")
+    context_mock.assert_called_once_with()
+    context.load_verify_locations.assert_called_once_with(cafile="C:/certifi/cacert.pem")
 
 
 def _workspace(tmp_path: Path) -> Path:
@@ -112,6 +113,56 @@ def test_online_only_config_preserves_complete_diamond_execution_settings(tmp_pa
     assert {key: after[key] for key in preserved_keys} == {key: before[key] for key in preserved_keys}
     assert after_config["online_sources"]["source_mode_effective"] == "online_optional"
     assert after_config["layer_resolution"]["layers"]["human_homologs"]["external_provider"] == "human_homology_diamond"
+
+
+def test_online_only_config_propagates_every_provider_switch_and_dataset_path(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    config_path = workspace / "config" / "params.yaml"
+    vfdb_dataset = tmp_path / "vfdb.csv"
+    deg_dataset = tmp_path / "deg.csv"
+    vfdb_dataset.write_text("gene,category\nvacA,toxin\n", encoding="utf-8")
+    deg_dataset.write_text("gene,evidence\ngyrB,knockout\n", encoding="utf-8")
+
+    _write_online_only_config(
+        config_path,
+        "online_optional",
+        enable_string=False,
+        enable_interpro=False,
+        enable_vfdb=False,
+        enable_deg=False,
+        enable_bvbrc=False,
+        vfdb_dataset_path=vfdb_dataset,
+        deg_dataset_path=deg_dataset,
+    )
+
+    config = load_config(config_path)
+    for provider in ("string", "interpro", "vfdb", "deg", "bvbrc"):
+        assert config["online_sources"][provider]["enabled"] is False
+    assert config["online_sources"]["vfdb"]["local_dataset_path"] == str(vfdb_dataset)
+    assert config["online_sources"]["deg"]["local_dataset_path"] == str(deg_dataset)
+
+
+def test_layer_resolver_does_not_call_disabled_network_provider(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    config_path = workspace / "config" / "params.yaml"
+    _write_online_only_config(config_path, "online_optional", enable_string=False)
+    config = load_config(config_path)
+    (workspace / "results" / "organism_profile.json").write_text(
+        json.dumps({"organism_canonical_name": "Escherichia coli", "taxon_id": "562"}),
+        encoding="utf-8",
+    )
+
+    with patch("src.nodos_funcionales.online_sources.fetch_string_functional_network") as provider:
+        result = fetch_layer_external_source(
+            "functional_network",
+            workspace,
+            "functional_network.csv",
+            config,
+            "string_real",
+        )
+
+    provider.assert_not_called()
+    assert result["status"] == "provider_disabled_by_configuration"
 
 
 def test_explicit_diamond_cache_only_profile_requires_existing_tsv(tmp_path: Path) -> None:
@@ -553,6 +604,9 @@ def test_provider_audit_records_explicit_fields_for_external_layers(tmp_path: Pa
         "provider_name",
         "provider_endpoint_or_mode",
         "provider_function",
+        "provider_mode",
+        "provider_attempted",
+        "provider_success",
         "api_attempted",
         "api_success",
         "retrieved_record_count",
@@ -563,6 +617,7 @@ def test_provider_audit_records_explicit_fields_for_external_layers(tmp_path: Pa
         "source_used",
         "data_realism_flag",
         "evidence_level",
+        "affects_score",
         "inherited_from_candidate_seed",
         "generated_at_utc",
     }
@@ -573,6 +628,98 @@ def test_provider_audit_records_explicit_fields_for_external_layers(tmp_path: Pa
     assert bool(by_layer.loc["localization", "api_success"]) is False
     assert by_layer.loc["localization", "retrieval_status"] == "provider_unavailable_or_not_implemented"
     assert by_layer.loc["functional_network", "evidence_level"] == "unresolved"
+
+
+def test_provider_audit_prefers_final_dedicated_manifest_over_preliminary_marker(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    (workspace / "results" / "layer_resolution_manifest.json").write_text(
+        json.dumps(
+            {
+                "strain_conservation": {
+                    "source_name": "bvbrc_real",
+                    "retrieval_status": "api_real",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (workspace / "results" / "online_only_strain_conservation_manifest.json").write_text(
+        json.dumps(
+            {
+                "provider_name": "bvbrc",
+                "retrieval_status": "deferred_to_layer_resolver",
+                "source_used": "deferred_to_layer_resolver",
+                "api_attempted": False,
+                "api_success": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (workspace / "results" / "bvbrc_conservation_manifest.json").write_text(
+        json.dumps(
+            {
+                "provider_name": "bvbrc_real",
+                "provider_url": "https://www.bv-brc.org/api/genome_feature/",
+                "retrieval_status": "api_real",
+                "source_used": "api_real",
+                "provider_attempted": True,
+                "provider_success": True,
+                "api_attempted": True,
+                "api_success": True,
+                "feature_records_retrieved": 12,
+                "protein_count_mapped": 2,
+                "evidence_level": "computational_online_evidence",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    audit = build_online_only_provider_audit(workspace, {})
+    bvbrc = audit.set_index("layer_key").loc["strain_conservation"]
+
+    assert bool(bvbrc["provider_attempted"]) is True
+    assert bool(bvbrc["provider_success"]) is True
+    assert bool(bvbrc["api_success"]) is True
+    assert bvbrc["retrieval_status"] == "api_real"
+    assert bvbrc["matched_candidate_count"] == 2
+
+
+def test_provider_audit_uses_dedicated_diamond_manifest_semantics(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    (workspace / "results" / "human_homology_diamond_manifest.json").write_text(
+        json.dumps(
+            {
+                "provider_name": "human_homology_diamond",
+                "provider_mode": "local_executable",
+                "retrieval_status": "diamond_blastp_executed",
+                "execution_status": "executed",
+                "provider_attempted": True,
+                "provider_success": True,
+                "result_row_count": 25,
+                "hit_count": 7,
+                "no_hit_count": 18,
+                "matched_candidate_count": 7,
+                "evidence_level": "sequence_alignment",
+                "data_realism_flag": "computed_local",
+                "affects_score": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    audit = build_online_only_provider_audit(workspace, {})
+    diamond = audit.set_index("layer_key").loc["human_homologs"]
+
+    assert diamond["provider_name"] == "human_homology_diamond"
+    assert diamond["provider_endpoint_or_mode"] == "local_executable"
+    assert bool(diamond["provider_attempted"]) is True
+    assert bool(diamond["provider_success"]) is True
+    assert bool(diamond["api_attempted"]) is False
+    assert bool(diamond["api_success"]) is False
+    assert diamond["retrieved_record_count"] == 25
+    assert diamond["matched_candidate_count"] == 7
+    assert diamond["retrieval_status"] == "diamond_blastp_executed"
+    assert bool(diamond["affects_score"]) is False
 
 
 def test_online_only_enrichment_attempts_string_and_materializes_network(tmp_path: Path) -> None:

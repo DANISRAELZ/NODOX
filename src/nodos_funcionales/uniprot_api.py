@@ -264,6 +264,7 @@ def _write_outputs(workspace: Path, annotations: pd.DataFrame, manifest: dict[st
     report_path = results_dir / "online_source_report.md"
     annotations.to_csv(annotation_path, index=False)
     _json_dump(manifest_path, manifest)
+    _json_dump(results_dir / "uniprot_annotation_manifest.json", manifest)
     lines = [
         "# Online Source Report",
         "",

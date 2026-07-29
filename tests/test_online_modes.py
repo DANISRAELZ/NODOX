@@ -301,8 +301,6 @@ def test_pipeline_pao1_compare_offline_only_completes_without_network(tmp_path) 
         patch("src.nodos_funcionales.string_api.urlopen", side_effect=network_error),
         patch("src.nodos_funcionales.uniprot_api.urlopen", side_effect=network_error),
         patch("src.nodos_funcionales.interpro_api.urlopen", side_effect=network_error),
-        patch("src.nodos_funcionales.deg_api.urlopen", side_effect=network_error),
-        patch("src.nodos_funcionales.vfdb_api.urlopen", side_effect=network_error),
         patch("src.nodos_funcionales.bvbrc_api.urlopen", side_effect=network_error),
     ]
     for item in patches:

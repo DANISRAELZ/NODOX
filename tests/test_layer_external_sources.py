@@ -25,6 +25,7 @@ class LayerExternalSourceTests(unittest.TestCase):
         root = PROJECT_ROOT / ".tmp_tests" / f"{name}_{uuid.uuid4().hex[:8]}"
         (root / "config").mkdir(parents=True, exist_ok=True)
         (root / "data_raw").mkdir(parents=True, exist_ok=True)
+        (root / "data_external").mkdir(parents=True, exist_ok=True)
         (root / "results").mkdir(parents=True, exist_ok=True)
         shutil.copy2(PROJECT_ROOT / "config" / "params.yaml", root / "config" / "params.yaml")
         for filename in ["essentiality.csv", "virulence.csv", "human_homologs.csv", "localization.csv"]:
@@ -223,17 +224,19 @@ class LayerExternalSourceTests(unittest.TestCase):
     def test_essentiality_layer_uses_deg_provider(self) -> None:
         workspace = self.make_workspace("layer_deg")
         config = load_config(workspace / "config" / "params.yaml")
-        payload = {"results": [{"protein_id": "PA0001", "gene": "gyrB", "evidence": "TnSeq"}]}
-        with patch("src.nodos_funcionales.deg_api.urlopen", return_value=StringFakeResponse(payload)):
-            result = fetch_layer_external_source(
-                layer_key="essentiality",
-                workspace=workspace,
-                filename="essentiality.csv",
-                config=config,
-                provider_name="deg_real",
-            )
+        pd.DataFrame([{"protein_id": "PA0001", "gene": "gyrB", "evidence": "TnSeq"}]).to_csv(
+            workspace / "data_external" / "deg.csv",
+            index=False,
+        )
+        result = fetch_layer_external_source(
+            layer_key="essentiality",
+            workspace=workspace,
+            filename="essentiality.csv",
+            config=config,
+            provider_name="deg_real",
+        )
         self.assertEqual(result["source_name"], "deg_database")
-        self.assertEqual(result["status"], "api_real")
+        self.assertEqual(result["status"], "local_dataset")
         df = pd.read_csv(result["path"])
         self.assertEqual(list(df.columns), ["protein_id", "gene", "essential", "evidence", "database"])
         self.assertTrue(df["essential"].isin([0, 1]).all())
@@ -241,17 +244,19 @@ class LayerExternalSourceTests(unittest.TestCase):
     def test_virulence_layer_uses_vfdb_provider(self) -> None:
         workspace = self.make_workspace("layer_vfdb")
         config = load_config(workspace / "config" / "params.yaml")
-        payload = {"results": [{"protein_id": "PA0008", "gene": "lasB", "category": "toxin"}]}
-        with patch("src.nodos_funcionales.vfdb_api.urlopen", return_value=StringFakeResponse(payload)):
-            result = fetch_layer_external_source(
-                layer_key="virulence",
-                workspace=workspace,
-                filename="virulence.csv",
-                config=config,
-                provider_name="vfdb_real",
-            )
+        pd.DataFrame([{"protein_id": "PA0008", "gene": "lasB", "category": "toxin"}]).to_csv(
+            workspace / "data_external" / "vfdb.csv",
+            index=False,
+        )
+        result = fetch_layer_external_source(
+            layer_key="virulence",
+            workspace=workspace,
+            filename="virulence.csv",
+            config=config,
+            provider_name="vfdb_real",
+        )
         self.assertEqual(result["source_name"], "vfdb_database")
-        self.assertEqual(result["status"], "api_real")
+        self.assertEqual(result["status"], "local_dataset")
         df = pd.read_csv(result["path"])
         self.assertEqual(list(df.columns), ["protein_id", "gene", "virulence_score", "virulence_factor", "database"])
         self.assertTrue(df["virulence_score"].between(0, 1).all())

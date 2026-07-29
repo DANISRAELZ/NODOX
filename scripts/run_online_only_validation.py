@@ -52,6 +52,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--disable-string", action="store_true", help="Record STRING as disabled and unresolved.")
     parser.add_argument("--disable-interpro", action="store_true", help="Record InterPro as disabled and unresolved.")
     parser.add_argument("--disable-literature", action="store_true", help="Record literature lookup as disabled and unresolved.")
+    parser.add_argument("--disable-vfdb", action="store_true", help="Do not inspect or use the configured local VFDB dataset.")
+    parser.add_argument("--disable-deg", action="store_true", help="Do not inspect or use the configured local DEG dataset.")
+    parser.add_argument("--disable-bvbrc", action="store_true", help="Do not query the BV-BRC API.")
+    parser.add_argument("--vfdb-dataset", help="Versioned local VFDB CSV/TSV used by this isolated run.")
+    parser.add_argument("--deg-dataset", help="Versioned local DEG CSV/TSV used by this isolated run.")
     parser.add_argument(
         "--online-source-mode",
         default="online_optional",
@@ -101,6 +106,11 @@ def main(argv: list[str] | None = None) -> int:
             enable_string=not args.disable_string,
             enable_interpro=not args.disable_interpro,
             enable_literature=not args.disable_literature,
+            enable_vfdb=not args.disable_vfdb,
+            enable_deg=not args.disable_deg,
+            enable_bvbrc=not args.disable_bvbrc,
+            vfdb_dataset=args.vfdb_dataset,
+            deg_dataset=args.deg_dataset,
             online_source_mode=args.online_source_mode,
             taxon_resolution_mode=args.taxon_resolution_mode,
             refresh_taxon_cache=args.refresh_taxon_cache,

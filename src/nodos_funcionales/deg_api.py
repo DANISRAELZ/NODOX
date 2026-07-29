@@ -2,16 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
-from urllib.request import urlopen
 
 import pandas as pd
-
-from .provider_response_audit import ProviderResponse, request_provider_payload, response_audit_fields
 
 
 SOURCE_MODES = {"offline_only", "cache_first", "online_optional"}
@@ -51,24 +46,6 @@ def save_deg_cache(workspace: Path, config: dict[str, Any], payload: dict[str, A
     _json_dump(_cache_path(workspace, config), payload)
 
 
-def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str], ProviderResponse | None]:
-    timeout = float(cfg["provider_timeout_seconds"])
-    user_agent = str(cfg["provider_user_agent"])
-    retries = int(cfg["provider_max_retries"])
-    backoff = float(cfg["provider_backoff_seconds"])
-    errors: list[str] = []
-    for attempt in range(retries + 1):
-        response = request_provider_payload(url, timeout=timeout, user_agent=user_agent, accept="application/json,text/plain,*/*", opener=urlopen)
-        if response.error_status == "":
-            return response.payload, errors, response
-        errors.append(response.rejection_reason or response.error_status)
-        if response.http_status == 429 and attempt < retries:
-            time.sleep(backoff)
-            continue
-        return None, errors, response
-    return None, errors, None
-
-
 def _get_candidate_proteins(workspace: Path) -> pd.DataFrame:
     path = workspace / "data_raw" / "essentiality.csv"
     if not path.exists():
@@ -86,15 +63,55 @@ def _get_candidate_proteins(workspace: Path) -> pd.DataFrame:
     return pd.DataFrame(rows).drop_duplicates(subset=["protein_id"]).sort_values("protein_id").reset_index(drop=True)
 
 
+def _resolve_local_dataset_path(workspace: Path, cfg: dict[str, Any], key: str) -> Path:
+    configured = Path(str(cfg[key]))
+    return configured if configured.is_absolute() else workspace / configured
+
+
+def _read_local_dataset(path: Path) -> pd.DataFrame:
+    if not path.exists() or not path.is_file():
+        return pd.DataFrame()
+    return pd.read_csv(path, sep=None, engine="python")
+
+
+def _dataset_version(workspace: Path, cfg: dict[str, Any]) -> str:
+    path = _resolve_local_dataset_path(workspace, cfg, "local_dataset_version_path")
+    if not path.exists():
+        return "not_recorded"
+    value = path.read_text(encoding="utf-8", errors="replace").strip()
+    return value[:300] or "not_recorded"
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _filter_records_for_context(
+    records: pd.DataFrame,
+    organism_name: str,
+    taxon_id: str | None,
+) -> pd.DataFrame:
+    if records.empty:
+        return records
+    for column in ["taxon_id", "taxonomy_id", "ncbi_taxon_id"]:
+        if column in records.columns and taxon_id:
+            return records[records[column].fillna("").astype(str).str.strip().eq(str(taxon_id))].copy()
+    for column in ["organism", "organism_name", "species", "strain"]:
+        if column in records.columns and organism_name:
+            expected = organism_name.strip().casefold()
+            values = records[column].fillna("").astype(str).str.strip().str.casefold()
+            return records[values.map(lambda value: bool(value) and (expected in value or value in expected))].copy()
+    return records
+
+
 def _cache_key(taxon_id: str | None, proteins: pd.DataFrame) -> str:
     ids = "|".join(sorted(proteins["protein_id"].astype(str).str.upper().tolist()))
     digest = hashlib.sha256(ids.encode("utf-8")).hexdigest()[:16]
     return f"deg::{taxon_id or 'unknown'}::{digest}"
-
-
-def _build_query_url(organism_name: str, taxon_id: str | None, cfg: dict[str, Any]) -> str:
-    params = {"query": taxon_id or organism_name, "format": "json"}
-    return f"{str(cfg['provider_base_url']).rstrip('/')}?{urlencode(params)}"
 
 
 def _as_records(payload: Any) -> list[dict[str, Any]]:
@@ -118,33 +135,25 @@ def _as_records(payload: Any) -> list[dict[str, Any]]:
     return []
 
 
-def _is_structured_deg_payload(payload: Any, response: ProviderResponse | None) -> bool:
-    if response is None:
-        return False
-    if response.payload_type != "json":
-        return False
-    return bool(_as_records(payload))
-
-
-def _conservative_status(response: ProviderResponse | None) -> str:
-    if response is None:
-        return "unresolved"
-    if response.payload_type == "html":
-        return "html_instead_of_structured_payload"
-    if response.error_status == "not_found":
-        return "not_found"
-    if response.error_status:
-        return response.error_status
-    if response.payload_type == "zip":
-        return "unsupported_structured_archive"
-    if response.payload_type in {"empty", "unexpected_text", "tabular_text"}:
-        return "unresolved"
-    return "unresolved"
-
-
 def _record_tokens(record: dict[str, Any]) -> set[str]:
-    keys = ["protein_id", "protein", "locus_tag", "gene", "gene_name", "deg_id"]
-    return {str(record.get(key, "")).strip().casefold() for key in keys if str(record.get(key, "")).strip()}
+    keys = [
+        "protein_id",
+        "protein",
+        "locus_tag",
+        "gene",
+        "gene_name",
+        "deg_id",
+        "deg_gene_id",
+        "uniprot_accession",
+        "uniprot_accessions",
+    ]
+    tokens: set[str] = set()
+    for key in keys:
+        value = str(record.get(key, "")).strip()
+        if not value:
+            continue
+        tokens.update(item.casefold() for item in value.replace(",", " ").replace(";", " ").split() if item)
+    return tokens
 
 
 def _derive_rows(proteins: pd.DataFrame, payload: Any, config: dict[str, Any]) -> tuple[pd.DataFrame, int]:
@@ -166,16 +175,6 @@ def _derive_rows(proteins: pd.DataFrame, payload: Any, config: dict[str, Any]) -
                     "gene": gene,
                     "essential": 1,
                     "evidence": evidence,
-                    "database": str(config["online_sources"]["deg"]["database_label"]),
-                }
-            )
-        else:
-            rows.append(
-                {
-                    "protein_id": protein_id,
-                    "gene": gene,
-                    "essential": 0,
-                    "evidence": "not_in_deg",
                     "database": str(config["online_sources"]["deg"]["database_label"]),
                 }
             )
@@ -210,10 +209,43 @@ def fetch_deg_essentiality(
     if mode not in SOURCE_MODES:
         raise ValueError(f"online source mode no soportado: {mode}")
     workspace = Path(workspace)
-    proteins = _get_candidate_proteins(workspace)
-    cache = load_deg_cache(workspace, config)
-    cache_key = _cache_key(taxon_id, proteins)
     cfg = config["online_sources"]["deg"]
+    proteins = _get_candidate_proteins(workspace)
+    dataset_path = _resolve_local_dataset_path(workspace, cfg, "local_dataset_path")
+    dataset_checksum = _sha256(dataset_path) if dataset_path.exists() and dataset_path.is_file() else ""
+    cache = load_deg_cache(workspace, config)
+    cache_key = f"{_cache_key(taxon_id, proteins)}::{dataset_checksum[:16] or 'missing'}"
+
+    if not bool(cfg.get("enabled", True)):
+        manifest = {
+            "source": "deg",
+            "provider": str(cfg["provider_name"]),
+            "provider_name": str(cfg["provider_name"]),
+            "provider_mode": "local_dataset",
+            "mode": mode,
+            "organism_name": organism_name,
+            "taxon_id": taxon_id,
+            "query_cache_key": cache_key,
+            "proteins_queried": int(len(proteins)),
+            "protein_count_mapped": 0,
+            "source_used": "provider_disabled",
+            "retrieval_status": "provider_disabled",
+            "cache_hit": False,
+            "provider_attempted": False,
+            "provider_success": False,
+            "api_attempted": False,
+            "api_success": False,
+            "fallback_reason": "provider_disabled_by_run_configuration",
+            "evidence_level": "unresolved",
+            "affects_score": False,
+            "notes": ["provider_disabled_before_local_dataset_lookup"],
+            "generated_at_utc": _utc_now(),
+        }
+        return {
+            "essentiality_data": pd.DataFrame(columns=ESSENTIALITY_COLUMNS),
+            "manifest": manifest,
+            "manifest_path": _write_manifest(workspace, manifest),
+        }
 
     if not refresh_cache and mode in SOURCE_MODES and cache["entries"].get(cache_key):
         entry = cache["entries"][cache_key]
@@ -221,106 +253,76 @@ def fetch_deg_essentiality(
         manifest = _cache_manifest(entry.get("manifest", {}), mode)
         return {"essentiality_data": df, "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
 
-    if mode == "offline_only":
-        raise FileNotFoundError("Modo offline_only sin cache DEG utilizable para este conjunto de proteinas.")
-
     if proteins.empty:
-        manifest = {
-            "source": "deg",
-            "provider": str(cfg["provider_name"]),
-            "mode": mode,
-            "organism_name": organism_name,
-            "taxon_id": taxon_id,
-            "query_cache_key": cache_key,
-            "proteins_queried": 0,
-            "protein_count_mapped": 0,
-            "source_used": "empty_candidates",
-            "cache_hit": False,
-            "api_attempted": False,
-            "api_success": False,
-            "fallback_reason": "no_candidate_proteins",
-            "notes": ["no_candidate_proteins"],
-            "generated_at_utc": _utc_now(),
-        }
-        return {"essentiality_data": pd.DataFrame(columns=ESSENTIALITY_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
+        status = "empty_candidates"
+        fallback_reason = "no_candidate_proteins"
+        records = pd.DataFrame()
+    elif not dataset_path.exists():
+        status = "local_dataset_missing"
+        fallback_reason = "deg_requires_versioned_local_dataset"
+        records = pd.DataFrame()
+    else:
+        try:
+            records = _filter_records_for_context(
+                _read_local_dataset(dataset_path),
+                organism_name,
+                taxon_id,
+            )
+        except Exception as exc:  # noqa: BLE001 - invalid local data remains non-blocking.
+            status = "local_dataset_invalid"
+            fallback_reason = f"local_dataset_parse_error:{type(exc).__name__}"
+            records = pd.DataFrame()
+        else:
+            has_identifiers = any(_record_tokens(row) for row in records.to_dict(orient="records"))
+            if records.empty:
+                status = "local_dataset_empty_for_organism"
+                fallback_reason = "no_deg_records_for_requested_organism"
+            elif not has_identifiers:
+                status = "local_dataset_invalid"
+                fallback_reason = "deg_dataset_missing_supported_identifier_columns"
+            else:
+                status = "local_dataset_available"
+                fallback_reason = ""
 
-    provider_url = _build_query_url(organism_name, taxon_id, cfg)
-    payload, errors, response = _api_get_json(provider_url, cfg)
-    if payload is None:
-        if mode == "online_optional" and cache["entries"].get(cache_key):
-            entry = cache["entries"][cache_key]
-            df = pd.DataFrame(entry.get("essentiality_rows", []), columns=ESSENTIALITY_COLUMNS)
-            manifest = _cache_manifest(entry.get("manifest", {}), mode)
-            manifest["api_attempted"] = True
-            manifest["fallback_reason"] = "api_failed_fallback_cache"
-            return {"essentiality_data": df, "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
-        audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
-        manifest = {
-            "source": "deg",
-            "provider": str(cfg["provider_name"]),
-            "mode": mode,
-            "organism_name": organism_name,
-            "taxon_id": taxon_id,
-            "query_cache_key": cache_key,
-            "proteins_queried": int(len(proteins)),
-            "protein_count_mapped": 0,
-            "source_used": "api_failed",
-            "retrieval_status": _conservative_status(response),
-            "cache_hit": False,
-            "api_attempted": True,
-            "api_success": False,
-            "fallback_reason": "api_failed_no_cache",
-            "notes": errors,
-            "generated_at_utc": _utc_now(),
-            **audit,
-        }
-        return {"essentiality_data": pd.DataFrame(columns=ESSENTIALITY_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
-
-    if not _is_structured_deg_payload(payload, response):
-        audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
-        status = _conservative_status(response)
-        reason = audit.get("rejection_reason") or "structured_deg_payload_not_verified"
-        manifest = {
-            "source": "deg",
-            "provider": str(cfg["provider_name"]),
-            "mode": mode,
-            "organism_name": organism_name,
-            "taxon_id": taxon_id,
-            "query_cache_key": cache_key,
-            "proteins_queried": int(len(proteins)),
-            "protein_count_mapped": 0,
-            "source_used": status,
-            "retrieval_status": status,
-            "cache_hit": False,
-            "api_attempted": True,
-            "api_success": False,
-            "fallback_reason": reason,
-            "notes": errors + [str(reason), "No essentiality evidence was inferred from this provider response."],
-            "generated_at_utc": _utc_now(),
-            **audit,
-        }
-        return {"essentiality_data": pd.DataFrame(columns=ESSENTIALITY_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
-
-    df, matched = _derive_rows(proteins, payload, config)
-    audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
+    df, matched = (
+        _derive_rows(proteins, records.to_dict(orient="records"), config)
+        if status == "local_dataset_available"
+        else (pd.DataFrame(columns=ESSENTIALITY_COLUMNS), 0)
+    )
+    retrieval_status = "local_dataset_available" if matched else (
+        "local_dataset_no_candidate_matches" if status == "local_dataset_available" else status
+    )
     manifest = {
         "source": "deg",
         "provider": str(cfg["provider_name"]),
+        "provider_name": str(cfg["provider_name"]),
+        "provider_mode": "local_dataset",
         "mode": mode,
         "organism_name": organism_name,
         "taxon_id": taxon_id,
         "query_cache_key": cache_key,
         "proteins_queried": int(len(proteins)),
+        "records_retrieved": int(len(records)),
         "protein_count_mapped": int(matched),
-        "source_used": "api_real" if matched else "deg_local_lookup_no_matches",
-        "retrieval_status": "api_real" if matched else "not_found",
+        "source_used": "local_dataset" if status == "local_dataset_available" else status,
+        "retrieval_status": retrieval_status,
         "cache_hit": False,
-        "api_attempted": True,
-        "api_success": True,
-        "fallback_reason": None if matched else "no_deg_matches_for_workspace_candidates",
-        "notes": errors,
+        "provider_attempted": bool(proteins.empty is False),
+        "provider_success": status == "local_dataset_available",
+        "api_attempted": False,
+        "api_success": False,
+        "fallback_reason": fallback_reason or (None if matched else "no_deg_matches_for_workspace_candidates"),
+        "evidence_level": "curated_external_dataset" if matched else "unresolved",
+        "data_realism_flag": "external_real" if matched else "unresolved",
+        "local_dataset_path": str(dataset_path),
+        "dataset_version": _dataset_version(workspace, cfg) if dataset_path.exists() else "not_available",
+        "checksum_sha256": dataset_checksum,
+        "affects_score": False,
+        "notes": [
+            "DEG is read from a versioned local dataset; the configured ZIP URL is documentation only and is not downloaded automatically.",
+            "Candidates absent from the dataset remain unresolved and are not emitted as essential=0.",
+        ],
         "generated_at_utc": _utc_now(),
-        **audit,
     }
     if not no_write_cache:
         cache["entries"][cache_key] = {"saved_at_utc": _utc_now(), "essentiality_rows": df.to_dict(orient="records"), "manifest": manifest}

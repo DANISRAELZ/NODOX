@@ -9,8 +9,9 @@ from unittest.mock import patch
 from urllib.error import HTTPError, URLError
 
 import pytest
+import pandas as pd
 
-from src.nodos_funcionales.bvbrc_api import fetch_bvbrc_strain_conservation
+from src.nodos_funcionales.bvbrc_api import _build_query_url, fetch_bvbrc_strain_conservation
 from src.nodos_funcionales.config import load_config
 from tests.helpers import PROJECT_ROOT
 
@@ -18,9 +19,17 @@ pytestmark = pytest.mark.online
 
 
 class FakeResponse:
-    def __init__(self, payload, content_type: str = "application/json"):
+    def __init__(
+        self,
+        payload,
+        content_type: str = "application/json",
+        content_range: str = "",
+    ):
         self._payload = payload
         self._content_type = content_type
+        self.headers = {"Content-Type": content_type}
+        if content_range:
+            self.headers["Content-Range"] = content_range
         self.status = 200
 
     def read(self) -> bytes:
@@ -29,7 +38,7 @@ class FakeResponse:
         return json.dumps(self._payload).encode("utf-8")
 
     def getheader(self, name: str, default: str = "") -> str:
-        return self._content_type if name.lower() == "content-type" else default
+        return self.headers.get(name, self.headers.get(name.title(), default))
 
     def geturl(self) -> str:
         return "https://example.test/bvbrc"
@@ -83,6 +92,75 @@ class BvbrcApiTests(unittest.TestCase):
         )
         self.assertTrue(df["core_genome_presence"].between(0, 1).all())
         self.assertEqual(result["manifest"]["source_used"], "api_real")
+
+    def test_query_uses_supported_taxon_and_candidate_gene_filters(self) -> None:
+        config = load_config(PROJECT_ROOT / "config" / "params.yaml")
+        proteins = pd.DataFrame(
+            [
+                {"protein_id": "P1", "gene": "gyrB"},
+                {"protein_id": "P2", "gene": "rpoB"},
+            ]
+        )
+
+        url = _build_query_url("287", config["online_sources"]["bvbrc"], proteins)
+
+        self.assertIn("eq(taxon_id,287)", url)
+        self.assertIn("in(gene,(gyrB,rpoB))", url)
+        self.assertIn("limit(25000)", url)
+        self.assertNotIn("taxon_lineage_ids", url)
+
+    def test_unmatched_candidates_are_omitted_not_encoded_as_zero(self) -> None:
+        workspace = self.make_workspace("bvbrc_no_negative_rows")
+        config = load_config(workspace / "config" / "params.yaml")
+        genome_payload = {"results": [{"genome_id": "g1"}, {"genome_id": "g2"}]}
+        feature_payload = {
+            "results": [
+                {"gene": "gyrB", "pgfam_id": "PGF_1", "genome_id": "g1"},
+            ]
+        }
+        with patch(
+            "src.nodos_funcionales.bvbrc_api.urlopen",
+            side_effect=[FakeResponse(genome_payload), FakeResponse(feature_payload)],
+        ):
+            result = fetch_bvbrc_strain_conservation(
+                workspace,
+                "Pseudomonas aeruginosa",
+                "287",
+                config,
+                "online_optional",
+            )
+
+        data = result["strain_conservation_data"]
+        self.assertEqual(set(data["gene"]), {"gyrB"})
+        self.assertEqual(data.iloc[0]["core_genome_presence"], 0.5)
+
+    def test_content_range_is_paginated_before_conservation_is_derived(self) -> None:
+        workspace = self.make_workspace("bvbrc_paginated")
+        config = load_config(workspace / "config" / "params.yaml")
+        genome_payload = {"results": [{"genome_id": "g1"}, {"genome_id": "g2"}]}
+        first_page = [{"gene": "gyrB", "pgfam_id": "PGF_1", "genome_id": "g1"}]
+        second_page = [{"gene": "gyrB", "pgfam_id": "PGF_1", "genome_id": "g2"}]
+        with patch(
+            "src.nodos_funcionales.bvbrc_api.urlopen",
+            side_effect=[
+                FakeResponse(genome_payload, content_range="items 0-2/2"),
+                FakeResponse(first_page, content_range="items 0-1/2"),
+                FakeResponse(second_page, content_range="items 1-2/2"),
+            ],
+        ) as urlopen_mock:
+            result = fetch_bvbrc_strain_conservation(
+                workspace,
+                "Pseudomonas aeruginosa",
+                "287",
+                config,
+                "online_optional",
+            )
+
+        self.assertEqual(urlopen_mock.call_count, 3)
+        self.assertTrue(result["manifest"]["query_complete"])
+        self.assertEqual(result["manifest"]["feature_pages_retrieved"], 2)
+        self.assertEqual(result["manifest"]["feature_records_retrieved"], 2)
+        self.assertEqual(result["strain_conservation_data"].iloc[0]["core_genome_presence"], 1.0)
 
     def test_api_failure_returns_empty_dataframe(self) -> None:
         workspace = self.make_workspace("bvbrc_failure")
@@ -145,6 +223,22 @@ class BvbrcApiTests(unittest.TestCase):
         config = load_config(workspace / "config" / "params.yaml")
         with self.assertRaises(FileNotFoundError):
             fetch_bvbrc_strain_conservation(workspace, "Pseudomonas aeruginosa", "287", config, "offline_only")
+
+    def test_disabled_provider_never_calls_network(self) -> None:
+        workspace = self.make_workspace("bvbrc_disabled")
+        config = load_config(workspace / "config" / "params.yaml")
+        config["online_sources"]["bvbrc"]["enabled"] = False
+        with patch("src.nodos_funcionales.bvbrc_api.urlopen") as urlopen_mock:
+            result = fetch_bvbrc_strain_conservation(
+                workspace,
+                "Pseudomonas aeruginosa",
+                "287",
+                config,
+                "online_optional",
+            )
+
+        urlopen_mock.assert_not_called()
+        self.assertEqual(result["manifest"]["retrieval_status"], "provider_disabled")
 
 
 if __name__ == "__main__":
