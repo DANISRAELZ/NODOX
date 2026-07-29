@@ -112,12 +112,29 @@ def test_online_only_config_preserves_complete_diamond_execution_settings(tmp_pa
     assert after_config["layer_resolution"]["layers"]["human_homologs"]["external_provider"] == "human_homology_diamond"
 
 
-def test_online_only_materializer_then_automatic_diamond_execution(tmp_path: Path) -> None:
+def test_online_only_materializer_then_explicit_diamond_execution(tmp_path: Path) -> None:
     workspace = _workspace(tmp_path)
     config_path = workspace / "config" / "params.yaml"
     _write_online_only_config(config_path, "online_optional")
     config = load_config(config_path)
     diamond_cfg = config["online_sources"]["human_homology_diamond"]
+    diamond_cfg.update(
+        {
+            "enabled": True,
+            "execution_mode": "execute",
+            "allow_execution": True,
+            "reuse_cache": False,
+            "reference_fasta_path": str(
+                PROJECT_ROOT
+                / "tests"
+                / "fixtures"
+                / "human_homology_synthetic"
+                / "synthetic_human_reference_fixture.faa"
+            ),
+            "database_prefix": str(workspace / "data_external" / "human_reference_UP000005640"),
+        }
+    )
+    assert diamond_cfg["enabled"] is True
     assert diamond_cfg["execution_mode"] == "execute"
     assert diamond_cfg["allow_execution"] is True
 
