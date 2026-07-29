@@ -73,13 +73,13 @@ NO_HIT_NOTE = (
 
 @dataclass(frozen=True)
 class DiamondHomologyConfig:
-    enabled: bool = True
+    enabled: bool = False
     execution_mode: str = "cache_only"
     diamond_executable: str = "diamond"
     reference_proteome_accession: str = "UP000005640"
-    reference_fasta_path: str = "data_external/human_homology_phase9B/human_reference_proteome_UP000005640.faa"
+    reference_fasta_path: str = ""
     reference_download_url: str = "https://rest.uniprot.org/uniprotkb/stream?compressed=false&format=fasta&query=proteome:UP000005640"
-    database_prefix: str = "data_external/human_homology_phase9B/human_reference_UP000005640"
+    database_prefix: str = ""
     sensitivity_mode: str = "ultra-sensitive"
     evalue_threshold: float = 1.0e-5
     max_target_seqs: int = 25
@@ -821,7 +821,7 @@ def build_human_homologs_with_diamond(
     base_dir: Path | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     cfg = config_from_mapping(raw_cfg)
-    diamond_version = get_diamond_version(cfg.diamond_executable)
+    diamond_version = get_diamond_version(cfg.diamond_executable) if cfg.enabled else "not_checked_provider_disabled"
     manifest: dict[str, Any] = {
         "provider_name": "human_homology_diamond",
         "diamond_version": diamond_version,
