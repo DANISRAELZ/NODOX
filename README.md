@@ -285,6 +285,29 @@ Optional providers can be used for evidence enrichment, including sources such a
 
 Online access is explicit and auditable. Provider failures, empty responses, fallback behavior, cache use, and unresolved layers are recorded rather than hidden.
 
+### DIAMOND human-homology safety
+
+The DIAMOND provider is integrated but intentionally disabled in the repository defaults. A normal NODOX run does not probe the DIAMOND executable, download a human reference, build a database, or run `blastp`. The provider manifest reports `diamond_provider_disabled` until the user opts in.
+
+The repository contains only small synthetic DIAMOND inputs under `tests/fixtures/human_homology_synthetic/`. They exist solely for deterministic automated tests. They are not a human reference proteome and must not be interpreted as biological, clinical, or therapeutic evidence.
+
+For an isolated real run, enable DIAMOND explicitly on the command line. The reference can be plain FASTA or gzip-compressed FASTA; NODOX detects gzip from the file contents, and DIAMOND supports compressed FASTA input:
+
+```bash
+python scripts/run_online_only_validation.py \
+  --organism-key helicobacter_pylori \
+  --run-dir results/helicobacter_pylori_diamond \
+  --max-candidates 200 \
+  --enable-diamond \
+  --diamond-execution-mode execute \
+  --diamond-reference-fasta data_external/human_homology_real/human_reference_proteome_UP000005640.faa.gz \
+  --diamond-database-prefix data_external/human_homology_real/human_reference_UP000005640
+```
+
+The command validates the required paths before creating the run, writes the DIAMOND override only into that run's isolated workspace, keeps downloads disabled, and leaves the repository defaults unchanged. A database argument ending in `.dmnd` is also accepted and normalized to the required prefix.
+
+For deterministic cache reuse, use `--diamond-execution-mode cache_only` with `--diamond-cached-tsv` and, when needed, `--diamond-candidate-fasta`. DIAMOND paths are rejected unless `--enable-diamond` is present. See the [DIAMOND human-homology guide](docs/human_homology_diamond_phase.md) for commands, manual YAML configuration, cache behavior, provenance, and interpretation details.
+
 ## Installation
 
 Python 3.10 or later is required.
@@ -508,6 +531,7 @@ However, scientific maturity depends on the quality of the input evidence. The s
 - [Real data ingestion](docs/real_data_ingestion.md)
 - [Discovery layer](docs/discovery_layer.md)
 - [Online source integration](docs/online_source_integration.md)
+- [DIAMOND human-homology guide](docs/human_homology_diamond_phase.md)
 - [Workspace comparison](docs/workspace_comparison.md)
 
 ### Publication and release

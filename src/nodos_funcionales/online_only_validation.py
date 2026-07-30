@@ -47,6 +47,90 @@ def default_online_only_run_dir(project_root: Path, organism_slug: str, run_date
     return project_root / "results" / "online_only_runs" / f"{organism_slug}_{date_text}"
 
 
+def _absolute_run_path(project_root: Path, value: str | Path | None) -> Path | None:
+    if value is None or not str(value).strip():
+        return None
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = project_root / path
+    return path.resolve()
+
+
+def build_explicit_diamond_run_config(
+    project_root: Path,
+    *,
+    enabled: bool = False,
+    execution_mode: str = "execute",
+    reference_fasta_path: str | Path | None = None,
+    database_prefix: str | Path | None = None,
+    cached_tsv_path: str | Path | None = None,
+    candidate_fasta_path: str | Path | None = None,
+    diamond_executable: str = "diamond",
+) -> dict[str, Any] | None:
+    """Build a validated, per-run DIAMOND override without changing repository defaults."""
+    supplied_paths = [
+        reference_fasta_path,
+        database_prefix,
+        cached_tsv_path,
+        candidate_fasta_path,
+    ]
+    if not enabled:
+        if any(value is not None and str(value).strip() for value in supplied_paths):
+            raise ValueError("DIAMOND paths require explicit enable_diamond=True")
+        return None
+
+    mode = str(execution_mode or "").strip().lower()
+    if mode not in {"execute", "cache_only"}:
+        raise ValueError("diamond_execution_mode must be 'execute' or 'cache_only'")
+
+    executable = str(diamond_executable or "").strip()
+    if not executable:
+        raise ValueError("diamond_executable must be a non-empty command or path")
+
+    reference = _absolute_run_path(project_root, reference_fasta_path)
+    database = _absolute_run_path(project_root, database_prefix)
+    cached_tsv = _absolute_run_path(project_root, cached_tsv_path)
+    candidate_fasta = _absolute_run_path(project_root, candidate_fasta_path)
+
+    if candidate_fasta is not None and not candidate_fasta.is_file():
+        raise ValueError(f"DIAMOND candidate FASTA does not exist: {candidate_fasta}")
+
+    if mode == "execute":
+        if reference is None or database is None:
+            raise ValueError(
+                "DIAMOND execute mode requires reference_fasta_path and database_prefix"
+            )
+        if not reference.is_file():
+            raise ValueError(f"DIAMOND reference FASTA does not exist: {reference}")
+        if cached_tsv is not None:
+            raise ValueError("cached_tsv_path is only valid in DIAMOND cache_only mode")
+    else:
+        if cached_tsv is None:
+            raise ValueError("DIAMOND cache_only mode requires cached_tsv_path")
+        if not cached_tsv.is_file():
+            raise ValueError(f"DIAMOND cached TSV does not exist: {cached_tsv}")
+        if reference is not None or database is not None:
+            raise ValueError(
+                "reference_fasta_path and database_prefix are only valid in DIAMOND execute mode"
+            )
+
+    if database is not None and database.suffix.lower() == ".dmnd":
+        database = database.with_suffix("")
+
+    return {
+        "enabled": True,
+        "execution_mode": mode,
+        "diamond_executable": executable,
+        "reference_fasta_path": str(reference) if reference is not None else "",
+        "database_prefix": str(database) if database is not None else "",
+        "allow_download": False,
+        "allow_execution": mode == "execute",
+        "reuse_cache": True,
+        "candidate_fasta_path": str(candidate_fasta) if candidate_fasta is not None else "",
+        "cached_tsv_path": str(cached_tsv) if cached_tsv is not None else "",
+    }
+
+
 def run_online_only_validation(
     project_root: Path,
     organism: str,
@@ -64,6 +148,13 @@ def run_online_only_validation(
     refresh_taxon_cache: bool = False,
     no_write_taxon_cache: bool = True,
     materialize_unresolved_required_fallback: bool = False,
+    enable_diamond: bool = False,
+    diamond_execution_mode: str = "execute",
+    diamond_reference_fasta: str | Path | None = None,
+    diamond_database_prefix: str | Path | None = None,
+    diamond_cached_tsv: str | Path | None = None,
+    diamond_candidate_fasta: str | Path | None = None,
+    diamond_executable: str = "diamond",
 ) -> dict[str, Any]:
     """Run an isolated, organism-parameterized validation using online/external layers only."""
     organism = str(organism).strip()
@@ -75,6 +166,16 @@ def run_online_only_validation(
     configured_taxon_id = str(taxon_id).strip() if taxon_id is not None else ""
     if configured_taxon_id and not configured_taxon_id.isdigit():
         raise ValueError("taxon_id must contain digits only")
+    diamond_run_config = build_explicit_diamond_run_config(
+        project_root,
+        enabled=enable_diamond,
+        execution_mode=diamond_execution_mode,
+        reference_fasta_path=diamond_reference_fasta,
+        database_prefix=diamond_database_prefix,
+        cached_tsv_path=diamond_cached_tsv,
+        candidate_fasta_path=diamond_candidate_fasta,
+        diamond_executable=diamond_executable,
+    )
     base_run_dir = Path(run_dir) if run_dir else default_online_only_run_dir(project_root, output_slug)
     base_run_dir.mkdir(parents=True, exist_ok=True)
     workspace = base_run_dir / "workspace"
@@ -92,7 +193,11 @@ def run_online_only_validation(
         refresh_taxon_cache=refresh_taxon_cache,
         no_write_taxon_cache=no_write_taxon_cache,
     )
-    _write_online_only_config(workspace / "config" / "params.yaml", online_source_mode)
+    _write_online_only_config(
+        workspace / "config" / "params.yaml",
+        online_source_mode,
+        diamond_run_config=diamond_run_config,
+    )
 
     config = load_config(workspace / "config" / "params.yaml")
     profile = discovery["profile"]
@@ -122,7 +227,11 @@ def run_online_only_validation(
             "string": bool(enable_string),
             "interpro": bool(enable_interpro),
             "literature": bool(enable_literature),
+            "diamond": bool(enable_diamond),
         },
+        "diamond_execution_mode": (
+            str(diamond_run_config["execution_mode"]) if diamond_run_config else "disabled"
+        ),
         "input_policy": "online_external_only_no_user_curated_or_packaged_demo",
         "online_source_mode": online_source_mode,
         "generated_at_utc": _utc_now(),
@@ -995,13 +1104,19 @@ def _rewrite_layer_resolution_summary_md(path: Path, provider_audit: pd.DataFram
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def _write_online_only_config(config_path: Path, online_source_mode: str) -> None:
+def _write_online_only_config(
+    config_path: Path,
+    online_source_mode: str,
+    diamond_run_config: dict[str, Any] | None = None,
+) -> None:
     # Load and rewrite one mapping instead of appending duplicate YAML root keys. Duplicate
     # ``online_sources`` keys discarded the configured DIAMOND provider in Phase 9B v5.
     config = load_config(config_path)
     online_sources = config.setdefault("online_sources", {})
     online_sources["source_mode_effective"] = online_source_mode
     online_sources["source_mode_default"] = online_source_mode
+    if diamond_run_config is not None:
+        online_sources.setdefault("human_homology_diamond", {}).update(diamond_run_config)
 
     layer_resolution = config.setdefault("layer_resolution", {})
     layer_resolution["write_cache_from_external"] = False

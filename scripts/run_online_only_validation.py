@@ -65,6 +65,22 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--refresh-taxon-cache", action="store_true")
     parser.add_argument("--write-taxon-cache", action="store_true")
     parser.add_argument("--materialize-unresolved-required-fallback", action="store_true")
+    parser.add_argument(
+        "--enable-diamond",
+        action="store_true",
+        help="Explicitly enable the DIAMOND human-homology provider for this run only.",
+    )
+    parser.add_argument(
+        "--diamond-execution-mode",
+        default="execute",
+        choices=["execute", "cache_only"],
+        help="Execute DIAMOND or reuse an explicitly supplied cached TSV.",
+    )
+    parser.add_argument("--diamond-reference-fasta", help="Real human reference FASTA (.faa or .faa.gz).")
+    parser.add_argument("--diamond-database-prefix", help="Local DIAMOND database prefix, without .dmnd.")
+    parser.add_argument("--diamond-cached-tsv", help="Validated cached DIAMOND TSV for cache_only mode.")
+    parser.add_argument("--diamond-candidate-fasta", help="Optional existing candidate FASTA.")
+    parser.add_argument("--diamond-executable", default="diamond", help="DIAMOND command or executable path.")
     return parser
 
 
@@ -76,20 +92,30 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         parser.error(str(exc))
 
-    result = run_online_only_validation(
-        project_root=PROJECT_ROOT,
-        **organism_options,
-        run_dir=Path(args.run_dir) if args.run_dir else None,
-        max_candidates=args.max_candidates,
-        enable_string=not args.disable_string,
-        enable_interpro=not args.disable_interpro,
-        enable_literature=not args.disable_literature,
-        online_source_mode=args.online_source_mode,
-        taxon_resolution_mode=args.taxon_resolution_mode,
-        refresh_taxon_cache=args.refresh_taxon_cache,
-        no_write_taxon_cache=not args.write_taxon_cache,
-        materialize_unresolved_required_fallback=args.materialize_unresolved_required_fallback,
-    )
+    try:
+        result = run_online_only_validation(
+            project_root=PROJECT_ROOT,
+            **organism_options,
+            run_dir=Path(args.run_dir) if args.run_dir else None,
+            max_candidates=args.max_candidates,
+            enable_string=not args.disable_string,
+            enable_interpro=not args.disable_interpro,
+            enable_literature=not args.disable_literature,
+            online_source_mode=args.online_source_mode,
+            taxon_resolution_mode=args.taxon_resolution_mode,
+            refresh_taxon_cache=args.refresh_taxon_cache,
+            no_write_taxon_cache=not args.write_taxon_cache,
+            materialize_unresolved_required_fallback=args.materialize_unresolved_required_fallback,
+            enable_diamond=args.enable_diamond,
+            diamond_execution_mode=args.diamond_execution_mode,
+            diamond_reference_fasta=args.diamond_reference_fasta,
+            diamond_database_prefix=args.diamond_database_prefix,
+            diamond_cached_tsv=args.diamond_cached_tsv,
+            diamond_candidate_fasta=args.diamond_candidate_fasta,
+            diamond_executable=args.diamond_executable,
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
     print(json.dumps(result, indent=2, ensure_ascii=True))
     return 0 if result["pipeline_status"] in {"completed", "completed_after_unresolved_fallback"} else 2
 

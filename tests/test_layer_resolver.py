@@ -340,6 +340,7 @@ class LayerResolverTests(unittest.TestCase):
                 side_effect.append(UniProtFakeResponse({"results": []}))
 
         config = load_config(workspace / "config" / "params.yaml")
+        config["online_sources"]["human_homology_diamond"]["enabled"] = True
         with patch("src.nodos_funcionales.online_sources.urlopen") as urlopen_mock:
             urlopen_mock.side_effect = side_effect
             manifest = resolve_layer_inputs(workspace, config)
