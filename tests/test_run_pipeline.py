@@ -31,6 +31,7 @@ class RunPipelineTests(unittest.TestCase):
                 "semi_auto",
                 "--workspace",
                 str(workspace),
+                "--no-write-taxon-cache",
                 "--dry-run",
             ]
         )
@@ -50,6 +51,7 @@ class RunPipelineTests(unittest.TestCase):
                 "manual",
                 "--workspace",
                 str(workspace),
+                "--no-write-taxon-cache",
                 "--allow-demo-data",
                 "--mode",
                 "compare",
@@ -84,6 +86,7 @@ class RunPipelineTests(unittest.TestCase):
                 "--taxon-resolution-mode",
                 "online_optional",
                 "--refresh-taxon-cache",
+                "--no-write-taxon-cache",
                 "--workspace",
                 str(workspace),
                 "--dry-run",
