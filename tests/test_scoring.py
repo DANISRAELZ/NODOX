@@ -290,13 +290,15 @@ class ScoringTests(unittest.TestCase):
             "essentiality_access_and_host_safety_supported",
             "strong_bactericidal_signal_with_limited_access",
         }
-        for protein_id in ["PA0002", "PA0004"]:
-            self.assertEqual(by_protein.loc[protein_id, "therapeutic_role"], "bactericidal_candidate")
-            self.assertIn(by_protein.loc[protein_id, "therapeutic_role_rule"], specific_rules)
-            self.assertNotEqual(
-                by_protein.loc[protein_id, "therapeutic_role_rule"],
-                "multiple_strategies_supported",
-            )
+        self.assertEqual(by_protein.loc["PA0004", "therapeutic_role"], "bactericidal_candidate")
+        self.assertIn(by_protein.loc["PA0004", "therapeutic_role_rule"], specific_rules)
+        self.assertNotEqual(
+            by_protein.loc["PA0004", "therapeutic_role_rule"],
+            "multiple_strategies_supported",
+        )
+
+        self.assertEqual(by_protein.loc["PA0002", "therapeutic_role"], "low_priority_candidate")
+        self.assertEqual(by_protein.loc["PA0002", "therapeutic_role_rule"], "poor_infection_site_access")
 
     def test_limited_access_exception_does_not_rescue_high_host_risk_profiles(self) -> None:
         project_dir = make_temp_project()

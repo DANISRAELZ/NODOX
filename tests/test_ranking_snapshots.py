@@ -87,6 +87,7 @@ def test_pao1_demo_pipeline_audits_curated_snapshot_drift() -> None:
             "--strain",
             "PAO1",
             "--allow-demo-data",
+            "--no-write-taxon-cache",
             "--mode",
             "compare",
         ],
