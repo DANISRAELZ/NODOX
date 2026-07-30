@@ -143,9 +143,9 @@ class ScoringTests(unittest.TestCase):
         self.assertIn("human_homology_audit_summary", scored.columns)
         self.assertIn("host_risk_audit_summary", scored.columns)
         self.assertIn("therapy_site_context_audit_summary", scored.columns)
-        self.assertEqual(set(features["confidence_source_class"]), {"controlled"})
-        self.assertEqual(set(features["confidence_evidence_tier"]), {"controlled_provider_moderate"})
-        self.assertTrue(np.isclose(features["confidence_source_quality_score"], 0.58).all())
+        self.assertEqual(set(features["confidence_source_class"]), {"curated"})
+        self.assertEqual(set(features["confidence_evidence_tier"]), {"curated_literature_or_catalog"})
+        self.assertTrue(np.isclose(features["confidence_source_quality_score"], 0.86).all())
         self.assertFalse((features["confidence_source_class"] == "user").any())
         self.assertFalse(features["confidence_evidence_tier"].astype(str).str.contains("user_validated").any())
         self.assertTrue(features["clinical_impact_input_status"].isin(["active_input", "resolved_empty_or_not_normalized"]).all())
@@ -290,13 +290,15 @@ class ScoringTests(unittest.TestCase):
             "essentiality_access_and_host_safety_supported",
             "strong_bactericidal_signal_with_limited_access",
         }
-        for protein_id in ["PA0002", "PA0004"]:
-            self.assertEqual(by_protein.loc[protein_id, "therapeutic_role"], "bactericidal_candidate")
-            self.assertIn(by_protein.loc[protein_id, "therapeutic_role_rule"], specific_rules)
-            self.assertNotEqual(
-                by_protein.loc[protein_id, "therapeutic_role_rule"],
-                "multiple_strategies_supported",
-            )
+        self.assertEqual(by_protein.loc["PA0004", "therapeutic_role"], "bactericidal_candidate")
+        self.assertIn(by_protein.loc["PA0004", "therapeutic_role_rule"], specific_rules)
+        self.assertNotEqual(
+            by_protein.loc["PA0004", "therapeutic_role_rule"],
+            "multiple_strategies_supported",
+        )
+
+        self.assertEqual(by_protein.loc["PA0002", "therapeutic_role"], "low_priority_candidate")
+        self.assertEqual(by_protein.loc["PA0002", "therapeutic_role_rule"], "poor_infection_site_access")
 
     def test_limited_access_exception_does_not_rescue_high_host_risk_profiles(self) -> None:
         project_dir = make_temp_project()

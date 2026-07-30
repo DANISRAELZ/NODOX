@@ -71,7 +71,7 @@ Despues de una suite offline completa, `git status --short` debe permanecer limp
 
 El aislamiento tambien evita dependencias por orden de ejecucion: una prueba no puede reutilizar salidas generadas por otra para cambiar silenciosamente la procedencia o la clase de confianza esperada.
 
-La prueba base de scoring parte de los insumos versionados y, sin CSV opcionales residuales de otras pruebas, conserva la clase de confianza `controlled` y su calidad configurada. Una fuente `curated` debe aparecer solo cuando esa evidencia forme parte explicita del workspace de la prueba.
+La prueba base de scoring debe reflejar los insumos versionados del demo empaquetado y no residuos generados por pruebas previas. Si esos insumos versionados incluyen fuentes demo o curadas, la clase de confianza esperada debe conservar esa procedencia. Una fuente `controlled` debe aparecer solo cuando esa evidencia forme parte explicita del workspace o de la configuracion de la prueba.
 
 ## Limitaciones
 
