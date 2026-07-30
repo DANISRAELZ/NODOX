@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import gzip
 import subprocess
 import re
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 from urllib.parse import urlencode
 from urllib.request import urlopen, urlretrieve
 
@@ -73,13 +74,13 @@ NO_HIT_NOTE = (
 
 @dataclass(frozen=True)
 class DiamondHomologyConfig:
-    enabled: bool = True
+    enabled: bool = False
     execution_mode: str = "cache_only"
     diamond_executable: str = "diamond"
     reference_proteome_accession: str = "UP000005640"
-    reference_fasta_path: str = "data_external/human_homology_phase9B/human_reference_proteome_UP000005640.faa"
+    reference_fasta_path: str = ""
     reference_download_url: str = "https://rest.uniprot.org/uniprotkb/stream?compressed=false&format=fasta&query=proteome:UP000005640"
-    database_prefix: str = "data_external/human_homology_phase9B/human_reference_UP000005640"
+    database_prefix: str = ""
     sensitivity_mode: str = "ultra-sensitive"
     evalue_threshold: float = 1.0e-5
     max_target_seqs: int = 25
@@ -163,9 +164,19 @@ def default_candidate_fasta_path(workspace: Path) -> Path:
     return workspace / "data_external" / "candidate_proteins.faa"
 
 
+def _open_fasta_text(path: Path) -> TextIO:
+    """Open plain-text or gzip-compressed FASTA input after inspecting its magic bytes."""
+    with path.open("rb") as raw_handle:
+        is_gzip = raw_handle.read(2) == b"\x1f\x8b"
+    if is_gzip:
+        return gzip.open(path, mode="rt", encoding="utf-8", errors="ignore")
+    return path.open("r", encoding="utf-8", errors="ignore")
+
+
 def count_fasta_records(path: Path) -> int:
     validate_fasta_has_sequences(path)
-    return sum(1 for line in path.read_text(encoding="utf-8", errors="ignore").splitlines() if line.strip().startswith(">"))
+    with _open_fasta_text(path) as handle:
+        return sum(1 for line in handle if line.strip().startswith(">"))
 
 
 def _chunked(values: list[str], size: int) -> list[list[str]]:
@@ -398,14 +409,15 @@ def validate_fasta_has_sequences(path: Path) -> None:
         raise FileNotFoundError(f"FASTA no encontrado: {path}")
     sequence_count = 0
     has_residues = False
-    for raw_line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
-        if line.startswith(">"):
-            sequence_count += 1
-        else:
-            has_residues = True
+    with _open_fasta_text(path) as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line:
+                continue
+            if line.startswith(">"):
+                sequence_count += 1
+            else:
+                has_residues = True
     if sequence_count == 0 or not has_residues:
         raise ValueError(f"FASTA sin secuencias utilizables: {path}")
 
@@ -433,7 +445,7 @@ def parse_fasta_records(path: Path) -> dict[str, dict[str, Any]]:
             "sequence_length": len(sequence),
         }
 
-    with path.open("r", encoding="utf-8") as handle:
+    with _open_fasta_text(path) as handle:
         for raw_line in handle:
             line = raw_line.strip()
 
@@ -821,7 +833,7 @@ def build_human_homologs_with_diamond(
     base_dir: Path | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     cfg = config_from_mapping(raw_cfg)
-    diamond_version = get_diamond_version(cfg.diamond_executable)
+    diamond_version = get_diamond_version(cfg.diamond_executable) if cfg.enabled else "not_checked_provider_disabled"
     manifest: dict[str, Any] = {
         "provider_name": "human_homology_diamond",
         "diamond_version": diamond_version,

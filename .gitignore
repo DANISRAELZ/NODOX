@@ -40,14 +40,11 @@ user_curated_staging/
 local_user_curated_data/
 private_user_curated_data/
 
-# External data: keep only approved curated snapshots and synthetic test fixtures
+# External data: keep only approved curated snapshots.
+# Synthetic test inputs belong under tests/fixtures/.
 data_external/
 !data_external/
 data_external/*
-!data_external/human_homology_phase9B/
-!data_external/human_homology_phase9B/hpylori_priority_6.faa
-!data_external/human_homology_phase9B/hpylori_vs_human_ultrasensitive.tsv
-!data_external/human_homology_phase9B/human_reference_proteome_UP000005640.faa
 !data_external/curated_snapshots/
 data_external/curated_snapshots/*
 !data_external/curated_snapshots/pseudomonas_aeruginosa_pao1/

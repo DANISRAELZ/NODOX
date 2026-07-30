@@ -202,19 +202,19 @@ online_sources:
     local_orthology_database_label: local_reproducible_orthology_v1
     local_orthology_min_confidence: 0.60
   human_homology_diamond:
-    enabled: true
+    enabled: false
     provider_name: human_homology_diamond
-    execution_mode: execute
+    execution_mode: cache_only
     diamond_executable: diamond
     reference_proteome_accession: UP000005640
-    reference_fasta_path: data_external/human_homology_phase9B/human_reference_proteome_UP000005640.faa
-    database_prefix: data_external/human_homology_phase9B/human_reference_UP000005640
+    reference_fasta_path: ""
+    database_prefix: ""
     sensitivity_mode: ultra-sensitive
     evalue_threshold: 1.0e-5
     maximum_target_sequences: 25
     threads: 1
     allow_download: false
-    allow_execution: true
+    allow_execution: false
     reuse_cache: true
     candidate_fasta_path: ""
     cached_tsv_path: ""

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import shutil
 from io import StringIO
 import uuid
@@ -14,6 +15,7 @@ from src.nodos_funcionales.human_homology_diamond import (
     build_human_homologs_with_diamond,
     config_from_mapping,
     classify_hit,
+    count_fasta_records,
     diamond_is_available,
     materialize_candidate_fasta,
     parse_diamond_tsv,
@@ -36,7 +38,44 @@ from tests.helpers import PROJECT_ROOT
 pytestmark = pytest.mark.unit
 
 
-PHASE9B_DIR = PROJECT_ROOT / "data_external" / "human_homology_phase9B"
+SYNTHETIC_FIXTURE_DIR = PROJECT_ROOT / "tests" / "fixtures" / "human_homology_synthetic"
+
+
+def test_repository_defaults_keep_diamond_disabled_and_unbound(tmp_path: Path) -> None:
+    configured = load_config(PROJECT_ROOT / "config" / "params.yaml")["online_sources"]["human_homology_diamond"]
+    assert configured["enabled"] is False
+    assert configured["execution_mode"] == "cache_only"
+    assert configured["allow_download"] is False
+    assert configured["allow_execution"] is False
+    assert configured["reference_fasta_path"] == ""
+    assert configured["database_prefix"] == ""
+
+    defaults = config_from_mapping({})
+    assert defaults.enabled is False
+    assert defaults.execution_mode == "cache_only"
+    assert defaults.allow_download is False
+    assert defaults.allow_execution is False
+    assert defaults.reference_fasta_path == ""
+    assert defaults.database_prefix == ""
+
+    with patch("src.nodos_funcionales.human_homology_diamond.subprocess.run") as run_mock:
+        df, manifest = build_human_homologs_with_diamond(tmp_path, {})
+    run_mock.assert_not_called()
+    assert df.empty
+    assert manifest["status"] == "diamond_provider_disabled"
+    assert manifest["diamond_version"] == "not_checked_provider_disabled"
+
+
+def test_gzip_fasta_is_validated_counted_and_parsed_by_content(tmp_path: Path) -> None:
+    fasta = tmp_path / "reference_without_required_extension.data"
+    with gzip.open(fasta, "wt", encoding="utf-8") as handle:
+        handle.write(">sp|P12345|SEEDA_HUMAN GN=GENEA\nMAAA\n")
+
+    validate_fasta_has_sequences(fasta)
+    assert count_fasta_records(fasta) == 1
+    records = parse_fasta_records(fasta)
+    assert set(records) == {"P12345"}
+    assert records["P12345"]["gene"] == "GENEA"
 
 
 class FastaFakeResponse:
@@ -106,15 +145,11 @@ def _write_minimal_core_layers(workspace: Path) -> None:
     )
 
 
-def test_parse_diamond_tsv_includes_no_hits_and_classifies_phase9b() -> None:
-    cfg = {
-        "candidate_fasta_path": "data_external/human_homology_phase9B/hpylori_priority_6.faa",
-        "cached_tsv_path": "data_external/human_homology_phase9B/hpylori_vs_human_ultrasensitive.tsv",
-    }
+def test_parse_diamond_tsv_includes_no_hits_and_classifies_synthetic_fixture() -> None:
     parsed = parse_diamond_tsv(
-        PHASE9B_DIR / "hpylori_vs_human_ultrasensitive.tsv",
-        PHASE9B_DIR / "hpylori_priority_6.faa",
-        config_from_mapping(cfg),
+        SYNTHETIC_FIXTURE_DIR / "synthetic_diamond_results.tsv",
+        SYNTHETIC_FIXTURE_DIR / "synthetic_hpylori_candidates.faa",
+        config_from_mapping({}),
     )
     by_gene = parsed.set_index("gene")
     assert by_gene.loc["cagA", "homology_evidence_tier"] == "no_detectable_human_similarity"
@@ -336,14 +371,15 @@ def test_diamond_unavailable_returns_false() -> None:
 def test_provider_reuses_cached_tsv_and_materializes_human_homologs() -> None:
     workspace = _make_workspace("diamond_cached")
     try:
-        shutil.copytree(PHASE9B_DIR, workspace / "data_external" / "human_homology_phase9B")
+        shutil.copytree(SYNTHETIC_FIXTURE_DIR, workspace / "data_external" / "human_homology_synthetic")
         _write_minimal_core_layers(workspace)
         config = load_config(workspace / "config" / "params.yaml")
+        config["online_sources"]["human_homology_diamond"]["enabled"] = True
         config["online_sources"]["human_homology_diamond"]["candidate_fasta_path"] = (
-            "data_external/human_homology_phase9B/hpylori_priority_6.faa"
+            "data_external/human_homology_synthetic/synthetic_hpylori_candidates.faa"
         )
         config["online_sources"]["human_homology_diamond"]["cached_tsv_path"] = (
-            "data_external/human_homology_phase9B/hpylori_vs_human_ultrasensitive.tsv"
+            "data_external/human_homology_synthetic/synthetic_diamond_results.tsv"
         )
         with patch("subprocess.run") as run_mock:
             run_mock.return_value.stdout = "diamond version 2.1.9"
@@ -379,10 +415,11 @@ def test_diamond_executes_from_clean_workspace_with_materialized_fasta() -> None
         tsv_path = workspace / "data_external" / "human_homology_diamond.tsv"
         config = load_config(workspace / "config" / "params.yaml")
         cfg = config["online_sources"]["human_homology_diamond"]
+        cfg["enabled"] = True
         cfg["allow_execution"] = True
         cfg["execution_mode"] = "execute"
         cfg["reuse_cache"] = False
-        cfg["reference_fasta_path"] = str(PHASE9B_DIR / "human_reference_proteome_UP000005640.faa")
+        cfg["reference_fasta_path"] = str(SYNTHETIC_FIXTURE_DIR / "synthetic_human_reference_fixture.faa")
         cfg["database_prefix"] = str(workspace / "data_external" / "human_reference_test")
 
         def fake_run(command: list[str], **_kwargs: object):
@@ -409,7 +446,7 @@ def test_diamond_executes_from_clean_workspace_with_materialized_fasta() -> None
         assert manifest["execution_failed"] is False
         assert manifest["query_fasta_path"] == str(fasta_path)
         assert manifest["candidate_sequence_count"] == 1
-        assert manifest["reference_fasta_path"] == str(PHASE9B_DIR / "human_reference_proteome_UP000005640.faa")
+        assert manifest["reference_fasta_path"] == str(SYNTHETIC_FIXTURE_DIR / "synthetic_human_reference_fixture.faa")
         assert df.loc[0, "protein_id"] == "P12345"
     finally:
         shutil.rmtree(workspace, ignore_errors=True)
@@ -419,7 +456,12 @@ def test_diamond_missing_executable_is_explicit_not_completed() -> None:
     workspace = _make_workspace("diamond_missing_executable_explicit")
     try:
         (workspace / "data_external" / "candidate_proteins.faa").write_text(">P12345|seedA\nMAAA\n", encoding="utf-8")
-        cfg = {"allow_execution": True, "execution_mode": "execute", "diamond_executable": "definitely-missing-diamond"}
+        cfg = {
+            "enabled": True,
+            "allow_execution": True,
+            "execution_mode": "execute",
+            "diamond_executable": "definitely-missing-diamond",
+        }
         df, manifest = build_human_homologs_with_diamond(workspace, cfg)
         assert df.empty
         assert manifest["status"] == "diamond_executable_unavailable"
@@ -434,6 +476,7 @@ def test_diamond_missing_database_inputs_records_failed_execution() -> None:
     try:
         (workspace / "data_external" / "candidate_proteins.faa").write_text(">P12345|seedA\nMAAA\n", encoding="utf-8")
         cfg = {
+            "enabled": True,
             "allow_execution": True,
             "execution_mode": "execute",
             "reference_fasta_path": str(workspace / "missing-human.faa"),
@@ -458,9 +501,10 @@ def test_relative_reference_paths_resolve_from_project_root() -> None:
         fasta_path = workspace / "data_external" / "candidate_proteins.faa"
         fasta_path.write_text(">sp|P12345|SEEDA_BACT GN=seedA\nMAAA\n", encoding="utf-8")
         cfg = {
+            "enabled": True,
             "execution_mode": "cache_only",
-            "reference_fasta_path": "data_external/human_homology_phase9B/human_reference_proteome_UP000005640.faa",
-            "database_prefix": "data_external/human_homology_phase9B/human_reference_UP000005640",
+            "reference_fasta_path": "data_external/human_reference_proteome_UP000005640.faa",
+            "database_prefix": "data_external/human_reference_UP000005640",
         }
         df, manifest = build_human_homologs_with_diamond(workspace, cfg)
         assert df.empty
@@ -513,7 +557,7 @@ def test_two_hundred_sp_tr_queries_do_not_collapse(tmp_path: Path) -> None:
 def test_resolver_prefers_user_data_over_diamond_cache() -> None:
     workspace = _make_workspace("diamond_user_priority")
     try:
-        shutil.copytree(PHASE9B_DIR, workspace / "data_external" / "human_homology_phase9B")
+        shutil.copytree(SYNTHETIC_FIXTURE_DIR, workspace / "data_external" / "human_homology_synthetic")
         _write_minimal_core_layers(workspace)
         (workspace / "data_user").mkdir(exist_ok=True)
         (workspace / "data_user" / "human_homologs.csv").write_text(
@@ -521,11 +565,12 @@ def test_resolver_prefers_user_data_over_diamond_cache() -> None:
             encoding="utf-8",
         )
         config = load_config(workspace / "config" / "params.yaml")
+        config["online_sources"]["human_homology_diamond"]["enabled"] = True
         config["online_sources"]["human_homology_diamond"]["candidate_fasta_path"] = (
-            "data_external/human_homology_phase9B/hpylori_priority_6.faa"
+            "data_external/human_homology_synthetic/synthetic_hpylori_candidates.faa"
         )
         config["online_sources"]["human_homology_diamond"]["cached_tsv_path"] = (
-            "data_external/human_homology_phase9B/hpylori_vs_human_ultrasensitive.tsv"
+            "data_external/human_homology_synthetic/synthetic_diamond_results.tsv"
         )
         manifest = resolve_layer_inputs(workspace, config)
         assert manifest["human_homologs"]["resolved_from"] == "user"
@@ -572,14 +617,15 @@ def test_name_match_unverified_does_not_set_human_homolog() -> None:
 def test_diamond_output_survives_normalization_integration_and_scoring() -> None:
     workspace = _make_workspace("diamond_pipeline_compat")
     try:
-        shutil.copytree(PHASE9B_DIR, workspace / "data_external" / "human_homology_phase9B")
+        shutil.copytree(SYNTHETIC_FIXTURE_DIR, workspace / "data_external" / "human_homology_synthetic")
         _write_minimal_core_layers(workspace)
         config = load_config(workspace / "config" / "params.yaml")
+        config["online_sources"]["human_homology_diamond"]["enabled"] = True
         config["online_sources"]["human_homology_diamond"]["candidate_fasta_path"] = (
-            "data_external/human_homology_phase9B/hpylori_priority_6.faa"
+            "data_external/human_homology_synthetic/synthetic_hpylori_candidates.faa"
         )
         config["online_sources"]["human_homology_diamond"]["cached_tsv_path"] = (
-            "data_external/human_homology_phase9B/hpylori_vs_human_ultrasensitive.tsv"
+            "data_external/human_homology_synthetic/synthetic_diamond_results.tsv"
         )
         load_and_validate_all(workspace, config)
         normalize_all(workspace, config)
