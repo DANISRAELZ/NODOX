@@ -1,0 +1,11 @@
+protein_id,gene,infection_site_access,database
+PA0001,gyrB,0.1775,computed_controlled_therapeutic_context_v1
+PA0002,rpoB,0.185,computed_controlled_therapeutic_context_v1
+PA0003,ftsZ,0.17,computed_controlled_therapeutic_context_v1
+PA0004,murA,0.2,computed_controlled_therapeutic_context_v1
+PA0005,fabI,0.17,computed_controlled_therapeutic_context_v1
+PA0006,acpP,0.185,computed_controlled_therapeutic_context_v1
+PA0007,oprD,0.8425,computed_controlled_therapeutic_context_v1
+PA0008,lasB,0.95,computed_controlled_therapeutic_context_v1
+PA0009,algD,0.2975,computed_controlled_therapeutic_context_v1
+PA0010,pvdA,0.305,computed_controlled_therapeutic_context_v1
