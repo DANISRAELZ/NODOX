@@ -827,6 +827,18 @@ def _output_row_for_no_hit(
     }
 
 
+def _diamond_result_counts(df: pd.DataFrame) -> dict[str, int]:
+    statuses = df.get("homology_lookup_status", pd.Series(dtype=str)).fillna("").astype(str)
+    hit_count = int(statuses.eq("diamond_hit").sum())
+    no_hit_count = int(statuses.eq("diamond_no_hit").sum())
+    return {
+        "result_row_count": int(len(df)),
+        "hit_count": hit_count,
+        "no_hit_count": no_hit_count,
+        "matched_candidate_count": hit_count,
+    }
+
+
 def build_human_homologs_with_diamond(
     workspace: Path,
     raw_cfg: dict[str, Any] | None,
@@ -848,6 +860,12 @@ def build_human_homologs_with_diamond(
         "execution_started": False,
         "execution_completed": False,
         "execution_failed": False,
+        "provider_mode": "local_executable",
+        "provider_attempted": False,
+        "provider_success": False,
+        "affects_score": False,
+        "evidence_level": "unresolved",
+        "data_realism_flag": "unresolved",
         "fallback_reason": "",
         "notes": [],
     }
@@ -886,7 +904,12 @@ def build_human_homologs_with_diamond(
                 "retrieval_status": "diamond_cached_tsv_materialized",
                 "execution_status": "cache_reused",
                 "tsv_path": str(cached_tsv),
+                "provider_attempted": True,
+                "provider_success": True,
+                "evidence_level": "sequence_alignment",
+                "data_realism_flag": "computed_local",
                 "notes": [str(cached_tsv)],
+                **_diamond_result_counts(df),
             }
         )
         return df, manifest
@@ -913,6 +936,7 @@ def build_human_homologs_with_diamond(
         )
         return pd.DataFrame(columns=OUTPUT_COLUMNS), manifest
     manifest["execution_started"] = True
+    manifest["provider_attempted"] = True
     manifest["execution_status"] = "started"
     try:
         configured_db_path = resolve_config_path(cfg.database_prefix, workspace, base_dir).with_suffix(".dmnd")
@@ -942,10 +966,14 @@ def build_human_homologs_with_diamond(
             "retrieval_status": "diamond_blastp_executed",
             "execution_status": "executed",
             "execution_completed": True,
+            "provider_success": True,
+            "evidence_level": "sequence_alignment",
+            "data_realism_flag": "computed_local",
             "reference_fasta_path": str(reference_fasta),
             "database_path": str(db_path),
             "tsv_path": str(tsv_path),
             "notes": [str(tsv_path)],
+            **_diamond_result_counts(df),
         }
     )
     return df, manifest

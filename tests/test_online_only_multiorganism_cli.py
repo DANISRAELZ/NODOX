@@ -53,6 +53,11 @@ def test_universal_runner_is_not_pseudomonas_specific() -> None:
     assert "run_pseudomonas_online_only_validation" not in script
     assert "--organism-key" in script
     assert "--disable-string" in script
+    assert "--disable-vfdb" in script
+    assert "--disable-deg" in script
+    assert "--disable-bvbrc" in script
+    assert "--vfdb-dataset" in script
+    assert "--deg-dataset" in script
 
 
 def test_scoring_modules_are_not_imported_or_modified_by_universal_runner() -> None:

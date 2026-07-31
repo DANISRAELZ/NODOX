@@ -521,6 +521,7 @@ def _write_manifest_and_report(workspace: Path, manifest: dict[str, Any]) -> tup
     manifest_path = results_dir / "online_source_manifest.json"
     report_path = results_dir / "online_source_report.md"
     _json_dump(manifest_path, manifest)
+    _json_dump(results_dir / "string_functional_network_manifest.json", manifest)
 
     lines = [
         "# Online Source Report",

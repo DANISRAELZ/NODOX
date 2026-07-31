@@ -444,6 +444,14 @@ def test_diamond_executes_from_clean_workspace_with_materialized_fasta() -> None
         assert manifest["execution_started"] is True
         assert manifest["execution_completed"] is True
         assert manifest["execution_failed"] is False
+        assert manifest["provider_mode"] == "local_executable"
+        assert manifest["provider_attempted"] is True
+        assert manifest["provider_success"] is True
+        assert manifest["result_row_count"] == 1
+        assert manifest["hit_count"] == 1
+        assert manifest["no_hit_count"] == 0
+        assert manifest["matched_candidate_count"] == 1
+        assert manifest["affects_score"] is False
         assert manifest["query_fasta_path"] == str(fasta_path)
         assert manifest["candidate_sequence_count"] == 1
         assert manifest["reference_fasta_path"] == str(SYNTHETIC_FIXTURE_DIR / "synthetic_human_reference_fixture.faa")

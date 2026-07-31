@@ -28,6 +28,29 @@ pytestmark = pytest.mark.integration
 
 
 class ScoringTests(unittest.TestCase):
+    def _make_scoring_project(self) -> Path:
+        """Create a deterministic scoring workspace with versioned context fixtures."""
+        project_dir = make_temp_project()
+
+        # A scoring test must not depend on whatever happens to exist
+        # in the developer's local data_cache directory.
+        cache_dir = project_dir / "data_cache"
+        shutil.rmtree(cache_dir, ignore_errors=True)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        fixture_dir = PROJECT_ROOT / "tests" / "fixtures" / "scoring_context"
+
+        for filename in (
+            "curated_disease_context.csv",
+            "therapy_site_context.csv",
+        ):
+            shutil.copy2(
+                fixture_dir / filename,
+                cache_dir / filename,
+            )
+
+        return project_dir
+
     def _make_workspace_with_raw_inputs(self) -> Path:
         root = PROJECT_ROOT / ".tmp_tests" / f"scoring_workspace_{uuid.uuid4().hex[:8]}"
         (root / "config").mkdir(parents=True, exist_ok=True)
@@ -49,7 +72,7 @@ class ScoringTests(unittest.TestCase):
         return root
 
     def test_scores_are_generated_in_expected_range(self) -> None:
-        project_dir = make_temp_project()
+        project_dir = self._make_scoring_project()
         config = load_config(project_dir / "config" / "params.yaml")
         load_and_validate_all(project_dir, config)
         normalize_all(project_dir, config)
@@ -220,7 +243,7 @@ class ScoringTests(unittest.TestCase):
             self.assertTrue(features[metadata_column].fillna("").astype(str).str.strip().ne("").all(), metadata_column)
 
     def test_sensitivity_analysis_returns_multiple_scenarios(self) -> None:
-        project_dir = make_temp_project()
+        project_dir = self._make_scoring_project()
         config = load_config(project_dir / "config" / "params.yaml")
         load_and_validate_all(project_dir, config)
         normalize_all(project_dir, config)
@@ -278,7 +301,7 @@ class ScoringTests(unittest.TestCase):
         )
 
     def test_specific_therapeutic_rules_take_priority_over_mixed_fallback(self) -> None:
-        project_dir = make_temp_project()
+        project_dir = self._make_scoring_project()
         config = load_config(project_dir / "config" / "params.yaml")
         load_and_validate_all(project_dir, config)
         normalize_all(project_dir, config)
@@ -301,7 +324,7 @@ class ScoringTests(unittest.TestCase):
         self.assertEqual(by_protein.loc["PA0002", "therapeutic_role_rule"], "poor_infection_site_access")
 
     def test_limited_access_exception_does_not_rescue_high_host_risk_profiles(self) -> None:
-        project_dir = make_temp_project()
+        project_dir = self._make_scoring_project()
         config = load_config(project_dir / "config" / "params.yaml")
         load_and_validate_all(project_dir, config)
         normalize_all(project_dir, config)
@@ -313,7 +336,7 @@ class ScoringTests(unittest.TestCase):
         self.assertEqual(by_protein.loc["PA0006", "therapeutic_role_rule"], "host_risk_too_high")
 
     def test_scoring_refactor_preserves_repeatable_outputs(self) -> None:
-        project_dir = make_temp_project()
+        project_dir = self._make_scoring_project()
         config = load_config(project_dir / "config" / "params.yaml")
         load_and_validate_all(project_dir, config)
         normalize_all(project_dir, config)

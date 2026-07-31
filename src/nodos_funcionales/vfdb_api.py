@@ -2,15 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.request import urlopen
 
 import pandas as pd
-
-from .provider_response_audit import ProviderResponse, request_provider_payload, response_audit_fields
 
 
 SOURCE_MODES = {"offline_only", "cache_first", "online_optional"}
@@ -46,39 +42,69 @@ def save_vfdb_cache(workspace: Path, config: dict[str, Any], payload: dict[str, 
     _json_dump(_cache_path(workspace, config), payload)
 
 
-def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str], ProviderResponse | None]:
-    timeout = float(cfg["provider_timeout_seconds"])
-    user_agent = str(cfg["provider_user_agent"])
-    retries = int(cfg["provider_max_retries"])
-    backoff = float(cfg["provider_backoff_seconds"])
-    errors: list[str] = []
-    for attempt in range(retries + 1):
-        response = request_provider_payload(url, timeout=timeout, user_agent=user_agent, accept="application/json,text/tab-separated-values,*/*", opener=urlopen)
-        if response.error_status == "":
-            return response.payload, errors, response
-        errors.append(response.rejection_reason or response.error_status)
-        if response.http_status == 429 and attempt < retries:
-            time.sleep(backoff)
-            continue
-        return None, errors, response
-    return None, errors, None
-
-
 def _get_candidate_proteins(workspace: Path) -> pd.DataFrame:
-    path = workspace / "data_raw" / "virulence.csv"
-    if not path.exists():
-        return pd.DataFrame(columns=["protein_id", "gene"])
-    df = pd.read_csv(path)
-    if "protein_id" not in df.columns:
-        return pd.DataFrame(columns=["protein_id", "gene"])
-    rows = []
-    for _, row in df.iterrows():
-        protein_id = str(row.get("protein_id", "")).strip().upper()
-        if not protein_id:
+    for filename in ["virulence.csv", "essentiality.csv"]:
+        path = workspace / "data_raw" / filename
+        if not path.exists():
             continue
-        gene = str(row.get("gene", "")).strip() or protein_id
-        rows.append({"protein_id": protein_id, "gene": gene})
-    return pd.DataFrame(rows).drop_duplicates(subset=["protein_id"]).sort_values("protein_id").reset_index(drop=True)
+        df = pd.read_csv(path)
+        if "protein_id" not in df.columns:
+            continue
+        rows = []
+        for _, row in df.iterrows():
+            protein_id = str(row.get("protein_id", "")).strip().upper()
+            if not protein_id:
+                continue
+            gene = str(row.get("gene", "")).strip() or protein_id
+            rows.append({"protein_id": protein_id, "gene": gene})
+        if rows:
+            return pd.DataFrame(rows).drop_duplicates(subset=["protein_id"]).sort_values("protein_id").reset_index(drop=True)
+    return pd.DataFrame(columns=["protein_id", "gene"])
+
+
+def _resolve_local_dataset_path(workspace: Path, cfg: dict[str, Any], key: str) -> Path:
+    configured = Path(str(cfg[key]))
+    return configured if configured.is_absolute() else workspace / configured
+
+
+def _read_local_dataset(path: Path) -> pd.DataFrame:
+    if not path.exists() or not path.is_file():
+        return pd.DataFrame()
+    return pd.read_csv(path, sep=None, engine="python")
+
+
+def _dataset_version(workspace: Path, cfg: dict[str, Any]) -> str:
+    path = _resolve_local_dataset_path(workspace, cfg, "local_dataset_version_path")
+    if not path.exists():
+        return "not_recorded"
+    value = path.read_text(encoding="utf-8", errors="replace").strip()
+    return value[:300] or "not_recorded"
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _filter_records_for_context(
+    records: pd.DataFrame,
+    organism_name: str,
+    taxon_id: str | None,
+) -> pd.DataFrame:
+    if records.empty:
+        return records
+    for column in ["taxon_id", "taxonomy_id", "ncbi_taxon_id"]:
+        if column in records.columns and taxon_id:
+            return records[records[column].fillna("").astype(str).str.strip().eq(str(taxon_id))].copy()
+    for column in ["organism", "organism_name", "species", "strain"]:
+        if column in records.columns and organism_name:
+            expected = organism_name.strip().casefold()
+            values = records[column].fillna("").astype(str).str.strip().str.casefold()
+            return records[values.map(lambda value: bool(value) and (expected in value or value in expected))].copy()
+    return records
 
 
 def _cache_key(taxon_id: str | None, proteins: pd.DataFrame) -> str:
@@ -106,28 +132,6 @@ def _as_records(payload: Any) -> list[dict[str, Any]]:
             rows.append({header[idx]: values[idx] for idx in range(min(len(header), len(values)))})
         return rows
     return []
-
-
-def _is_structured_vfdb_payload(payload: Any, response: ProviderResponse | None) -> bool:
-    if response is None:
-        return False
-    if response.payload_type not in {"json", "tabular_text"}:
-        return False
-    return bool(_as_records(payload))
-
-
-def _conservative_status(response: ProviderResponse | None) -> str:
-    if response is None:
-        return "unresolved"
-    if response.error_status == "not_found":
-        return "not_found"
-    if response.payload_type == "html":
-        return "deprecated_or_changed"
-    if response.payload_type in {"empty", "unexpected_text"}:
-        return "deprecated_or_changed"
-    if response.error_status:
-        return response.error_status
-    return "unresolved"
 
 
 def _record_tokens(record: dict[str, Any]) -> set[str]:
@@ -161,8 +165,6 @@ def _derive_rows(proteins: pd.DataFrame, payload: Any, config: dict[str, Any]) -
             matched += 1
             score = _category_score(match)
             rows.append({"protein_id": protein_id, "gene": gene, "virulence_score": score, "virulence_factor": 1, "database": str(config["online_sources"]["vfdb"]["database_label"])})
-        else:
-            rows.append({"protein_id": protein_id, "gene": gene, "virulence_score": 0.0, "virulence_factor": 0, "database": str(config["online_sources"]["vfdb"]["database_label"])})
     return pd.DataFrame(rows, columns=VIRULENCE_COLUMNS), matched
 
 
@@ -194,46 +196,120 @@ def fetch_vfdb_virulence(
     if mode not in SOURCE_MODES:
         raise ValueError(f"online source mode no soportado: {mode}")
     workspace = Path(workspace)
-    proteins = _get_candidate_proteins(workspace)
-    cache = load_vfdb_cache(workspace, config)
-    cache_key = _cache_key(taxon_id, proteins)
     cfg = config["online_sources"]["vfdb"]
+    proteins = _get_candidate_proteins(workspace)
+    dataset_path = _resolve_local_dataset_path(workspace, cfg, "local_dataset_path")
+    dataset_checksum = _sha256(dataset_path) if dataset_path.exists() and dataset_path.is_file() else ""
+    cache = load_vfdb_cache(workspace, config)
+    cache_key = f"{_cache_key(taxon_id, proteins)}::{dataset_checksum[:16] or 'missing'}"
+
+    if not bool(cfg.get("enabled", True)):
+        manifest = {
+            "source": "vfdb",
+            "provider": str(cfg["provider_name"]),
+            "provider_name": str(cfg["provider_name"]),
+            "provider_mode": "local_dataset",
+            "mode": mode,
+            "organism_name": organism_name,
+            "taxon_id": taxon_id,
+            "query_cache_key": cache_key,
+            "proteins_queried": int(len(proteins)),
+            "protein_count_mapped": 0,
+            "source_used": "provider_disabled",
+            "retrieval_status": "provider_disabled",
+            "cache_hit": False,
+            "provider_attempted": False,
+            "provider_success": False,
+            "api_attempted": False,
+            "api_success": False,
+            "fallback_reason": "provider_disabled_by_run_configuration",
+            "evidence_level": "unresolved",
+            "affects_score": False,
+            "notes": ["provider_disabled_before_local_dataset_lookup"],
+            "generated_at_utc": _utc_now(),
+        }
+        return {
+            "virulence_data": pd.DataFrame(columns=VIRULENCE_COLUMNS),
+            "manifest": manifest,
+            "manifest_path": _write_manifest(workspace, manifest),
+        }
 
     if not refresh_cache and cache["entries"].get(cache_key):
         entry = cache["entries"][cache_key]
         df = pd.DataFrame(entry.get("virulence_rows", []), columns=VIRULENCE_COLUMNS)
         manifest = _cache_manifest(entry.get("manifest", {}), mode)
         return {"virulence_data": df, "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
-    if mode == "offline_only":
-        raise FileNotFoundError("Modo offline_only sin cache VFDB utilizable para este conjunto de proteinas.")
     if proteins.empty:
-        manifest = {"source": "vfdb", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": 0, "protein_count_mapped": 0, "source_used": "empty_candidates", "cache_hit": False, "api_attempted": False, "api_success": False, "fallback_reason": "no_candidate_proteins", "notes": ["no_candidate_proteins"], "generated_at_utc": _utc_now()}
-        return {"virulence_data": pd.DataFrame(columns=VIRULENCE_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
+        status = "empty_candidates"
+        fallback_reason = "no_candidate_proteins"
+        records = pd.DataFrame()
+    elif not dataset_path.exists():
+        status = "local_dataset_missing"
+        fallback_reason = "vfdb_requires_versioned_local_dataset"
+        records = pd.DataFrame()
+    else:
+        try:
+            records = _filter_records_for_context(
+                _read_local_dataset(dataset_path),
+                organism_name,
+                taxon_id,
+            )
+        except Exception as exc:  # noqa: BLE001 - invalid local data remains non-blocking.
+            status = "local_dataset_invalid"
+            fallback_reason = f"local_dataset_parse_error:{type(exc).__name__}"
+            records = pd.DataFrame()
+        else:
+            has_identifiers = any(_record_tokens(row) for row in records.to_dict(orient="records"))
+            if records.empty:
+                status = "local_dataset_empty_for_organism"
+                fallback_reason = "no_vfdb_records_for_requested_organism"
+            elif not has_identifiers:
+                status = "local_dataset_invalid"
+                fallback_reason = "vfdb_dataset_missing_supported_identifier_columns"
+            else:
+                status = "local_dataset_available"
+                fallback_reason = ""
 
-    provider_url = str(cfg["provider_base_url"]).rstrip("/") + "/VFs.tsv.gz"
-    payload, errors, response = _api_get_json(provider_url, cfg)
-    if payload is None:
-        if mode == "online_optional" and cache["entries"].get(cache_key):
-            entry = cache["entries"][cache_key]
-            df = pd.DataFrame(entry.get("virulence_rows", []), columns=VIRULENCE_COLUMNS)
-            manifest = _cache_manifest(entry.get("manifest", {}), mode)
-            manifest["api_attempted"] = True
-            manifest["fallback_reason"] = "api_failed_fallback_cache"
-            return {"virulence_data": df, "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
-        audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
-        manifest = {"source": "vfdb", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": 0, "source_used": "api_failed", "retrieval_status": _conservative_status(response), "cache_hit": False, "api_attempted": True, "api_success": False, "fallback_reason": "api_failed_no_cache", "notes": errors, "generated_at_utc": _utc_now(), **audit}
-        return {"virulence_data": pd.DataFrame(columns=VIRULENCE_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
-
-    if not _is_structured_vfdb_payload(payload, response):
-        audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
-        status = _conservative_status(response)
-        reason = audit.get("rejection_reason") or "structured_vfdb_payload_not_verified"
-        manifest = {"source": "vfdb", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": 0, "source_used": status, "retrieval_status": status, "cache_hit": False, "api_attempted": True, "api_success": False, "fallback_reason": reason, "notes": errors + [str(reason), "No virulence evidence was inferred from this provider response."], "generated_at_utc": _utc_now(), **audit}
-        return {"virulence_data": pd.DataFrame(columns=VIRULENCE_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
-
-    df, matched = _derive_rows(proteins, payload, config)
-    audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
-    manifest = {"source": "vfdb", "provider": str(cfg["provider_name"]), "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "protein_count_mapped": int(matched), "source_used": "api_real" if matched else "vfdb_filtered_no_matches", "retrieval_status": "api_real" if matched else "not_found", "cache_hit": False, "api_attempted": True, "api_success": True, "fallback_reason": None if matched else "no_vfdb_matches_for_workspace_candidates", "notes": errors, "generated_at_utc": _utc_now(), **audit}
+    df, matched = (
+        _derive_rows(proteins, records.to_dict(orient="records"), config)
+        if status == "local_dataset_available"
+        else (pd.DataFrame(columns=VIRULENCE_COLUMNS), 0)
+    )
+    retrieval_status = "local_dataset_available" if matched else (
+        "local_dataset_no_candidate_matches" if status == "local_dataset_available" else status
+    )
+    manifest = {
+        "source": "vfdb",
+        "provider": str(cfg["provider_name"]),
+        "provider_name": str(cfg["provider_name"]),
+        "provider_mode": "local_dataset",
+        "mode": mode,
+        "organism_name": organism_name,
+        "taxon_id": taxon_id,
+        "query_cache_key": cache_key,
+        "proteins_queried": int(len(proteins)),
+        "records_retrieved": int(len(records)),
+        "protein_count_mapped": int(matched),
+        "source_used": "local_dataset" if status == "local_dataset_available" else status,
+        "retrieval_status": retrieval_status,
+        "cache_hit": False,
+        "provider_attempted": bool(proteins.empty is False),
+        "provider_success": status == "local_dataset_available",
+        "api_attempted": False,
+        "api_success": False,
+        "fallback_reason": fallback_reason or (None if matched else "no_vfdb_matches_for_workspace_candidates"),
+        "evidence_level": "curated_external_dataset" if matched else "unresolved",
+        "data_realism_flag": "external_real" if matched else "unresolved",
+        "local_dataset_path": str(dataset_path),
+        "dataset_version": _dataset_version(workspace, cfg) if dataset_path.exists() else "not_available",
+        "checksum_sha256": dataset_checksum,
+        "affects_score": False,
+        "notes": [
+            "VFDB is read only from a user-supplied, versioned local dataset; no portal scraping is attempted.",
+            "Candidates absent from the dataset remain unresolved and are not emitted as virulence_factor=0.",
+        ],
+        "generated_at_utc": _utc_now(),
+    }
     if not no_write_cache:
         cache["entries"][cache_key] = {"saved_at_utc": _utc_now(), "virulence_rows": df.to_dict(orient="records"), "manifest": manifest}
         save_vfdb_cache(workspace, config, cache)

@@ -23,9 +23,11 @@ The run is isolated under:
   - STRING for functional-network interaction evidence.
   - InterPro for domain metadata without inferring human homology.
   - Europe PMC metadata for bounded literature hit counts.
+  - VFDB and DEG from versioned local datasets when supplied.
+  - BV-BRC through the structured genome and genome-feature APIs.
 - Scoring logic is not changed.
 - Missing online evidence remains unresolved or causes a documented graceful failure.
-- VFDB, DEG, BV-BRC and evolutionary layers are reported as not implemented or unresolved unless a real matched provider result is available.
+- Missing VFDB/DEG datasets, provider failures, and unmatched records remain explicitly unresolved; absence is not encoded as negative evidence.
 
 ## Command
 

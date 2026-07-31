@@ -17,12 +17,14 @@ import pandas as pd
 from pandas.errors import EmptyDataError
 
 from .config import load_config
+from .deg_api import fetch_deg_essentiality
 from .discovery import prepare_discovery_workspace
 from .human_homology_diamond import materialize_candidate_fasta
 from .online_http import classify_provider_failure, urlopen_json
 from .pipeline import run_pipeline
 from .string_api import fetch_string_functional_network
 from .unresolved_virulence import materialize_unresolved_virulence_layer
+from .vfdb_api import fetch_vfdb_virulence
 
 
 CONSERVATIVE_NOTE = (
@@ -54,6 +56,19 @@ def _absolute_run_path(project_root: Path, value: str | Path | None) -> Path | N
     if not path.is_absolute():
         path = project_root / path
     return path.resolve()
+
+
+def _validated_provider_dataset_path(
+    project_root: Path,
+    value: str | Path | None,
+    provider_name: str,
+) -> Path | None:
+    path = _absolute_run_path(project_root, value)
+    if path is None:
+        return None
+    if not path.exists() or not path.is_file():
+        raise ValueError(f"{provider_name} dataset does not exist or is not a file: {path}")
+    return path
 
 
 def build_explicit_diamond_run_config(
@@ -143,6 +158,11 @@ def run_online_only_validation(
     enable_string: bool = True,
     enable_interpro: bool = True,
     enable_literature: bool = True,
+    enable_vfdb: bool = True,
+    enable_deg: bool = True,
+    enable_bvbrc: bool = True,
+    vfdb_dataset: str | Path | None = None,
+    deg_dataset: str | Path | None = None,
     online_source_mode: str = "online_optional",
     taxon_resolution_mode: str = "online_optional",
     refresh_taxon_cache: bool = False,
@@ -176,6 +196,8 @@ def run_online_only_validation(
         candidate_fasta_path=diamond_candidate_fasta,
         diamond_executable=diamond_executable,
     )
+    vfdb_dataset_path = _validated_provider_dataset_path(project_root, vfdb_dataset, "VFDB")
+    deg_dataset_path = _validated_provider_dataset_path(project_root, deg_dataset, "DEG")
     base_run_dir = Path(run_dir) if run_dir else default_online_only_run_dir(project_root, output_slug)
     base_run_dir.mkdir(parents=True, exist_ok=True)
     workspace = base_run_dir / "workspace"
@@ -197,6 +219,13 @@ def run_online_only_validation(
         workspace / "config" / "params.yaml",
         online_source_mode,
         diamond_run_config=diamond_run_config,
+        enable_string=enable_string,
+        enable_interpro=enable_interpro,
+        enable_vfdb=enable_vfdb,
+        enable_deg=enable_deg,
+        enable_bvbrc=enable_bvbrc,
+        vfdb_dataset_path=vfdb_dataset_path,
+        deg_dataset_path=deg_dataset_path,
     )
 
     config = load_config(workspace / "config" / "params.yaml")
@@ -227,6 +256,9 @@ def run_online_only_validation(
             "string": bool(enable_string),
             "interpro": bool(enable_interpro),
             "literature": bool(enable_literature),
+            "vfdb": bool(enable_vfdb),
+            "deg": bool(enable_deg),
+            "bvbrc": bool(enable_bvbrc),
             "diamond": bool(enable_diamond),
         },
         "diamond_execution_mode": (
@@ -255,6 +287,9 @@ def run_online_only_validation(
         enable_string=enable_string,
         enable_interpro=enable_interpro,
         enable_literature=enable_literature,
+        enable_vfdb=enable_vfdb,
+        enable_deg=enable_deg,
+        enable_bvbrc=enable_bvbrc,
     )
     if materialize_unresolved_required_fallback and not bool(seed_result.get("api_success")):
         _materialize_unresolved_required_external_layers(workspace, config, seed_result)
@@ -523,6 +558,9 @@ def enrich_online_only_downstream_layers(
     enable_string: bool = True,
     enable_interpro: bool = True,
     enable_literature: bool = True,
+    enable_vfdb: bool = True,
+    enable_deg: bool = True,
+    enable_bvbrc: bool = True,
 ) -> dict[str, Any]:
     """Attempt bounded online-only enrichment for candidates discovered by UniProt."""
     results: dict[str, Any] = {}
@@ -581,10 +619,96 @@ def enrich_online_only_downstream_layers(
                 evidence_level="unresolved",
                 inherited_from_candidate_seed=False,
             )
+    if enable_vfdb:
+        results["virulence"] = _attempt_vfdb_local_enrichment(
+            workspace,
+            organism_name,
+            taxon_id,
+            config,
+            mode,
+        )
+    else:
+        results["virulence"] = _write_online_only_provider_manifest(
+            workspace=workspace,
+            layer_key="virulence",
+            provider_name="vfdb",
+            provider_endpoint_or_mode="disabled_by_run_configuration",
+            provider_function="vfdb_api.fetch_vfdb_virulence",
+            api_attempted=False,
+            api_success=False,
+            retrieved_record_count=0,
+            matched_candidate_count=0,
+            fallback_used=True,
+            fallback_reason="provider_disabled_by_run_configuration",
+            retrieval_status="provider_disabled",
+            source_used="provider_disabled",
+            data_realism_flag="unresolved",
+            evidence_level="unresolved",
+            inherited_from_candidate_seed=False,
+            provider_attempted=False,
+            provider_success=False,
+            provider_mode="local_dataset",
+        )
+        if not candidates.empty:
+            materialize_unresolved_virulence_layer(workspace)
+
+    if enable_deg:
+        results["contextual_essentiality"] = _attempt_deg_local_enrichment(
+            workspace,
+            organism_name,
+            taxon_id,
+            config,
+            mode,
+        )
+    else:
+        results["contextual_essentiality"] = _write_online_only_provider_manifest(
+            workspace=workspace,
+            layer_key="contextual_essentiality",
+            provider_name="deg",
+            provider_endpoint_or_mode="disabled_by_run_configuration",
+            provider_function="deg_api.fetch_deg_essentiality",
+            api_attempted=False,
+            api_success=False,
+            retrieved_record_count=0,
+            matched_candidate_count=0,
+            fallback_used=True,
+            fallback_reason="provider_disabled_by_run_configuration",
+            retrieval_status="provider_disabled",
+            source_used="provider_disabled",
+            data_realism_flag="unresolved",
+            evidence_level="unresolved",
+            inherited_from_candidate_seed=False,
+            provider_attempted=False,
+            provider_success=False,
+            provider_mode="local_dataset",
+        )
+
+    results["strain_conservation"] = _write_online_only_provider_manifest(
+        workspace=workspace,
+        layer_key="strain_conservation",
+        provider_name="bvbrc",
+        provider_endpoint_or_mode=(
+            str(config["online_sources"]["bvbrc"]["provider_base_url"])
+            if enable_bvbrc
+            else "disabled_by_run_configuration"
+        ),
+        provider_function="online_sources.fetch_layer_external_source",
+        api_attempted=False,
+        api_success=False,
+        retrieved_record_count=0,
+        matched_candidate_count=0,
+        fallback_used=not enable_bvbrc,
+        fallback_reason="" if enable_bvbrc else "provider_disabled_by_run_configuration",
+        retrieval_status="deferred_to_layer_resolver" if enable_bvbrc else "provider_disabled",
+        source_used="deferred_to_layer_resolver" if enable_bvbrc else "provider_disabled",
+        data_realism_flag="unresolved",
+        evidence_level="unresolved",
+        inherited_from_candidate_seed=False,
+        provider_attempted=False,
+        provider_success=False,
+        provider_mode="online",
+    )
     for layer_key, provider_name, reason in [
-        ("virulence", "vfdb", "vfdb_live_provider_not_available"),
-        ("contextual_essentiality", "deg", "deg_live_provider_not_available"),
-        ("strain_conservation", "bvbrc", "bvbrc_live_conservation_provider_not_available"),
         ("evolutionary_escape", "not_implemented", "evolutionary_escape_provider_not_implemented"),
         ("evolutionary_escape_risk", "not_implemented", "evolutionary_escape_risk_provider_not_implemented"),
         ("redundancy", "not_implemented", "redundancy_provider_not_implemented"),
@@ -608,8 +732,6 @@ def enrich_online_only_downstream_layers(
             evidence_level="unresolved",
             inherited_from_candidate_seed=False,
         )
-        if layer_key == "virulence" and not candidates.empty:
-            materialize_unresolved_virulence_layer(workspace)
     return results
 
 
@@ -657,8 +779,13 @@ def build_online_only_review_package(
         "online_only_redundancy_manifest.json",
         "online_only_collateral_sensitivity_manifest.json",
         "deg_essentiality_manifest.json",
+        "deg_essentiality_matches.csv",
         "vfdb_virulence_manifest.json",
         "bvbrc_conservation_manifest.json",
+        "string_functional_network_manifest.json",
+        "uniprot_annotation_manifest.json",
+        "interpro_host_annotation_manifest.json",
+        "human_homology_diamond_manifest.json",
         "string_mapping_audit.csv",
         "online_source_report.md",
     ]:
@@ -805,40 +932,79 @@ def build_online_only_provider_audit(workspace: Path, seed_result: dict[str, Any
     manifest = _load_layer_resolution_manifest(workspace)
     seed_manifest = seed_result or _load_seed_manifest(workspace)
     rows: list[dict[str, Any]] = [_provider_audit_row_from_seed(seed_manifest)]
-    layer_to_manifest = {
-        "candidate_seed": workspace / "results" / "online_only_candidate_seed_manifest.json",
-        "localization": workspace / "results" / "online_source_manifest.json",
-        "functional_network": workspace / "results" / "online_source_manifest.json",
-        "host_annotation": workspace / "results" / "online_only_host_annotation_manifest.json",
-        "human_homologs": workspace / "results" / "human_homology_diamond_manifest.json",
-        "literature_support": workspace / "results" / "online_only_literature_support_manifest.json",
-        "virulence": workspace / "results" / "vfdb_virulence_manifest.json",
-        "essentiality": workspace / "results" / "deg_essentiality_manifest.json",
-        "strain_conservation": workspace / "results" / "bvbrc_conservation_manifest.json",
-        "contextual_essentiality": workspace / "results" / "online_only_contextual_essentiality_manifest.json",
-        "evolutionary_escape": workspace / "results" / "online_only_evolutionary_escape_manifest.json",
-        "evolutionary_escape_risk": workspace / "results" / "online_only_evolutionary_escape_risk_manifest.json",
-        "redundancy": workspace / "results" / "online_only_redundancy_manifest.json",
-        "collateral_sensitivity": workspace / "results" / "online_only_collateral_sensitivity_manifest.json",
+    results_dir = workspace / "results"
+    manifest_candidates = {
+        "essentiality": [results_dir / "online_only_essentiality_manifest.json"],
+        "localization": [
+            results_dir / "uniprot_annotation_manifest.json",
+            results_dir / "online_only_localization_manifest.json",
+        ],
+        "functional_network": [
+            results_dir / "string_functional_network_manifest.json",
+            results_dir / "online_only_functional_network_manifest.json",
+        ],
+        "host_annotation": [
+            results_dir / "interpro_host_annotation_manifest.json",
+            results_dir / "online_only_host_annotation_manifest.json",
+        ],
+        "human_homologs": [results_dir / "human_homology_diamond_manifest.json"],
+        "literature_support": [results_dir / "online_only_literature_support_manifest.json"],
+        "virulence": [
+            results_dir / "vfdb_virulence_manifest.json",
+            results_dir / "online_only_virulence_manifest.json",
+        ],
+        "strain_conservation": [
+            results_dir / "bvbrc_conservation_manifest.json",
+            results_dir / "online_only_strain_conservation_manifest.json",
+        ],
+        "contextual_essentiality": [
+            results_dir / "deg_essentiality_manifest.json",
+            results_dir / "online_only_contextual_essentiality_manifest.json",
+        ],
+        "evolutionary_escape": [results_dir / "online_only_evolutionary_escape_manifest.json"],
+        "evolutionary_escape_risk": [results_dir / "online_only_evolutionary_escape_risk_manifest.json"],
+        "redundancy": [results_dir / "online_only_redundancy_manifest.json"],
+        "collateral_sensitivity": [results_dir / "online_only_collateral_sensitivity_manifest.json"],
     }
-    preferred_manifests = {
-        "essentiality": workspace / "results" / "online_only_essentiality_manifest.json",
-        "localization": workspace / "results" / "online_only_localization_manifest.json",
-        "functional_network": workspace / "results" / "online_only_functional_network_manifest.json",
-        "virulence": workspace / "results" / "online_only_virulence_manifest.json",
-        "strain_conservation": workspace / "results" / "online_only_strain_conservation_manifest.json",
-    }
-    for layer_key, item in manifest.items():
+    layer_keys = list(dict.fromkeys([*manifest.keys(), *manifest_candidates.keys()]))
+    for layer_key in layer_keys:
+        item = manifest.get(layer_key, {})
         provider_name = str(item.get("source_name") or item.get("layer_key") or layer_key)
         source_used = str(item.get("retrieval_status", "not_reported"))
-        provider_manifest = _read_json_if_exists(preferred_manifests.get(layer_key)) or _read_json_if_exists(layer_to_manifest.get(layer_key))
+        provider_manifest = {}
+        for candidate in manifest_candidates.get(layer_key, []):
+            provider_manifest = _read_json_if_exists(candidate)
+            if provider_manifest:
+                break
         if provider_manifest:
             provider_name = str(provider_manifest.get("provider_name") or provider_manifest.get("provider") or provider_manifest.get("source") or provider_name)
             source_used = str(provider_manifest.get("source_used") or provider_manifest.get("retrieval_status") or source_used)
         api_attempted = bool(provider_manifest.get("api_attempted", False)) if provider_manifest else _infer_attempted(item)
         api_success = bool(provider_manifest.get("api_success", False)) if provider_manifest else False
-        retrieved_count = _provider_count(provider_manifest, ["retrieved_record_count", "protein_count_requested", "records_retrieved", "edge_count"])
-        matched_count = _provider_count(provider_manifest, ["matched_candidate_count", "protein_count_mapped", "exact_gene_match_count", "mapped_protein_count"])
+        provider_attempted = bool(provider_manifest.get("provider_attempted", api_attempted)) if provider_manifest else api_attempted
+        provider_success = bool(provider_manifest.get("provider_success", api_success)) if provider_manifest else api_success
+        retrieved_count = _provider_count(
+            provider_manifest,
+            [
+                "retrieved_record_count",
+                "result_row_count",
+                "feature_records_retrieved",
+                "candidate_sequence_count",
+                "protein_count_requested",
+                "records_retrieved",
+                "edge_count",
+            ],
+        )
+        matched_count = _provider_count(
+            provider_manifest,
+            [
+                "matched_candidate_count",
+                "hit_count",
+                "protein_count_mapped",
+                "exact_gene_match_count",
+                "mapped_protein_count",
+            ],
+        )
         evidence_level = str(provider_manifest.get("evidence_level") or _evidence_level_for_layer(layer_key, api_success, source_used, item)) if provider_manifest else _evidence_level_for_layer(layer_key, api_success, source_used, item)
         fallback_reason = str(provider_manifest.get("fallback_reason") or _fallback_reason_for_layer(layer_key, item, source_used))
         fallback_used = bool(fallback_reason) or str(item.get("source_name", "")).find("fallback") >= 0
@@ -846,8 +1012,24 @@ def build_online_only_provider_audit(workspace: Path, seed_result: dict[str, Any
             {
                 "layer_key": layer_key,
                 "provider_name": _canonical_provider_name(layer_key, provider_name),
-                "provider_endpoint_or_mode": _provider_endpoint_or_mode(layer_key, provider_name),
+                "provider_endpoint_or_mode": str(
+                    provider_manifest.get("provider_endpoint_or_mode")
+                    or provider_manifest.get("local_dataset_path")
+                    or provider_manifest.get("provider_url")
+                    or (
+                        provider_manifest.get("provider_mode")
+                        if provider_manifest.get("provider_mode") not in {"", "online", None}
+                        else ""
+                    )
+                    or _provider_endpoint_or_mode(layer_key, provider_name)
+                ),
                 "provider_function": str(provider_manifest.get("provider_function") or "not_reported") if provider_manifest else "not_reported",
+                "provider_mode": str(
+                    provider_manifest.get("provider_mode")
+                    or ("local_executable" if "diamond" in provider_name.lower() else "online")
+                ),
+                "provider_attempted": provider_attempted,
+                "provider_success": provider_success,
                 "api_attempted": api_attempted,
                 "api_success": api_success,
                 "retrieved_record_count": int(retrieved_count),
@@ -859,6 +1041,7 @@ def build_online_only_provider_audit(workspace: Path, seed_result: dict[str, Any
                 "data_realism_flag": str(provider_manifest.get("data_realism_flag") or ("computed_online" if api_success else ("controlled_context" if source_used == "controlled_provider_materialized" else "unresolved"))) if provider_manifest else ("computed_online" if api_success else ("controlled_context" if source_used == "controlled_provider_materialized" else "unresolved")),
                 "evidence_level": evidence_level,
                 "experimental_validation_supported": False,
+                "affects_score": False,
                 "inherited_from_candidate_seed": bool(provider_manifest.get("inherited_from_candidate_seed", False)) if provider_manifest else False,
                 "generated_at_utc": str(provider_manifest.get("generated_at_utc") or _utc_now()) if provider_manifest else _utc_now(),
             }
@@ -884,7 +1067,10 @@ def build_online_only_candidate_interpretation(workspace: Path) -> pd.DataFrame:
         )
     ranking = pd.read_csv(ranking_path)
     provider_audit = build_online_only_provider_audit(workspace, _load_seed_manifest(workspace))
-    succeeded = ";".join(provider_audit.loc[provider_audit["api_success"].astype(bool), "provider_name"].astype(str).tolist()) or "none"
+    success_column = "provider_success" if "provider_success" in provider_audit.columns else "api_success"
+    succeeded = ";".join(
+        provider_audit.loc[provider_audit[success_column].astype(bool), "provider_name"].astype(str).tolist()
+    ) or "none"
     unresolved_layers = ";".join(
         provider_audit.loc[provider_audit["evidence_level"].astype(str).eq("unresolved"), "layer_key"].astype(str).tolist()
     ) or "none"
@@ -1108,6 +1294,14 @@ def _write_online_only_config(
     config_path: Path,
     online_source_mode: str,
     diamond_run_config: dict[str, Any] | None = None,
+    *,
+    enable_string: bool = True,
+    enable_interpro: bool = True,
+    enable_vfdb: bool = True,
+    enable_deg: bool = True,
+    enable_bvbrc: bool = True,
+    vfdb_dataset_path: Path | None = None,
+    deg_dataset_path: Path | None = None,
 ) -> None:
     # Load and rewrite one mapping instead of appending duplicate YAML root keys. Duplicate
     # ``online_sources`` keys discarded the configured DIAMOND provider in Phase 9B v5.
@@ -1115,6 +1309,25 @@ def _write_online_only_config(
     online_sources = config.setdefault("online_sources", {})
     online_sources["source_mode_effective"] = online_source_mode
     online_sources["source_mode_default"] = online_source_mode
+    provider_switches = {
+        "string": enable_string,
+        "interpro": enable_interpro,
+        "vfdb": enable_vfdb,
+        "deg": enable_deg,
+        "bvbrc": enable_bvbrc,
+    }
+    for provider_key, enabled in provider_switches.items():
+        online_sources.setdefault(provider_key, {})["enabled"] = bool(enabled)
+    if vfdb_dataset_path is not None:
+        online_sources.setdefault("vfdb", {})["local_dataset_path"] = str(vfdb_dataset_path)
+        version_path = vfdb_dataset_path.with_suffix(".version.txt")
+        if version_path.exists():
+            online_sources["vfdb"]["local_dataset_version_path"] = str(version_path)
+    if deg_dataset_path is not None:
+        online_sources.setdefault("deg", {})["local_dataset_path"] = str(deg_dataset_path)
+        version_path = deg_dataset_path.with_suffix(".version.txt")
+        if version_path.exists():
+            online_sources["deg"]["local_dataset_version_path"] = str(version_path)
     if diamond_run_config is not None:
         online_sources.setdefault("human_homology_diamond", {}).update(diamond_run_config)
 
@@ -1173,6 +1386,9 @@ def _provider_audit_row_from_seed(seed_manifest: dict[str, Any]) -> dict[str, An
         "provider_name": str(seed_manifest.get("provider_name") or seed_manifest.get("provider") or "uniprot_rest"),
         "provider_endpoint_or_mode": str(seed_manifest.get("provider_endpoint_or_mode") or seed_manifest.get("mode") or "not_reported"),
         "provider_function": str(seed_manifest.get("provider_function") or "seed_candidate_essentiality_from_uniprot"),
+        "provider_mode": "online",
+        "provider_attempted": bool(seed_manifest.get("api_attempted", False)),
+        "provider_success": bool(seed_manifest.get("api_success", False)),
         "api_attempted": bool(seed_manifest.get("api_attempted", False)),
         "api_success": bool(seed_manifest.get("api_success", False)),
         "retrieved_record_count": int(seed_manifest.get("retrieved_record_count", seed_manifest.get("candidate_count", 0)) or 0),
@@ -1184,6 +1400,7 @@ def _provider_audit_row_from_seed(seed_manifest: dict[str, Any]) -> dict[str, An
         "data_realism_flag": str(seed_manifest.get("data_realism_flag") or ("computed_online" if seed_manifest.get("api_success") else "unresolved")),
         "evidence_level": str(seed_manifest.get("evidence_level") or ("computational_online_annotation" if seed_manifest.get("api_success") else "unresolved")),
         "experimental_validation_supported": False,
+        "affects_score": False,
         "inherited_from_candidate_seed": False,
         "generated_at_utc": str(seed_manifest.get("generated_at_utc") or _utc_now()),
     }
@@ -1227,14 +1444,16 @@ def _infer_attempted(layer_resolution: dict[str, Any]) -> bool:
 
 def _canonical_provider_name(layer_key: str, provider_name: str) -> str:
     lowered = provider_name.lower()
+    if layer_key == "human_homologs" and "diamond" in lowered:
+        return "human_homology_diamond"
     if layer_key in {"candidate_seed", "localization"} or "uniprot" in lowered:
         return "uniprot_rest"
     if layer_key == "functional_network" or "string" in lowered:
         return "string_api"
     if layer_key == "virulence" or "vfdb" in lowered:
         return "vfdb"
-    if layer_key in {"human_homologs"}:
-        return "uniprot_rest"
+    if layer_key == "human_homologs":
+        return provider_name or "human_homology_not_reported"
     if layer_key == "host_annotation" or "interpro" in lowered:
         return "interpro_api"
     if layer_key == "literature_support":
@@ -1253,9 +1472,10 @@ def _provider_endpoint_or_mode(layer_key: str, provider_name: str) -> str:
     endpoints = {
         "uniprot_rest": "https://rest.uniprot.org/uniprotkb/search",
         "string_api": "https://string-db.org/api",
-        "vfdb": "VFDB live source if implemented; otherwise unresolved",
-        "deg": "DEG live source if implemented; otherwise unresolved",
+        "vfdb": "versioned local VFDB dataset",
+        "deg": "versioned local DEG dataset",
         "interpro_api": "https://www.ebi.ac.uk/interpro/api",
+        "human_homology_diamond": "local DIAMOND executable and reference proteome",
         "bvbrc": "BV-BRC API",
         "pubmed_or_literature_metadata": "NCBI E-utilities or literature metadata mode",
         "controlled_therapeutic_context": "controlled_provider_materialized",
@@ -1681,6 +1901,95 @@ def _attempt_literature_metadata_enrichment(
     )
 
 
+def _attempt_vfdb_local_enrichment(
+    workspace: Path,
+    organism_name: str,
+    taxon_id: str,
+    config: dict[str, Any],
+    mode: str,
+) -> dict[str, Any]:
+    result = fetch_vfdb_virulence(
+        workspace=workspace,
+        organism_name=organism_name,
+        taxon_id=taxon_id,
+        config=config,
+        mode=mode,
+    )
+    data = result["virulence_data"]
+    provider_manifest = result["manifest"]
+    if not data.empty:
+        output_path = workspace / config["layer_resolution"]["external_data_dir"] / "virulence.csv"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        data.to_csv(output_path, index=False)
+    manifest = _write_online_only_provider_manifest(
+        workspace=workspace,
+        layer_key="virulence",
+        provider_name="vfdb",
+        provider_endpoint_or_mode=str(provider_manifest.get("local_dataset_path") or "versioned_local_dataset"),
+        provider_function="vfdb_api.fetch_vfdb_virulence",
+        api_attempted=False,
+        api_success=False,
+        retrieved_record_count=int(provider_manifest.get("records_retrieved", 0) or 0),
+        matched_candidate_count=int(provider_manifest.get("protein_count_mapped", 0) or 0),
+        fallback_used=data.empty,
+        fallback_reason=str(provider_manifest.get("fallback_reason") or ""),
+        retrieval_status=str(provider_manifest.get("retrieval_status") or "local_dataset_missing"),
+        source_used=str(provider_manifest.get("source_used") or "local_dataset_missing"),
+        data_realism_flag=str(provider_manifest.get("data_realism_flag") or "unresolved"),
+        evidence_level=str(provider_manifest.get("evidence_level") or "unresolved"),
+        inherited_from_candidate_seed=False,
+        provider_attempted=bool(provider_manifest.get("provider_attempted", False)),
+        provider_success=bool(provider_manifest.get("provider_success", False)),
+        provider_mode="local_dataset",
+    )
+    if data.empty and not _load_online_only_seed_candidates(workspace, config).empty:
+        materialize_unresolved_virulence_layer(workspace)
+    return manifest
+
+
+def _attempt_deg_local_enrichment(
+    workspace: Path,
+    organism_name: str,
+    taxon_id: str,
+    config: dict[str, Any],
+    mode: str,
+) -> dict[str, Any]:
+    result = fetch_deg_essentiality(
+        workspace=workspace,
+        organism_name=organism_name,
+        taxon_id=taxon_id,
+        config=config,
+        mode=mode,
+    )
+    data = result["essentiality_data"]
+    provider_manifest = result["manifest"]
+    if not data.empty:
+        output_path = workspace / "results" / "deg_essentiality_matches.csv"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        data.to_csv(output_path, index=False)
+    return _write_online_only_provider_manifest(
+        workspace=workspace,
+        layer_key="contextual_essentiality",
+        provider_name="deg",
+        provider_endpoint_or_mode=str(provider_manifest.get("local_dataset_path") or "versioned_local_dataset"),
+        provider_function="deg_api.fetch_deg_essentiality",
+        api_attempted=False,
+        api_success=False,
+        retrieved_record_count=int(provider_manifest.get("records_retrieved", 0) or 0),
+        matched_candidate_count=int(provider_manifest.get("protein_count_mapped", 0) or 0),
+        fallback_used=data.empty,
+        fallback_reason=str(provider_manifest.get("fallback_reason") or ""),
+        retrieval_status=str(provider_manifest.get("retrieval_status") or "local_dataset_missing"),
+        source_used=str(provider_manifest.get("source_used") or "local_dataset_missing"),
+        data_realism_flag=str(provider_manifest.get("data_realism_flag") or "unresolved"),
+        evidence_level=str(provider_manifest.get("evidence_level") or "unresolved"),
+        inherited_from_candidate_seed=False,
+        provider_attempted=bool(provider_manifest.get("provider_attempted", False)),
+        provider_success=bool(provider_manifest.get("provider_success", False)),
+        provider_mode="local_dataset",
+    )
+
+
 def _write_online_only_provider_manifest(
     workspace: Path,
     layer_key: str,
@@ -1698,6 +2007,9 @@ def _write_online_only_provider_manifest(
     data_realism_flag: str,
     evidence_level: str,
     inherited_from_candidate_seed: bool,
+    provider_attempted: bool | None = None,
+    provider_success: bool | None = None,
+    provider_mode: str = "online",
 ) -> dict[str, Any]:
     manifest = {
         "layer_key": layer_key,
@@ -1705,6 +2017,9 @@ def _write_online_only_provider_manifest(
         "provider": provider_name,
         "provider_endpoint_or_mode": provider_endpoint_or_mode,
         "provider_function": provider_function,
+        "provider_mode": provider_mode,
+        "provider_attempted": bool(api_attempted if provider_attempted is None else provider_attempted),
+        "provider_success": bool(api_success if provider_success is None else provider_success),
         "api_attempted": bool(api_attempted),
         "api_success": bool(api_success),
         "retrieved_record_count": int(retrieved_record_count),
@@ -1716,6 +2031,7 @@ def _write_online_only_provider_manifest(
         "data_realism_flag": str(data_realism_flag),
         "evidence_level": str(evidence_level),
         "experimental_validation_supported": False,
+        "affects_score": False,
         "inherited_from_candidate_seed": bool(inherited_from_candidate_seed),
         "generated_at_utc": _utc_now(),
     }
