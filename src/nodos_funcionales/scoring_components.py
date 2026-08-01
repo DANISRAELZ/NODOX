@@ -13,6 +13,12 @@ STRATEGY_SCORE_LABELS = {
 }
 
 
+HOMOLOGY_TIER_RISK_FLOORS = {
+    "partial_human_sequence_similarity": 0.60,
+    "strong_human_sequence_homology": 0.70,
+}
+
+
 def clamp_score(series: pd.Series, lower: float = 0.0, upper: float = 1.0) -> pd.Series:
     """Clamp numeric scores while keeping missing values conservative."""
     return pd.to_numeric(series, errors="coerce").clip(lower=lower, upper=upper).fillna(lower)
@@ -111,13 +117,40 @@ def _legacy_host_risk(row: pd.Series, neutral_unknown_score: float, threshold: f
 
 
 def human_similarity_score(row: pd.Series, neutral_unknown_score: float) -> float:
+    """Estimate host-similarity risk while respecting resolved DIAMOND tiers.
+
+    The e-value supplies continuous information, but a resolved partial or
+    strong human-homology classification must not appear safer than an
+    unresolved, neutral host-risk state.
+    """
     human_homolog = row.get("human_homolog")
     evalue = row.get("evalue")
+    tier_value = row.get("homology_evidence_tier", "")
+    tier = (
+        ""
+        if pd.isna(tier_value)
+        else str(tier_value).strip().lower()
+    )
+
     if pd.isna(human_homolog):
-        return neutral_unknown_score
+        return float(neutral_unknown_score)
+
     if int(human_homolog) == 0:
         return 0.0
+
     if pd.isna(evalue):
-        return 0.6
-    value = max(float(evalue), 1e-300)
-    return min(1.0, max(0.0, -math.log10(value) / 50.0))
+        raw_score = 0.60
+    else:
+        value = max(float(evalue), 1e-300)
+        raw_score = -math.log10(value) / 50.0
+
+    tier_floor = HOMOLOGY_TIER_RISK_FLOORS.get(tier)
+
+    if tier_floor is not None:
+        raw_score = max(
+            raw_score,
+            float(neutral_unknown_score),
+            tier_floor,
+        )
+
+    return min(1.0, max(0.0, raw_score))
