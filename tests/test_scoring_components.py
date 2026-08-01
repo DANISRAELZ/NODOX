@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import pandas as pd
 import pytest
 
@@ -8,6 +9,7 @@ from src.nodos_funcionales.scoring_components import (
     calculate_legacy_score,
     calculate_meta_priority_score,
     calculate_strategy_scores,
+    human_similarity_score,
     validate_scoring_inputs,
 )
 
@@ -100,3 +102,115 @@ def test_component_scores_are_interpretable_and_bounded() -> None:
 def test_validate_scoring_inputs_reports_missing_columns() -> None:
     with pytest.raises(ValueError, match="faltan columnas requeridas"):
         validate_scoring_inputs(pd.DataFrame({"protein_id": ["A"]}))
+
+
+@pytest.mark.parametrize(
+    ("tier", "evalue", "expected"),
+    [
+        (
+            "partial_human_sequence_similarity",
+            2.13e-11,
+            0.60,
+        ),
+        (
+            "strong_human_sequence_homology",
+            3.90e-23,
+            0.70,
+        ),
+        (
+            "strong_human_sequence_homology",
+            1.00e-100,
+            1.00,
+        ),
+    ],
+)
+def test_human_similarity_score_respects_homology_tier_floor(
+    tier: str,
+    evalue: float,
+    expected: float,
+) -> None:
+    row = pd.Series(
+        {
+            "human_homolog": 1,
+            "evalue": evalue,
+            "homology_evidence_tier": tier,
+        }
+    )
+
+    assert human_similarity_score(
+        row,
+        neutral_unknown_score=0.50,
+    ) == pytest.approx(expected)
+
+
+def test_human_similarity_score_orders_resolved_states_conservatively() -> None:
+    rows = {
+        "no_hit": pd.Series(
+            {
+                "human_homolog": 0,
+                "evalue": pd.NA,
+                "homology_evidence_tier":
+                    "no_detectable_human_similarity",
+            }
+        ),
+        "unresolved": pd.Series(
+            {
+                "human_homolog": pd.NA,
+                "evalue": pd.NA,
+                "homology_evidence_tier":
+                    "diamond_unresolved",
+            }
+        ),
+        "partial": pd.Series(
+            {
+                "human_homolog": 1,
+                "evalue": 2.13e-11,
+                "homology_evidence_tier":
+                    "partial_human_sequence_similarity",
+            }
+        ),
+        "strong": pd.Series(
+            {
+                "human_homolog": 1,
+                "evalue": 3.90e-23,
+                "homology_evidence_tier":
+                    "strong_human_sequence_homology",
+            }
+        ),
+    }
+
+    scores = {
+        name: human_similarity_score(
+            row,
+            neutral_unknown_score=0.50,
+        )
+        for name, row in rows.items()
+    }
+
+    assert scores["no_hit"] == pytest.approx(0.00)
+    assert scores["unresolved"] == pytest.approx(0.50)
+    assert scores["partial"] == pytest.approx(0.60)
+    assert scores["strong"] == pytest.approx(0.70)
+
+    assert (
+        scores["no_hit"]
+        < scores["unresolved"]
+        < scores["partial"]
+        < scores["strong"]
+    )
+
+
+def test_human_similarity_score_preserves_legacy_behavior_without_tier() -> None:
+    row = pd.Series(
+        {
+            "human_homolog": 1,
+            "evalue": 3.90e-23,
+        }
+    )
+
+    expected = -math.log10(3.90e-23) / 50.0
+
+    assert human_similarity_score(
+        row,
+        neutral_unknown_score=0.50,
+    ) == pytest.approx(expected)
