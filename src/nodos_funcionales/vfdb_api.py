@@ -8,8 +8,8 @@ from typing import Any
 
 import pandas as pd
 
+from .online.provider_modes import normalize_provider_mode
 
-SOURCE_MODES = {"offline_only", "cache_first", "online_optional"}
 VIRULENCE_COLUMNS = ["protein_id", "gene", "virulence_score", "virulence_factor", "database"]
 
 
@@ -193,8 +193,7 @@ def fetch_vfdb_virulence(
     refresh_cache: bool = False,
     no_write_cache: bool = False,
 ) -> dict[str, Any]:
-    if mode not in SOURCE_MODES:
-        raise ValueError(f"online source mode no soportado: {mode}")
+    mode = normalize_provider_mode(mode, config)
     workspace = Path(workspace)
     cfg = config["online_sources"]["vfdb"]
     proteins = _get_candidate_proteins(workspace)

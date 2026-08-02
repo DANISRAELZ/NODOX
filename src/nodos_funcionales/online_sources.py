@@ -1487,6 +1487,22 @@ def fetch_layer_external_source(
     taxon_id = context["taxon_id"]
     online_mode = effective_online_source_mode(config)
 
+    if (
+        online_mode == "online_strict"
+        and provider_name in THERAPEUTIC_CONTEXT_PROVIDERS
+        and layer_key in {"clinical_impact", "curated_disease_context", "therapy_site_context"}
+    ):
+        return {
+            "layer_key": layer_key,
+            "provider_name": provider_name,
+            "source_name": provider_name,
+            "path": None,
+            "status": "disabled_by_online_strict_policy",
+            "confidence": 0.0,
+            "notes": ["controlled_therapeutic_context_is_not_external_real_evidence"],
+            "provenance": "online_strict policy blocked controlled context before catalog or proxy materialization",
+        }
+
     if not _provider_is_enabled(config, provider_name):
         return {
             "layer_key": layer_key,

@@ -284,7 +284,12 @@ def _resolve_single_layer(
             ),
         )
 
-    if definition.allow_proxy_default:
+    strict_context_unresolved = (
+        online_source_mode == "online_strict"
+        and definition.table_key in {"clinical_impact", "curated_disease_context", "therapy_site_context"}
+        and external_provider in {"controlled_therapeutic_context_v1", "controlled_therapeutic_context_v2"}
+    )
+    if definition.allow_proxy_default and not strict_context_unresolved:
         return LayerResolution(
             layer_key=definition.table_key,
             filename=definition.filename,

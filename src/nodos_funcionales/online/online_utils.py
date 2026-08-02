@@ -1,22 +1,11 @@
 from __future__ import annotations
 
-
-ONLINE_MODE_ALIASES = {
-    "local": "offline_only",
-    "offline": "offline_only",
-    "offline_only": "offline_only",
-    "cache_first": "cache_first",
-    "online_optional": "online_optional",
-    "auto": "cache_first",
-    "api_stub": "offline_only",
-}
+from .provider_modes import mode_allows_network, normalize_provider_mode
 
 
 def normalize_online_mode(mode: str) -> str:
-    normalized = ONLINE_MODE_ALIASES.get(str(mode).strip(), "")
-    if not normalized:
-        raise ValueError(f"online source mode no soportado: {mode}")
-    return normalized
+    """Backward-compatible wrapper around the centralized mode contract."""
+    return normalize_provider_mode(mode)
 
 
 def describe_online_mode(mode: str) -> dict[str, object]:
@@ -28,8 +17,3 @@ def describe_online_mode(mode: str) -> dict[str, object]:
         "retrieval_mode": normalized,
         "provenance": f"requested={mode}; effective={normalized}",
     }
-
-
-def mode_allows_network(mode: str) -> bool:
-    normalized = normalize_online_mode(mode)
-    return normalized == "online_optional"

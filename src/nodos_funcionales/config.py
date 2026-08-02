@@ -147,6 +147,9 @@ DEFAULT_CONFIG = {
             "offline_only": True,
             "cache_first": True,
             "online_optional": True,
+            "online_strict": True,
+            "online_only": True,
+            "hybrid_curated": True,
         },
         "write_cache_by_default": True,
         "string": {

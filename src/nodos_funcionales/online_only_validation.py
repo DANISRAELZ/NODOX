@@ -18,10 +18,12 @@ from pandas.errors import EmptyDataError
 
 from .config import load_config
 from .deg_api import fetch_deg_essentiality
+from .online.provider_modes import normalize_provider_mode
 from .discovery import prepare_discovery_workspace
 from .human_homology_diamond import materialize_candidate_fasta
 from .online_http import classify_provider_failure, urlopen_json
 from .pipeline import run_pipeline
+from .scoring import _evidence_mixture_label
 from .string_api import fetch_string_functional_network
 from .unresolved_virulence import materialize_unresolved_virulence_layer
 from .vfdb_api import fetch_vfdb_virulence
@@ -31,6 +33,30 @@ CONSERVATIVE_NOTE = (
     "Online-only validation outputs are computational hypotheses. Candidate discovery from UniProt, "
     "STRING, VFDB, DEG or other providers is not experimental validation and must not be described as "
     "pharmacological, clinical or wet-lab confirmation."
+)
+
+# Auditable downstream contract: these columns are consumed by scoring or its
+# phase-3 evidence calculations.  A layer affects score only when its provider
+# also supplied usable evidence. Literature metadata is deliberately excluded;
+# scoring accepts curated literature support, not a search hit by itself.
+SCORING_COLUMNS_BY_LAYER: dict[str, tuple[str, ...]] = {
+    "essentiality": ("essential", "essentiality_score"),
+    "virulence": ("virulence_score", "virulence_factor"),
+    "human_homologs": ("human_homolog", "human_similarity_score", "host_similarity_penalty", "selectivity_score"),
+    "localization": ("localization",),
+    "functional_network": ("network_centrality", "pathway_bottleneck_score", "functional_dependency_score"),
+    "host_annotation": ("domain_overlap_score", "host_criticality_penalty"),
+    "strain_conservation": ("core_genome_presence", "strain_coverage_score"),
+    "contextual_essentiality": ("contextual_essentiality_score",),
+}
+
+ONLINE_ONLY_RANKING_PROVENANCE_COLUMNS = (
+    "real_evidence_layer_count",
+    "phase3_real_evidence_layer_count",
+    "proxy_layer_count",
+    "missing_layer_count",
+    "negative_evidence_layer_count",
+    "evidence_mixture_label",
 )
 
 RECOVERABLE_PROVIDER_FAILURES = {
@@ -163,7 +189,7 @@ def run_online_only_validation(
     enable_bvbrc: bool = True,
     vfdb_dataset: str | Path | None = None,
     deg_dataset: str | Path | None = None,
-    online_source_mode: str = "online_optional",
+    online_source_mode: str = "online_strict",
     taxon_resolution_mode: str = "online_optional",
     refresh_taxon_cache: bool = False,
     no_write_taxon_cache: bool = True,
@@ -177,6 +203,12 @@ def run_online_only_validation(
     diamond_executable: str = "diamond",
 ) -> dict[str, Any]:
     """Run an isolated, organism-parameterized validation using online/external layers only."""
+    online_source_mode = normalize_provider_mode(online_source_mode)
+    if online_source_mode == "online_strict" and materialize_unresolved_required_fallback:
+        raise ValueError(
+            "--materialize-unresolved-required-fallback no es compatible con online_strict; "
+            "use hybrid_curated/online_optional o quite el fallback explícito."
+        )
     organism = str(organism).strip()
     if not organism:
         raise ValueError("organism must be a non-empty name")
@@ -264,7 +296,12 @@ def run_online_only_validation(
         "diamond_execution_mode": (
             str(diamond_run_config["execution_mode"]) if diamond_run_config else "disabled"
         ),
-        "input_policy": "online_external_only_no_user_curated_or_packaged_demo",
+        "input_policy": (
+            "online_external_only_no_user_curated_or_packaged_demo"
+            if online_source_mode == "online_strict"
+            else "hybrid_curated_declared" if online_source_mode == "hybrid_curated"
+            else "legacy_configured_policy"
+        ),
         "online_source_mode": online_source_mode,
         "generated_at_utc": _utc_now(),
     }
@@ -367,7 +404,7 @@ def run_pseudomonas_online_only_validation(
     project_root: Path,
     run_dir: Path | None = None,
     max_seed_candidates: int = 25,
-    online_source_mode: str = "online_optional",
+    online_source_mode: str = "online_strict",
     taxon_resolution_mode: str = "online_optional",
     refresh_taxon_cache: bool = False,
     no_write_taxon_cache: bool = True,
@@ -753,6 +790,14 @@ def build_online_only_review_package(
     package_dir.mkdir(parents=True, exist_ok=True)
     results_dir = workspace / "results"
     copied: dict[str, str] = {}
+    # Prefer artifacts written by the executed run; function arguments remain
+    # fallbacks for callers that package partial or legacy workspaces.
+    persisted_seed = _load_seed_manifest(workspace)
+    if persisted_seed:
+        seed_result = persisted_seed
+    persisted_run = _read_json_if_exists(workspace / "results" / "online_only_run_manifest.json")
+    if persisted_run:
+        online_source_mode = str(persisted_run.get("online_source_mode") or online_source_mode)
     provider_audit = build_online_only_provider_audit(workspace, seed_result)
     for filename in [
         "ranking_nodos.csv",
@@ -786,6 +831,8 @@ def build_online_only_review_package(
         "uniprot_annotation_manifest.json",
         "interpro_host_annotation_manifest.json",
         "human_homology_diamond_manifest.json",
+        "curated_real_evidence_manifest.json",
+        "curated_real_evidence_summary.csv",
         "string_mapping_audit.csv",
         "online_source_report.md",
     ]:
@@ -794,14 +841,21 @@ def build_online_only_review_package(
             target = package_dir / filename
             shutil.copy2(source, target)
             if filename in {"ranking_nodos.csv", "ranking_nodos_phase3.csv"}:
-                _sanitize_online_only_ranking(target, seed_result)
+                _sanitize_online_only_ranking(target, seed_result, online_source_mode, provider_audit)
             if filename == "layer_resolution_manifest.json":
                 _enrich_layer_resolution_manifest(target, provider_audit)
             if filename == "layer_resolution_summary.csv":
                 _enrich_layer_resolution_summary_csv(target, provider_audit)
             if filename == "layer_resolution_summary.md":
                 _rewrite_layer_resolution_summary_md(target, provider_audit)
+            if filename == "human_homology_diamond_manifest.json":
+                _enrich_diamond_manifest_score_effect(target, provider_audit)
             copied[filename] = str(target)
+
+    _synchronize_online_only_ranking_provenance(
+        package_dir / "ranking_nodos.csv",
+        package_dir / "ranking_nodos_phase3.csv",
+    )
 
     provider_audit_path = package_dir / "online_only_provider_audit.csv"
     provider_audit.to_csv(provider_audit_path, index=False)
@@ -872,11 +926,12 @@ def build_online_only_provenance_summary(workspace: Path) -> pd.DataFrame:
         audit_row = provider_by_layer.get(layer_key, {})
         has_audit = isinstance(audit_row, pd.Series) or bool(audit_row)
         api_success = bool(audit_row.get("api_success", False)) if has_audit else False
+        usable_evidence = bool(audit_row.get("usable_evidence", False)) if has_audit else False
         evidence_level = str(audit_row.get("evidence_level", "unresolved") if has_audit else "unresolved")
         availability = (
-            "online_provider_success"
-            if api_success
-            else ("external_controlled_or_fallback" if is_external and status not in {"missing_optional_layer"} else "unresolved_or_missing")
+            "usable_external_evidence"
+            if usable_evidence
+            else "unresolved_or_missing"
         )
         if is_user or source_type == "user":
             availability = "invalid_user_curated_detected"
@@ -893,6 +948,8 @@ def build_online_only_provenance_summary(workspace: Path) -> pd.DataFrame:
                 "confidence": float(item.get("confidence", 0.0) or 0.0),
                 "api_attempted": bool(audit_row.get("api_attempted", False)) if has_audit else False,
                 "api_success": api_success,
+                "usable_evidence": usable_evidence,
+                "affects_score": bool(audit_row.get("affects_score", False)) if has_audit else False,
                 "provider_name": audit_row.get("provider_name", item.get("source_name", "not_reported")) if has_audit else item.get("source_name", "not_reported"),
                 "source_used": audit_row.get("source_used", status) if has_audit else status,
                 "fallback_reason": audit_row.get("fallback_reason", "") if has_audit else "",
@@ -918,6 +975,8 @@ def _empty_provenance_summary() -> pd.DataFrame:
             "confidence",
             "api_attempted",
             "api_success",
+            "usable_evidence",
+            "affects_score",
             "provider_name",
             "source_used",
             "fallback_reason",
@@ -992,6 +1051,7 @@ def build_online_only_provider_audit(workspace: Path, seed_result: dict[str, Any
                 "candidate_sequence_count",
                 "protein_count_requested",
                 "records_retrieved",
+                "accessions_queried",
                 "edge_count",
             ],
         )
@@ -1003,11 +1063,31 @@ def build_online_only_provider_audit(workspace: Path, seed_result: dict[str, Any
                 "protein_count_mapped",
                 "exact_gene_match_count",
                 "mapped_protein_count",
+                "paired_domain_rows",
             ],
         )
         evidence_level = str(provider_manifest.get("evidence_level") or _evidence_level_for_layer(layer_key, api_success, source_used, item)) if provider_manifest else _evidence_level_for_layer(layer_key, api_success, source_used, item)
-        fallback_reason = str(provider_manifest.get("fallback_reason") or _fallback_reason_for_layer(layer_key, item, source_used))
-        fallback_used = bool(fallback_reason) or str(item.get("source_name", "")).find("fallback") >= 0
+        semantics = _provider_success_semantics(
+            layer_key, provider_manifest, api_attempted, api_success, retrieved_count, matched_count, evidence_level
+        )
+        if layer_key == "functional_network" and semantics["connectivity_success"] and not semantics["mapping_success"]:
+            source_used = "degraded_no_usable_mapping"
+        if layer_key == "functional_network" and semantics["connectivity_success"] and not semantics["mapping_success"]:
+            fallback_reason = "api_response_no_usable_mapping"
+            fallback_used = True
+        else:
+            raw_fallback_reason = (
+                provider_manifest["fallback_reason"]
+                if "fallback_reason" in provider_manifest
+                else _fallback_reason_for_layer(layer_key, item, source_used)
+            )
+            fallback_reason = str(raw_fallback_reason or "")
+            fallback_used = bool(
+                provider_manifest["fallback_used"]
+                if "fallback_used" in provider_manifest
+                else bool(fallback_reason) or "fallback" in str(item.get("source_name", "")).lower()
+            )
+        affects_score = _layer_affects_score(layer_key, provider_name, semantics["usable_evidence"], evidence_level, provider_manifest)
         rows.append(
             {
                 "layer_key": layer_key,
@@ -1032,16 +1112,23 @@ def build_online_only_provider_audit(workspace: Path, seed_result: dict[str, Any
                 "provider_success": provider_success,
                 "api_attempted": api_attempted,
                 "api_success": api_success,
+                **semantics,
                 "retrieved_record_count": int(retrieved_count),
                 "matched_candidate_count": int(matched_count),
                 "fallback_used": fallback_used,
                 "fallback_reason": fallback_reason,
-                "retrieval_status": str(provider_manifest.get("retrieval_status") or _provider_retrieval_status(layer_key, item, source_used, api_attempted, api_success)) if provider_manifest else _provider_retrieval_status(layer_key, item, source_used, api_attempted, api_success),
+                "retrieval_status": (
+                    "degraded_no_usable_mapping"
+                    if layer_key == "functional_network" and semantics["connectivity_success"] and not semantics["mapping_success"]
+                    else str(provider_manifest.get("retrieval_status") or _provider_retrieval_status(layer_key, item, source_used, api_attempted, api_success))
+                    if provider_manifest else _provider_retrieval_status(layer_key, item, source_used, api_attempted, api_success)
+                ),
                 "source_used": source_used,
                 "data_realism_flag": str(provider_manifest.get("data_realism_flag") or ("computed_online" if api_success else ("controlled_context" if source_used == "controlled_provider_materialized" else "unresolved"))) if provider_manifest else ("computed_online" if api_success else ("controlled_context" if source_used == "controlled_provider_materialized" else "unresolved")),
                 "evidence_level": evidence_level,
                 "experimental_validation_supported": False,
-                "affects_score": False,
+                "affects_score": affects_score,
+                "scoring_columns_used": ";".join(SCORING_COLUMNS_BY_LAYER.get(layer_key, ())) or "none",
                 "inherited_from_candidate_seed": bool(provider_manifest.get("inherited_from_candidate_seed", False)) if provider_manifest else False,
                 "generated_at_utc": str(provider_manifest.get("generated_at_utc") or _utc_now()) if provider_manifest else _utc_now(),
             }
@@ -1067,13 +1154,10 @@ def build_online_only_candidate_interpretation(workspace: Path) -> pd.DataFrame:
         )
     ranking = pd.read_csv(ranking_path)
     provider_audit = build_online_only_provider_audit(workspace, _load_seed_manifest(workspace))
-    success_column = "provider_success" if "provider_success" in provider_audit.columns else "api_success"
     succeeded = ";".join(
-        provider_audit.loc[provider_audit[success_column].astype(bool), "provider_name"].astype(str).tolist()
+        provider_audit.loc[provider_audit["usable_evidence"].astype(bool), "provider_name"].astype(str).tolist()
     ) or "none"
-    unresolved_layers = ";".join(
-        provider_audit.loc[provider_audit["evidence_level"].astype(str).eq("unresolved"), "layer_key"].astype(str).tolist()
-    ) or "none"
+    unresolved_layers = ";".join(_unresolved_layer_keys(provider_audit)) or "none"
     rows = []
     for _, row in ranking.iterrows():
         rows.append(
@@ -1087,12 +1171,18 @@ def build_online_only_candidate_interpretation(workspace: Path) -> pd.DataFrame:
                 "experimental_validation_supported": False,
                 "online_evidence_availability": "partial_online_computational" if succeeded != "none" else "unresolved_or_fallback_only",
                 "providers_succeeded": succeeded,
+                "providers_contacted_successfully": ";".join(
+                    provider_audit.loc[provider_audit["connectivity_success"].astype(bool), "provider_name"].astype(str).tolist()
+                ) or "none",
+                "providers_degraded": ";".join(
+                    provider_audit.loc[_degraded_provider_mask(provider_audit), "provider_name"].astype(str).tolist()
+                ) or "none",
                 "unresolved_or_missing_evidence": row.get("missing_evidence_flags", row.get("evidence_limitations", "not_reported")),
                 "unresolved_layers": unresolved_layers,
-                "confidence_evidence_tier_corrected": row.get("confidence_evidence_tier", "not_reported"),
-                "provenance_status_corrected": row.get("provenance_status", "not_reported"),
-                "retrieval_mode_corrected": row.get("retrieval_mode", "not_reported"),
-                "data_realism_flag_corrected": row.get("data_realism_flag", "not_reported"),
+                "confidence_evidence_tier": "partial_online_computational",
+                "provenance_status": "partial_external_online",
+                "retrieval_mode": "online_strict_partial",
+                "data_realism_flag": "computed_online",
                 "interpretation_note": (
                     "This package did not retrieve experimental validation for this candidate. "
                     "Read any internal source-class labels together with the explicit provenance summary."
@@ -1119,19 +1209,23 @@ def _build_review_markdown(
     online_source_mode: str,
 ) -> str:
     user_rows = provenance_summary[provenance_summary["is_user_supplied"].astype(bool)]
-    unresolved = provenance_summary[
-        provenance_summary["online_evidence_availability"].astype(str).eq("unresolved_or_missing")
-    ]
-    attempted = provider_audit[provider_audit["api_attempted"].astype(bool)]
-    succeeded = provider_audit[provider_audit["api_success"].astype(bool)]
-    failed = attempted[~attempted["api_success"].astype(bool)]
+    unresolved_layers = _unresolved_layer_keys(provider_audit)
+    contacted = provider_audit[provider_audit["connectivity_success"].astype(bool)]
+    succeeded = provider_audit[provider_audit["usable_evidence"].astype(bool)]
     not_implemented = provider_audit[
         provider_audit["retrieval_status"].astype(str).str.contains("provider_not_implemented", na=False)
+    ]
+    degraded = provider_audit[_degraded_provider_mask(provider_audit)]
+    failed_providers = provider_audit[
+        provider_audit["provider_attempted"].astype(bool)
+        & ~provider_audit["technical_success"].astype(bool)
+        & ~provider_audit["provider_name"].astype(str).isin({"missing", "not_implemented"})
     ]
     inherited = provider_audit[
         provider_audit.get("inherited_from_candidate_seed", pd.Series(False, index=provider_audit.index)).astype(bool)
     ]
-    resolved_online = provider_audit[provider_audit["data_realism_flag"].astype(str).eq("computed_online")]
+    resolved_online = provider_audit[provider_audit["usable_evidence"].astype(bool)]
+    curated_manifest = _read_json_if_exists(workspace / "results" / "curated_real_evidence_manifest.json")
     ranking_path = package_dir / "ranking_nodos.csv"
     ranking_note = "not_generated"
     if ranking_path.exists():
@@ -1150,20 +1244,23 @@ def _build_review_markdown(
         f"- Strain slug: `{strain_slug or 'not provided'}`",
         f"- Workspace: `{workspace}`",
         f"- Online source mode: `{online_source_mode}`",
+        f"- Curated evidence enabled: `{curated_manifest.get('enabled', 'not_reported')}`",
+        f"- Curated evidence policy reason: `{curated_manifest.get('reason', 'manifest_missing')}`",
         f"- Pipeline status: `{pipeline_status}`",
         f"- Candidate seed source used: `{seed_result.get('source_used')}`",
         f"- Candidate seed count: `{seed_result.get('candidate_count', 0)}`",
         f"- Candidate seed fallback reason: `{seed_result.get('fallback_reason') or 'none'}`",
         f"- Ranking status: `{ranking_note}`",
         f"- User-curated layers detected: `{len(user_rows)}`",
-        f"- Unresolved or missing layers: `{len(unresolved)}`",
-        f"- Providers attempted: `{'; '.join(attempted['provider_name'].astype(str).tolist()) or 'none'}`",
-        f"- Providers succeeded: `{'; '.join(succeeded['provider_name'].astype(str).tolist()) or 'none'}`",
-        f"- Providers failed or unresolved: `{'; '.join(failed['provider_name'].astype(str).tolist()) or 'none'}`",
-        f"- Providers not implemented: `{'; '.join(not_implemented['provider_name'].astype(str).tolist()) or 'none'}`",
-        f"- Layers resolved from live online providers: `{'; '.join(resolved_online['layer_key'].astype(str).tolist()) or 'none'}`",
+        f"- Unresolved or missing layers: `{len(unresolved_layers)}`",
+        f"- Providers contacted successfully: `{_unique_join(contacted, 'provider_name')}`",
+        f"- Providers with usable evidence: `{_unique_join(succeeded, 'provider_name')}`",
+        f"- Providers degraded: `{_unique_join(degraded, 'provider_name')}`",
+        f"- Providers failed: `{_unique_join(failed_providers, 'provider_name')}`",
+        f"- Providers not implemented: `{_unique_join(not_implemented, 'provider_name')}`",
+        f"- Layers resolved with usable evidence: `{'; '.join(resolved_online['layer_key'].astype(str).tolist()) or 'none'}`",
         f"- Layers inherited from UniProt seed: `{'; '.join(inherited['layer_key'].astype(str).tolist()) or 'none'}`",
-        f"- Layers unresolved/missing: `{'; '.join(unresolved['layer_key'].astype(str).tolist()) or 'none'}`",
+        f"- Layers unresolved/missing: `{';'.join(unresolved_layers) or 'none'}`",
         "",
         "## Interpretation Guardrails",
         "",
@@ -1204,17 +1301,28 @@ def _build_review_markdown(
     return "\n".join(lines)
 
 
-def _sanitize_online_only_ranking(path: Path, seed_result: dict[str, Any]) -> None:
+def _sanitize_online_only_ranking(
+    path: Path,
+    seed_result: dict[str, Any],
+    online_source_mode: str = "online_strict",
+    provider_audit: pd.DataFrame | None = None,
+) -> None:
     ranking = pd.read_csv(path)
     seed_success = bool(seed_result.get("api_success")) and str(seed_result.get("source_used")) == "api_real"
     ranking["confidence_evidence_tier"] = "partial_online_computational" if seed_success else "online_seed_only_unresolved"
     ranking["confidence_source_class"] = "partial_online_computational" if seed_success else "online_unresolved_fallback"
     ranking["provenance_status"] = "partial_external_online" if seed_success else "external_unresolved_fallback"
-    ranking["retrieval_mode"] = "online_optional_partial" if seed_success else "offline_unresolved_fallback"
+    ranking["retrieval_mode"] = f"{online_source_mode}_partial" if seed_success else "offline_unresolved_fallback"
     ranking["data_realism_flag"] = "computed_online" if seed_success else "unresolved_fallback_only"
     ranking["evidence_level"] = "computational_online_annotation" if seed_success else "unresolved"
     ranking["evidence_source"] = "online_provider_audit"
     ranking["experimental_validation_supported"] = False
+    if provider_audit is not None and not provider_audit.empty:
+        usable_counts = _usable_real_layer_counts(ranking, provider_audit)
+        ranking["online_only_usable_real_layer_count"] = usable_counts
+        ranking["real_evidence_layer_count"] = usable_counts.astype(int)
+        ranking["phase3_real_evidence_layer_count"] = usable_counts.astype(int)
+    _normalize_online_only_provenance_columns(ranking)
     ranking["online_only_label_policy"] = (
         "publication_safe_online_computational_not_experimental"
     )
@@ -1223,6 +1331,85 @@ def _sanitize_online_only_ranking(path: Path, seed_result: dict[str, Any]) -> No
             " Online-only provider retrieval is computational evidence, not experimental validation."
         )
     ranking.to_csv(path, index=False)
+
+
+def _usable_real_layer_counts(ranking: pd.DataFrame, provider_audit: pd.DataFrame) -> pd.Series:
+    counts = pd.Series(0, index=ranking.index, dtype=int)
+    usable_layers = set(
+        provider_audit.loc[provider_audit["usable_evidence"].astype(bool), "layer_key"].astype(str).tolist()
+    )
+    for layer_key in usable_layers:
+        columns = [column for column in SCORING_COLUMNS_BY_LAYER.get(layer_key, ()) if column in ranking.columns]
+        if not columns:
+            continue
+        present = pd.Series(False, index=ranking.index)
+        for column in columns:
+            values = ranking[column]
+            present |= values.notna() & ~values.astype(str).str.strip().str.lower().isin({"", "nan", "none", "unknown", "unresolved"})
+        counts += present.astype(int)
+    return counts
+
+
+def _normalize_online_only_provenance_columns(ranking: pd.DataFrame) -> None:
+    """Normalize reporting metadata without changing any scoring calculation."""
+    aliases = {
+        "proxy_layer_count": "phase3_proxy_layer_count",
+        "missing_layer_count": "phase3_missing_layer_count",
+        "negative_evidence_layer_count": "phase3_negative_evidence_count",
+    }
+    for column, alias in aliases.items():
+        ranking[column] = _numeric_ranking_series(ranking, column, alias)
+    for column in ["real_evidence_layer_count", "phase3_real_evidence_layer_count"]:
+        ranking[column] = _numeric_ranking_series(ranking, column)
+    demo = _numeric_ranking_series(ranking, "demo_or_default_layer_count", "phase3_demo_default_layer_count")
+    ranking["evidence_mixture_label"] = [
+        _evidence_mixture_label(real, demo_count, proxy, missing, negative)
+        for real, demo_count, proxy, missing, negative in zip(
+            ranking["real_evidence_layer_count"],
+            demo,
+            ranking["proxy_layer_count"],
+            ranking["missing_layer_count"],
+            ranking["negative_evidence_layer_count"],
+        )
+    ]
+
+
+def _numeric_ranking_series(ranking: pd.DataFrame, column: str, alias: str | None = None) -> pd.Series:
+    source_column = column if column in ranking.columns else alias if alias and alias in ranking.columns else None
+    if source_column is None:
+        return pd.Series(0, index=ranking.index, dtype=int)
+    return pd.to_numeric(ranking[source_column], errors="coerce").fillna(0).astype(int)
+
+
+def _synchronize_online_only_ranking_provenance(primary_path: Path, phase3_path: Path) -> None:
+    """Use the sanitized primary ranking as the single provenance source by protein id."""
+    if not primary_path.exists() or not phase3_path.exists():
+        return
+    primary = pd.read_csv(primary_path)
+    phase3 = pd.read_csv(phase3_path)
+    if "protein_id" not in primary.columns or "protein_id" not in phase3.columns:
+        return
+    columns = [column for column in ONLINE_ONLY_RANKING_PROVENANCE_COLUMNS if column in primary.columns]
+    canonical = primary[["protein_id", *columns]].drop_duplicates(subset=["protein_id"], keep="last")
+    phase3 = phase3.drop(columns=columns, errors="ignore").merge(
+        canonical,
+        on="protein_id",
+        how="left",
+        sort=False,
+        validate="many_to_one",
+    )
+    phase3.to_csv(phase3_path, index=False)
+
+
+def _enrich_diamond_manifest_score_effect(path: Path, provider_audit: pd.DataFrame) -> None:
+    diamond = provider_audit.loc[provider_audit["layer_key"].astype(str).eq("human_homologs")]
+    if diamond.empty:
+        return
+    row = diamond.iloc[0]
+    manifest = _read_json_if_exists(path)
+    if bool(row.get("usable_evidence", False)) and bool(row.get("affects_score", False)):
+        manifest["affects_score"] = True
+        _json_dump(path, manifest)
 
 
 def _enrich_layer_resolution_manifest(path: Path, provider_audit: pd.DataFrame) -> None:
@@ -1239,6 +1426,12 @@ def _enrich_layer_resolution_manifest(path: Path, provider_audit: pd.DataFrame) 
                 "provider_function": audit.get("provider_function", "not_reported"),
                 "api_attempted": bool(audit.get("api_attempted", False)),
                 "api_success": bool(audit.get("api_success", False)),
+                "connectivity_success": bool(audit.get("connectivity_success", False)),
+                "technical_success": bool(audit.get("technical_success", False)),
+                "retrieval_success": bool(audit.get("retrieval_success", False)),
+                "mapping_success": bool(audit.get("mapping_success", False)),
+                "usable_evidence": bool(audit.get("usable_evidence", False)),
+                "affects_score": bool(audit.get("affects_score", False)),
                 "retrieved_record_count": int(audit.get("retrieved_record_count", 0) or 0),
                 "matched_candidate_count": int(audit.get("matched_candidate_count", 0) or 0),
                 "fallback_used": bool(audit.get("fallback_used", False)),
@@ -1255,7 +1448,8 @@ def _enrich_layer_resolution_manifest(path: Path, provider_audit: pd.DataFrame) 
 
 def _enrich_layer_resolution_summary_csv(path: Path, provider_audit: pd.DataFrame) -> None:
     summary = pd.read_csv(path)
-    if "layer_key" not in summary.columns:
+    key_column = "layer_key" if "layer_key" in summary.columns else "layer" if "layer" in summary.columns else ""
+    if not key_column:
         return
     audit_columns = [
         "layer_key",
@@ -1264,26 +1458,48 @@ def _enrich_layer_resolution_summary_csv(path: Path, provider_audit: pd.DataFram
         "provider_function",
         "api_attempted",
         "api_success",
+        "connectivity_success",
+        "technical_success",
+        "retrieval_success",
+        "mapping_success",
+        "usable_evidence",
+        "affects_score",
         "retrieved_record_count",
         "matched_candidate_count",
         "fallback_used",
         "fallback_reason",
+        "retrieval_status",
         "source_used",
         "data_realism_flag",
         "evidence_level",
         "experimental_validation_supported",
         "inherited_from_candidate_seed",
     ]
-    enriched = summary.merge(provider_audit[audit_columns], on="layer_key", how="left")
-    enriched["experimental_validation_supported"] = enriched["experimental_validation_supported"].fillna(False)
-    enriched.to_csv(path, index=False)
+    audit_by_layer = provider_audit[audit_columns].drop_duplicates("layer_key").set_index("layer_key")
+    layer_keys = summary[key_column].astype(str)
+    for column in audit_columns:
+        if column == "layer_key":
+            continue
+        values = layer_keys.map(audit_by_layer[column])
+        summary[column] = values.where(values.notna(), summary[column] if column in summary.columns else pd.NA)
+    missing = summary["retrieval_status"].astype(str).eq("missing_optional_layer")
+    summary.loc[missing, "source_type"] = "missing"
+    summary.loc[missing, "source_name"] = "missing"
+    summary["experimental_validation_supported"] = summary["experimental_validation_supported"].fillna(False)
+    summary.to_csv(path, index=False)
 
 
 def _rewrite_layer_resolution_summary_md(path: Path, provider_audit: pd.DataFrame) -> None:
+    summary_path = path.with_suffix(".csv")
+    summary = pd.read_csv(summary_path) if summary_path.exists() else provider_audit
     lines = [
         "# Layer Resolution Summary",
         "",
         "This online-only package appends provider audit fields. Online computational retrieval is not experimental validation.",
+        "",
+        _markdown_table(summary),
+        "",
+        "## Provider Audit",
         "",
         _markdown_table(provider_audit),
     ]
@@ -1306,9 +1522,17 @@ def _write_online_only_config(
     # Load and rewrite one mapping instead of appending duplicate YAML root keys. Duplicate
     # ``online_sources`` keys discarded the configured DIAMOND provider in Phase 9B v5.
     config = load_config(config_path)
+    online_source_mode = normalize_provider_mode(online_source_mode)
     online_sources = config.setdefault("online_sources", {})
     online_sources["source_mode_effective"] = online_source_mode
     online_sources["source_mode_default"] = online_source_mode
+    curated_cfg = config.setdefault("curated_real_evidence", {})
+    if online_source_mode == "online_strict":
+        curated_cfg["enabled"] = False
+        curated_cfg["policy_reason"] = "disabled_by_online_strict_policy"
+    elif online_source_mode == "hybrid_curated":
+        curated_cfg["enabled"] = True
+        curated_cfg["policy_reason"] = "enabled_by_hybrid_curated_policy"
     provider_switches = {
         "string": enable_string,
         "interpro": enable_interpro,
@@ -1381,6 +1605,14 @@ def _dump_simple_yaml(mapping: dict[str, Any], indent: int = 0) -> str:
 
 
 def _provider_audit_row_from_seed(seed_manifest: dict[str, Any]) -> dict[str, Any]:
+    retrieved = int(seed_manifest.get("retrieved_record_count", seed_manifest.get("candidate_count", 0)) or 0)
+    matched = int(seed_manifest.get("matched_candidate_count", seed_manifest.get("candidate_count", 0)) or 0)
+    api_attempted = bool(seed_manifest.get("api_attempted", False))
+    api_success = bool(seed_manifest.get("api_success", False))
+    semantics = _provider_success_semantics(
+        "candidate_seed", seed_manifest, api_attempted, api_success, retrieved, matched,
+        str(seed_manifest.get("evidence_level") or "computational_online_annotation"),
+    )
     return {
         "layer_key": "candidate_seed",
         "provider_name": str(seed_manifest.get("provider_name") or seed_manifest.get("provider") or "uniprot_rest"),
@@ -1389,10 +1621,11 @@ def _provider_audit_row_from_seed(seed_manifest: dict[str, Any]) -> dict[str, An
         "provider_mode": "online",
         "provider_attempted": bool(seed_manifest.get("api_attempted", False)),
         "provider_success": bool(seed_manifest.get("api_success", False)),
-        "api_attempted": bool(seed_manifest.get("api_attempted", False)),
-        "api_success": bool(seed_manifest.get("api_success", False)),
-        "retrieved_record_count": int(seed_manifest.get("retrieved_record_count", seed_manifest.get("candidate_count", 0)) or 0),
-        "matched_candidate_count": int(seed_manifest.get("matched_candidate_count", seed_manifest.get("candidate_count", 0)) or 0),
+        "api_attempted": api_attempted,
+        "api_success": api_success,
+        **semantics,
+        "retrieved_record_count": retrieved,
+        "matched_candidate_count": matched,
         "fallback_used": bool(seed_manifest.get("fallback_used", False)),
         "fallback_reason": str(seed_manifest.get("fallback_reason") or ""),
         "retrieval_status": str(seed_manifest.get("retrieval_status") or seed_manifest.get("source_used") or "not_reported"),
@@ -1404,6 +1637,97 @@ def _provider_audit_row_from_seed(seed_manifest: dict[str, Any]) -> dict[str, An
         "inherited_from_candidate_seed": False,
         "generated_at_utc": str(seed_manifest.get("generated_at_utc") or _utc_now()),
     }
+
+
+def _provider_success_semantics(
+    layer_key: str,
+    manifest: dict[str, Any],
+    attempted: bool,
+    api_success: bool,
+    retrieved_count: int,
+    matched_count: int,
+    evidence_level: str,
+) -> dict[str, bool]:
+    """Separate transport, retrieval, mapping and biological usability.
+
+    Legacy ``api_success``/``provider_success`` remain in the audit, but no
+    longer stand in for all four meanings.
+    """
+    provider_mode = str(manifest.get("provider_mode") or "").lower()
+    retrieval_status = str(manifest.get("retrieval_status") or manifest.get("execution_status") or "").lower()
+    provider_success = bool(manifest.get("provider_success", False))
+    local_execution_success = bool(
+        provider_mode == "local_executable"
+        and (provider_success or "executed" in retrieval_status)
+    )
+    connectivity = bool(manifest.get("connectivity_success", api_success))
+    retrieval = bool(
+        manifest["retrieval_success"]
+        if "retrieval_success" in manifest
+        else (local_execution_success or connectivity) and retrieved_count > 0
+    )
+    mapping = bool(manifest.get("mapping_success", matched_count > 0))
+    usable = bool(
+        manifest.get(
+            "usable_evidence",
+            retrieval and mapping and evidence_level not in {"", "unresolved"},
+        )
+    )
+    # UniProt supplies the candidate universe here, not an essentiality call.
+    if layer_key in {"candidate_seed", "essentiality"} and bool(manifest.get("inherited_from_candidate_seed", layer_key == "candidate_seed")):
+        usable = False
+    return {
+        "connectivity_success": connectivity,
+        "technical_success": bool(manifest.get("technical_success", connectivity or local_execution_success or provider_success)),
+        "retrieval_success": retrieval,
+        "mapping_success": mapping,
+        "usable_evidence": usable,
+    }
+
+
+def _layer_affects_score(
+    layer_key: str,
+    provider_name: str,
+    usable_evidence: bool,
+    evidence_level: str,
+    manifest: dict[str, Any],
+) -> bool:
+    """Trace score impact to columns consumed downstream, never to transport success."""
+    if not usable_evidence or layer_key not in SCORING_COLUMNS_BY_LAYER:
+        return False
+    if layer_key == "essentiality" and bool(manifest.get("inherited_from_candidate_seed", False)):
+        return False
+    if layer_key == "human_homologs" and "diamond" in provider_name.lower():
+        return True
+    if layer_key == "literature_support" or evidence_level == "literature_metadata_only":
+        return False
+    return True
+
+
+def _degraded_provider_mask(provider_audit: pd.DataFrame) -> pd.Series:
+    status = provider_audit.get("retrieval_status", pd.Series("", index=provider_audit.index)).fillna("").astype(str)
+    layer = provider_audit.get("layer_key", pd.Series("", index=provider_audit.index)).fillna("").astype(str)
+    technical = provider_audit.get("technical_success", pd.Series(False, index=provider_audit.index)).fillna(False).astype(bool)
+    usable = provider_audit.get("usable_evidence", pd.Series(False, index=provider_audit.index)).fillna(False).astype(bool)
+    seed_only = provider_audit.get("inherited_from_candidate_seed", pd.Series(False, index=provider_audit.index)).fillna(False).astype(bool)
+    return technical & ~usable & ~seed_only & (
+        status.str.contains("degraded|partial|no_usable_mapping", case=False, regex=True)
+        | layer.eq("functional_network")
+    )
+
+
+def _unresolved_layer_keys(provider_audit: pd.DataFrame) -> list[str]:
+    """Return biological layers without usable evidence; candidate discovery is not a layer."""
+    mask = (
+        ~provider_audit.get("usable_evidence", pd.Series(False, index=provider_audit.index)).fillna(False).astype(bool)
+        & ~provider_audit.get("layer_key", pd.Series("", index=provider_audit.index)).astype(str).eq("candidate_seed")
+    )
+    return list(dict.fromkeys(provider_audit.loc[mask, "layer_key"].astype(str).tolist()))
+
+
+def _unique_join(frame: pd.DataFrame, column: str) -> str:
+    values = [value for value in frame.get(column, pd.Series(dtype=str)).fillna("").astype(str) if value]
+    return "; ".join(dict.fromkeys(values)) or "none"
 
 
 def _load_seed_manifest(workspace: Path) -> dict[str, Any]:
@@ -1726,7 +2050,10 @@ def _attempt_string_enrichment(
         external_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(external_path, index=False)
         api_success = bool(manifest.get("api_success", False))
-        matched = int(len(df)) if api_success else 0
+        matched = int(
+            manifest.get("usable_mapping_count", manifest.get("protein_count_mapped", len(df) if api_success else 0)) or 0
+        )
+        usable = bool(api_success and matched > 0 and not df.empty)
         return _write_online_only_provider_manifest(
             workspace=workspace,
             layer_key="functional_network",
@@ -1737,9 +2064,9 @@ def _attempt_string_enrichment(
             api_success=api_success,
             retrieved_record_count=int(manifest.get("edge_count", 0) or 0),
             matched_candidate_count=matched,
-            fallback_used=not api_success,
-            fallback_reason=str(manifest.get("fallback_reason") or ("" if api_success else "mapping_failed")),
-            retrieval_status=str(manifest.get("source_used") or ("api_real" if api_success else "mapping_failed")),
+            fallback_used=not usable,
+            fallback_reason=str(manifest.get("fallback_reason") or ("" if usable else "api_response_no_usable_mapping")),
+            retrieval_status="api_real" if usable else "degraded_no_usable_mapping",
             source_used=str(manifest.get("source_used") or ("api_real" if api_success else "api_failed")),
             data_realism_flag="computed_online" if api_success else "unresolved",
             evidence_level="computational_online_interaction" if api_success else "unresolved",
@@ -2011,6 +2338,12 @@ def _write_online_only_provider_manifest(
     provider_success: bool | None = None,
     provider_mode: str = "online",
 ) -> dict[str, Any]:
+    connectivity_success = bool(api_success)
+    retrieval_success = bool(connectivity_success and int(retrieved_record_count) > 0)
+    mapping_success = bool(int(matched_candidate_count) > 0)
+    usable_evidence = bool(retrieval_success and mapping_success and evidence_level not in {"", "unresolved"})
+    if layer_key == "essentiality" and inherited_from_candidate_seed:
+        usable_evidence = False
     manifest = {
         "layer_key": layer_key,
         "provider_name": provider_name,
@@ -2022,6 +2355,10 @@ def _write_online_only_provider_manifest(
         "provider_success": bool(api_success if provider_success is None else provider_success),
         "api_attempted": bool(api_attempted),
         "api_success": bool(api_success),
+        "connectivity_success": connectivity_success,
+        "retrieval_success": retrieval_success,
+        "mapping_success": mapping_success,
+        "usable_evidence": usable_evidence,
         "retrieved_record_count": int(retrieved_record_count),
         "matched_candidate_count": int(matched_candidate_count),
         "fallback_used": bool(fallback_used),

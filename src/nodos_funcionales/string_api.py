@@ -12,12 +12,12 @@ from urllib.request import urlopen
 
 import pandas as pd
 
-from .online.provider_modes import normalize_provider_mode
+from .online.provider_modes import normalize_provider_mode, provider_mode_choices
 from .online.provenance import provider_provenance
 from .provider_response_audit import ProviderResponse, request_provider_payload, response_audit_fields
 
 
-STRING_SOURCE_MODES = {"offline_only", "cache_first", "online_optional", "local", "auto", "api_stub"}
+STRING_SOURCE_MODES = set(provider_mode_choices())
 
 
 def _utc_now() -> str:
@@ -787,6 +787,7 @@ def fetch_string_functional_network(
             ["preferred_name_mismatch", "taxon_mismatch", "ambiguous_mapping", "missing_mapping", "fallback_mapping", "unresolved"]
         ).sum()
     )
+    usable_mapping_count = int(len(derived) - degraded_mapping_count)
     if mapped_gene_mismatches:
         notes.append(
             f"Se detectaron {mapped_gene_mismatches} discrepancias entre `gene` local y `string_preferred_name`; usar este enriquecimiento con cautela."
@@ -810,12 +811,17 @@ def fetch_string_functional_network(
         "mapping_gene_mismatches": mapped_gene_mismatches,
         "mapping_status_counts": mapping_status_counts,
         "degraded_mapping_count": degraded_mapping_count,
+        "usable_mapping_count": usable_mapping_count,
         "edge_count": int(len(edges)),
         "source_used": "api_real",
         "retrieval_status": retrieval_status,
         "cache_hit": False,
         "api_attempted": True,
         "api_success": bool(edge_payload is not None),
+        "connectivity_success": bool(mapping_response is not None and mapping_response.http_status is not None),
+        "retrieval_success": bool(edge_payload is not None and len(edges) > 0),
+        "mapping_success": bool(usable_mapping_count > 0),
+        "usable_evidence": bool(edge_payload is not None and len(edges) > 0 and usable_mapping_count > 0),
         "fallback_reason": fallback_reason,
         "notes": notes,
         "generated_at_utc": _utc_now(),

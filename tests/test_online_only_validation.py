@@ -13,7 +13,7 @@ import pytest
 
 from src.nodos_funcionales.config import load_config
 from src.nodos_funcionales.human_homology_diamond import materialize_candidate_fasta
-from src.nodos_funcionales.online_sources import fetch_layer_external_source
+from src.nodos_funcionales.online_sources import effective_online_source_mode, fetch_layer_external_source
 from src.nodos_funcionales.online_http import get_ssl_context
 from src.nodos_funcionales.online_only_validation import (
     build_explicit_diamond_run_config,
@@ -82,7 +82,7 @@ def test_generic_entrypoint_and_pseudomonas_wrapper_remain_available(tmp_path: P
         taxon_id=287,
         run_dir=None,
         max_candidates=7,
-        online_source_mode="online_optional",
+        online_source_mode="online_strict",
         taxon_resolution_mode="online_optional",
         refresh_taxon_cache=False,
         no_write_taxon_cache=True,
@@ -113,6 +113,23 @@ def test_online_only_config_preserves_complete_diamond_execution_settings(tmp_pa
     assert {key: after[key] for key in preserved_keys} == {key: before[key] for key in preserved_keys}
     assert after_config["online_sources"]["source_mode_effective"] == "online_optional"
     assert after_config["layer_resolution"]["layers"]["human_homologs"]["external_provider"] == "human_homology_diamond"
+
+
+@pytest.mark.parametrize(
+    ("requested", "canonical"),
+    [("online_strict", "online_strict"), ("online_only", "online_strict"), ("hybrid_curated", "hybrid_curated")],
+)
+def test_generated_online_only_config_survives_internal_mode_validation(
+    tmp_path: Path, requested: str, canonical: str
+) -> None:
+    workspace = _workspace(tmp_path)
+    config_path = workspace / "config" / "params.yaml"
+
+    _write_online_only_config(config_path, requested)
+    reloaded = load_config(config_path)
+
+    assert reloaded["online_sources"]["source_mode_effective"] == canonical
+    assert effective_online_source_mode(reloaded) == canonical
 
 
 def test_online_only_config_propagates_every_provider_switch_and_dataset_path(tmp_path: Path) -> None:
@@ -294,6 +311,7 @@ def test_online_only_materializer_then_explicit_diamond_execution(tmp_path: Path
     assert manifest["execution_started"] is True
     assert manifest["execution_completed"] is True
     assert manifest["execution_failed"] is False
+    assert manifest["affects_score"] is True
     assert manifest["query_fasta_path"] == str(workspace / "data_external" / "candidate_proteins.faa")
     assert manifest["database_path"].endswith("human_reference_UP000005640.dmnd")
     assert manifest["tsv_path"] == str(tsv_path)
@@ -529,7 +547,7 @@ def test_online_only_provenance_summary_flags_user_curated_as_invalid(tmp_path: 
     summary = build_online_only_provenance_summary(workspace)
 
     by_layer = summary.set_index("layer_key")
-    assert by_layer.loc["essentiality", "online_evidence_availability"] == "external_controlled_or_fallback"
+    assert by_layer.loc["essentiality", "online_evidence_availability"] == "unresolved_or_missing"
     assert by_layer.loc["virulence", "online_evidence_availability"] == "unresolved_or_missing"
     assert by_layer.loc["human_homologs", "online_evidence_availability"] == "invalid_user_curated_detected"
     assert bool(by_layer.loc["human_homologs", "experimental_validation_supported"]) is False
@@ -719,7 +737,10 @@ def test_provider_audit_uses_dedicated_diamond_manifest_semantics(tmp_path: Path
     assert diamond["retrieved_record_count"] == 25
     assert diamond["matched_candidate_count"] == 7
     assert diamond["retrieval_status"] == "diamond_blastp_executed"
-    assert bool(diamond["affects_score"]) is False
+    assert bool(diamond["retrieval_success"]) is True
+    assert bool(diamond["mapping_success"]) is True
+    assert bool(diamond["usable_evidence"]) is True
+    assert bool(diamond["affects_score"]) is True
 
 
 def test_online_only_enrichment_attempts_string_and_materializes_network(tmp_path: Path) -> None:
@@ -1012,3 +1033,40 @@ def test_review_package_sanitizes_overstrong_ranking_labels(tmp_path: Path) -> N
     assert "Organism slug: `escherichia_coli`" in review
     assert "Taxon id: `562`" in review
     assert "Strain: `K-12`" in review
+
+
+def test_provider_audit_separates_string_http_success_from_usable_mapping(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    (workspace / "results" / "string_functional_network_manifest.json").write_text(
+        json.dumps({
+            "provider": "string_db", "api_attempted": True, "api_success": True,
+            "connectivity_success": True, "edge_count": 4, "protein_count_mapped": 0,
+            "evidence_level": "computational_online_interaction", "source_used": "api_real",
+        }),
+        encoding="utf-8",
+    )
+
+    row = build_online_only_provider_audit(workspace, {}).set_index("layer_key").loc["functional_network"]
+    assert bool(row["connectivity_success"]) is True
+    assert bool(row["retrieval_success"]) is True
+    assert bool(row["mapping_success"]) is False
+    assert bool(row["usable_evidence"]) is False
+    assert bool(row["affects_score"]) is False
+    assert row["retrieval_status"] == "degraded_no_usable_mapping"
+
+
+def test_candidate_seed_and_inherited_essentiality_are_not_essentiality_evidence(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    seed = {
+        "api_attempted": True, "api_success": True, "retrieved_record_count": 2,
+        "matched_candidate_count": 2, "evidence_level": "computational_online_annotation",
+        "source_used": "api_real",
+    }
+    (workspace / "results" / "online_only_essentiality_manifest.json").write_text(
+        json.dumps({**seed, "inherited_from_candidate_seed": True, "provider_name": "uniprot_rest_candidate_seed"}),
+        encoding="utf-8",
+    )
+
+    audit = build_online_only_provider_audit(workspace, seed).set_index("layer_key")
+    assert bool(audit.loc["candidate_seed", "usable_evidence"]) is False
+    assert bool(audit.loc["essentiality", "usable_evidence"]) is False

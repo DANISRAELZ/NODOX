@@ -1892,6 +1892,8 @@ def _phase3_ranking_inclusion_config(config: dict) -> dict[str, object]:
 def _evidence_mixture_label(real: int, demo_default: int, proxy: int, missing: int, negative: int) -> str:
     if negative > 0 and real > 0:
         return "real_evidence_with_negative_signal"
+    if real > 0 and demo_default == 0 and proxy > 0:
+        return "mixed_real_proxy"
     if real > 0 and (demo_default > 0 or proxy > 0):
         return "mixed_real_demo_proxy"
     if real > 0 and missing > 0:

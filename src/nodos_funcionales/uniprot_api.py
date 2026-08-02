@@ -12,11 +12,11 @@ from urllib.request import Request, urlopen
 import pandas as pd
 
 from .online_http import get_ssl_context
-from .online.provider_modes import accepted_provider_modes, normalize_provider_mode
+from .online.provider_modes import normalize_provider_mode, provider_mode_choices
 from .online.provenance import provider_provenance
 from .provider_response_audit import request_provider_payload
 
-UNIPROT_SOURCE_MODES = {"offline_only", "cache_first", "online_optional", "local", "auto", "api_stub"}
+UNIPROT_SOURCE_MODES = set(provider_mode_choices())
 
 
 def _utc_now() -> str:
@@ -340,8 +340,6 @@ def fetch_uniprot_annotations(
     workspace = Path(workspace)
     if not workspace.exists():
         raise FileNotFoundError(f"Workspace no encontrado: {workspace}")
-    if mode not in accepted_provider_modes(config):
-        raise ValueError(f"online source mode no soportado: {mode}")
     requested_mode = mode
     mode = normalize_provider_mode(mode, config)
 

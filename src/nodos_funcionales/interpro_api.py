@@ -13,10 +13,9 @@ import pandas as pd
 
 from .human_essentiality_api import fetch_human_essentiality_annotations
 from .online_http import get_ssl_context
+from .online.provider_modes import normalize_provider_mode
 from .provider_response_audit import request_provider_payload
 
-
-SOURCE_MODES = {"offline_only", "cache_first", "online_optional"}
 HOST_ANNOTATION_COLUMNS = [
     "protein_id",
     "gene",
@@ -298,8 +297,7 @@ def fetch_interpro_host_annotation(
     refresh_cache: bool = False,
     no_write_cache: bool = False,
 ) -> dict[str, Any]:
-    if mode not in SOURCE_MODES:
-        raise ValueError(f"online source mode no soportado: {mode}")
+    mode = normalize_provider_mode(mode, config)
     workspace = Path(workspace)
     candidates = _load_candidate_context(workspace)
     cache = load_interpro_cache(workspace, config)

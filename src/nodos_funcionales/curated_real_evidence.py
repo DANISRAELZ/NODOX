@@ -156,6 +156,8 @@ def apply_curated_real_evidence(base_dir: Path, df: pd.DataFrame, config: dict) 
                 "path": str(table_info["path"]),
                 "rows": int(len(table)),
                 "columns": list(table.columns),
+                "matched_candidate_count": int(stats["matched_rows"]),
+                "updated_cell_count": int(stats["updated_cells"]),
             }
         )
 
@@ -194,8 +196,17 @@ def apply_curated_real_evidence(base_dir: Path, df: pd.DataFrame, config: dict) 
 def _curated_config(config: dict) -> dict[str, Any]:
     cfg = config.get("curated_real_evidence", {}) if isinstance(config, dict) else {}
     precedence = cfg.get("precedence", {}) if isinstance(cfg.get("precedence", {}), dict) else {}
+    requested_mode = str(
+        config.get("online_sources", {}).get("source_mode_effective")
+        or config.get("online_sources", {}).get("source_mode")
+        or config.get("online_sources", {}).get("source_mode_default")
+        or ""
+    ).strip()
+    strict_policy = requested_mode in {"online_strict", "online_only"}
     return {
-        "enabled": bool(cfg.get("enabled", True)),
+        "enabled": bool(cfg.get("enabled", True)) and not strict_policy,
+        "reason": "disabled_by_online_strict_policy" if strict_policy else ("enabled_by_configuration" if cfg.get("enabled", True) else "disabled_by_configuration"),
+        "evidence_policy": "online_strict" if strict_policy else ("hybrid_curated" if requested_mode == "hybrid_curated" else "legacy_configured"),
         "base_dir": str(cfg.get("base_dir", "data_curated/organisms")),
         "minimum_confidence": float(cfg.get("minimum_confidence", 0.5)),
         "replace_unresolved": bool(precedence.get("replace_unresolved", True)),
@@ -643,11 +654,16 @@ def _manifest(
     layers: list[dict[str, Any]] | None = None,
     missing_layers: list[str] | None = None,
 ) -> dict[str, Any]:
+    loaded_layers = layers or []
     return {
         "phase": "phase9A_curated_real_evidence",
         "workspace": str(base_dir),
         "status": status,
         "enabled": bool(cfg["enabled"]),
+        "reason": str(cfg["reason"]),
+        "evidence_policy": str(cfg["evidence_policy"]),
+        "matched_candidate_count": sum(int(layer.get("matched_candidate_count", 0)) for layer in loaded_layers),
+        "updated_cell_count": sum(int(layer.get("updated_cell_count", 0)) for layer in loaded_layers),
         "curated_root": str(curated_root or _resolve_curated_root(base_dir, cfg["base_dir"])),
         "organism_keys": organism_keys,
         "minimum_confidence": float(cfg["minimum_confidence"]),
@@ -655,7 +671,7 @@ def _manifest(
             "replace_unresolved": bool(cfg["replace_unresolved"]),
             "preserve_online_real": bool(cfg["preserve_online_real"]),
         },
-        "layers": layers or [],
+        "layers": loaded_layers,
         "missing_layers": missing_layers or [],
         "interpretation_warning": "Curated fixture/user evidence is traceable input, not automatically experimental validation.",
     }
