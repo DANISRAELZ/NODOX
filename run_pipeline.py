@@ -9,7 +9,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.nodos_funcionales.discovery import ACQUISITION_MODES, STRATEGY_CHOICES, TAXON_RESOLUTION_MODES, prepare_discovery_workspace
 from src.nodos_funcionales.io_errors import explain_cli_error
-from src.nodos_funcionales.online.provider_modes import accepted_provider_modes
+from src.nodos_funcionales.online.provider_modes import provider_mode_choices
 from src.nodos_funcionales.pipeline import run_pipeline
 from src.nodos_funcionales.runtime import VALID_PIPELINE_MODES, resolve_pipeline_mode
 
@@ -55,7 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--offline-only", action="store_true", help="Alias rapido para forzar taxonomia sin llamadas de red.")
     parser.add_argument(
         "--online-source-mode",
-        choices=sorted(accepted_provider_modes({})),
+        choices=provider_mode_choices(),
         help="Modo para fuentes externas de capas: offline_only, local, api_stub, cache_first, online_optional o auto.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Solo prepara discovery y no corre el motor.")

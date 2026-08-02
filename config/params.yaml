@@ -96,6 +96,9 @@ taxonomy:
     offline_only: true
     cache_first: true
     online_optional: true
+    online_strict: true
+    online_only: true
+    hybrid_curated: true
     api_stub: true
     auto: true
     local: true

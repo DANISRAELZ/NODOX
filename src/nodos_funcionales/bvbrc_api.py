@@ -13,10 +13,9 @@ from urllib.request import urlopen
 
 import pandas as pd
 
+from .online.provider_modes import normalize_provider_mode
 from .provider_response_audit import ProviderResponse, request_provider_payload, response_audit_fields
 
-
-SOURCE_MODES = {"offline_only", "cache_first", "online_optional"}
 CONSERVATION_COLUMNS = ["protein_id", "gene", "core_genome_presence", "strain_coverage_score", "allelic_conservation", "variant_burden", "database"]
 
 
@@ -257,8 +256,7 @@ def fetch_bvbrc_strain_conservation(
     refresh_cache: bool = False,
     no_write_cache: bool = False,
 ) -> dict[str, Any]:
-    if mode not in SOURCE_MODES:
-        raise ValueError(f"online source mode no soportado: {mode}")
+    mode = normalize_provider_mode(mode, config)
     workspace = Path(workspace)
     proteins = _get_candidate_proteins(workspace)
     cache = load_bvbrc_cache(workspace, config)

@@ -9,6 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.nodos_funcionales.online_only_validation import run_pseudomonas_online_only_validation
+from src.nodos_funcionales.online.provider_modes import normalize_provider_mode, provider_mode_choices
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -17,8 +18,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-seed-candidates", type=int, default=25, help="Bounded UniProt candidate seed size.")
     parser.add_argument(
         "--online-source-mode",
-        default="online_optional",
-        choices=["online_optional", "cache_first", "offline_only", "local", "api_stub", "auto"],
+        default="online_strict",
+        choices=provider_mode_choices(),
         help="External provider mode for this isolated run.",
     )
     parser.add_argument(
@@ -43,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
         project_root=PROJECT_ROOT,
         run_dir=Path(args.run_dir) if args.run_dir else None,
         max_seed_candidates=args.max_seed_candidates,
-        online_source_mode=args.online_source_mode,
+        online_source_mode=normalize_provider_mode(args.online_source_mode),
         taxon_resolution_mode=args.taxon_resolution_mode,
         refresh_taxon_cache=args.refresh_taxon_cache,
         no_write_taxon_cache=not args.write_taxon_cache,

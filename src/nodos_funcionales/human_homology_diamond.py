@@ -906,6 +906,9 @@ def build_human_homologs_with_diamond(
                 "tsv_path": str(cached_tsv),
                 "provider_attempted": True,
                 "provider_success": True,
+                # The parsed DIAMOND homology columns are consumed by scoring.
+                # This is provenance metadata only; it does not alter execution.
+                "affects_score": True,
                 "evidence_level": "sequence_alignment",
                 "data_realism_flag": "computed_local",
                 "notes": [str(cached_tsv)],
@@ -967,6 +970,8 @@ def build_human_homologs_with_diamond(
             "execution_status": "executed",
             "execution_completed": True,
             "provider_success": True,
+            # Successful alignment output feeds the human-homology scoring columns.
+            "affects_score": True,
             "evidence_level": "sequence_alignment",
             "data_realism_flag": "computed_local",
             "reference_fasta_path": str(reference_fasta),

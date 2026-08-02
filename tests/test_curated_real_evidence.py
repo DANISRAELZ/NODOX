@@ -319,3 +319,35 @@ def test_curated_text_values_are_safe_when_existing_columns_are_float64(tmp_path
     assert by_gene["curated_evidence_layers"].ne("none").all()
     assert {"ureA", "ureB", "cagA", "vacA"} <= set(by_gene.index[by_gene["curated_evidence_layers"].str.contains("virulence")])
     assert not scored["functional_node_theory_label"].eq("high_confidence_functional_node").any()
+
+
+def test_online_strict_never_loads_local_curated_evidence(tmp_path: Path) -> None:
+    _write_profile(tmp_path)
+    _write_curated_tables(tmp_path)
+    config = _base_config(tmp_path)
+    config["online_sources"]["source_mode_effective"] = "online_strict"
+
+    original = _candidate_table()
+    enriched = apply_curated_real_evidence(tmp_path, original, config)
+    manifest = json.loads((tmp_path / "results" / "curated_real_evidence_manifest.json").read_text(encoding="utf-8"))
+
+    pd.testing.assert_frame_equal(enriched, original)
+    assert manifest["enabled"] is False
+    assert manifest["reason"] == "disabled_by_online_strict_policy"
+    assert manifest["matched_candidate_count"] == 0
+    assert manifest["updated_cell_count"] == 0
+
+
+def test_hybrid_curated_explicitly_allows_local_curated_evidence(tmp_path: Path) -> None:
+    _write_profile(tmp_path)
+    _write_curated_tables(tmp_path)
+    config = _base_config(tmp_path)
+    config["online_sources"]["source_mode_effective"] = "hybrid_curated"
+
+    enriched = apply_curated_real_evidence(tmp_path, _candidate_table(), config)
+    manifest = json.loads((tmp_path / "results" / "curated_real_evidence_manifest.json").read_text(encoding="utf-8"))
+
+    assert manifest["enabled"] is True
+    assert manifest["evidence_policy"] == "hybrid_curated"
+    assert manifest["updated_cell_count"] > 0
+    assert "essentiality" in enriched.loc[enriched["gene"].eq("ureA"), "curated_evidence_layers"].iloc[0]

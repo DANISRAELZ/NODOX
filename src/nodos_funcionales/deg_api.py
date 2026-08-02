@@ -8,8 +8,8 @@ from typing import Any
 
 import pandas as pd
 
+from .online.provider_modes import normalize_provider_mode
 
-SOURCE_MODES = {"offline_only", "cache_first", "online_optional"}
 ESSENTIALITY_COLUMNS = ["protein_id", "gene", "essential", "evidence", "database"]
 
 
@@ -206,8 +206,7 @@ def fetch_deg_essentiality(
     refresh_cache: bool = False,
     no_write_cache: bool = False,
 ) -> dict[str, Any]:
-    if mode not in SOURCE_MODES:
-        raise ValueError(f"online source mode no soportado: {mode}")
+    mode = normalize_provider_mode(mode, config)
     workspace = Path(workspace)
     cfg = config["online_sources"]["deg"]
     proteins = _get_candidate_proteins(workspace)
@@ -247,7 +246,7 @@ def fetch_deg_essentiality(
             "manifest_path": _write_manifest(workspace, manifest),
         }
 
-    if not refresh_cache and mode in SOURCE_MODES and cache["entries"].get(cache_key):
+    if not refresh_cache and cache["entries"].get(cache_key):
         entry = cache["entries"][cache_key]
         df = pd.DataFrame(entry.get("essentiality_rows", []), columns=ESSENTIALITY_COLUMNS)
         manifest = _cache_manifest(entry.get("manifest", {}), mode)

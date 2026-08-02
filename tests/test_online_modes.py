@@ -37,6 +37,9 @@ pytestmark = pytest.mark.unit
         ("local", "offline_only", False),
         ("cache_first", "cache_first", False),
         ("online_optional", "online_optional", True),
+        ("online_strict", "online_strict", True),
+        ("online_only", "online_strict", True),
+        ("hybrid_curated", "hybrid_curated", True),
         ("auto", "cache_first", False),
         ("api_stub", "offline_only", False),
     ],
@@ -70,6 +73,11 @@ def test_provider_modes_respect_config_and_aliases() -> None:
     assert normalize_provider_mode("local", config) == "offline_only"
     assert normalize_provider_mode("auto", config) == "cache_first"
     assert "api_stub" in accepted_provider_modes(config)
+
+
+def test_unknown_provider_mode_has_clear_error() -> None:
+    with pytest.raises(ValueError, match="online source mode no soportado.*invented_mode.*Modos validos"):
+        normalize_provider_mode("invented_mode", {})
 
 
 @pytest.mark.parametrize("mode", ["offline_only", "local", "api_stub"])
