@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pandas as pd
 
@@ -9,7 +11,9 @@ from src.nodos_funcionales.functional_node_theory import (
     build_functional_node_theory_audit,
     compute_functional_node_theory_score,
     meets_minimum_functional_node_evidence,
+    _theory_config,
 )
+from src.nodos_funcionales.reporting import _select_functional_node_theory_universe
 from tests.helpers import PROJECT_ROOT
 
 
@@ -215,6 +219,130 @@ class FunctionalNodeTheoryTests(unittest.TestCase):
             "interpretation",
         ]:
             self.assertIn(column, audit.columns)
+
+    def test_explicit_theory_weights_are_not_overwritten_by_legacy_scoring(self) -> None:
+        effective = _theory_config(self.config)
+        declared = self.config["phase3"]["functional_node_theory"]
+
+        for key, expected in declared["weights"].items():
+            with self.subTest(weight=key):
+                self.assertEqual(float(effective["weights"][key]), float(expected))
+
+        for key, expected in declared["penalties"].items():
+            with self.subTest(penalty=key):
+                self.assertEqual(float(effective["penalties"][key]), float(expected))
+
+    def test_single_real_layer_does_not_become_perfect_evidence_quality(self) -> None:
+        df = pd.DataFrame(
+            {
+                "protein_id": ["PA0011"],
+                "functional_node_score": [0.50],
+                "evidence_quality_score": [0.20],
+                "evidence_confidence_score": [0.20],
+                "evidence_coverage_score": [0.20],
+                "real_evidence_layer_count": [1],
+                "phase3_real_evidence_layer_count": [1],
+            }
+        )
+
+        result = compute_functional_node_theory_score(df, self.config)
+
+        component = float(result.loc[0, "evidence_quality_component"])
+        self.assertGreater(component, 0.20)
+        self.assertLess(component, 0.40)
+        self.assertNotEqual(component, 1.0)
+
+    def test_missing_host_risk_does_not_imply_perfect_host_safety(self) -> None:
+        df = pd.DataFrame(
+            {
+                "protein_id": ["PA0012"],
+                "functional_node_score": [0.50],
+                "evidence_quality_score": [0.50],
+            }
+        )
+
+        result = compute_functional_node_theory_score(df, self.config)
+
+        self.assertEqual(
+            float(result.loc[0, "host_safety_component"]),
+            0.0,
+        )
+
+    def test_constraint_component_requires_convergent_support(self) -> None:
+        df = pd.DataFrame(
+            {
+                "protein_id": ["PA0013"],
+                "functional_node_score": [0.70],
+                "evidence_quality_score": [0.70],
+                "redundancy_penalty": [0.90],
+                "evolutionary_escape_risk_score": [0.90],
+                "conservation_score": [0.90],
+                "evolutionary_space_constraint_score": [0.90],
+            }
+        )
+
+        result = compute_functional_node_theory_score(df, self.config)
+
+        component = float(
+            result.loc[0, "redundancy_constraint_component"]
+        )
+        self.assertAlmostEqual(component, 0.50, places=6)
+        self.assertLess(component, 0.70)
+
+    def test_reporting_prefers_complete_phase3_candidate_values(self) -> None:
+        phase2 = pd.DataFrame(
+            {
+                "protein_id": ["P1", "P2"],
+                "gene": ["gene1", "gene2"],
+                "functional_node_theory_score": [0.10, 0.20],
+                "contextual_essentiality_score": [0.10, 0.20],
+                "phase2_only_note": ["keep-one", "keep-two"],
+            }
+        )
+        phase3 = pd.DataFrame(
+            {
+                "protein_id": ["P1", "P2"],
+                "gene": ["gene1", "gene2"],
+                "functional_node_theory_score": [0.80, 0.90],
+                "contextual_essentiality_score": [0.70, 0.85],
+                "pleiotropy_score": [0.65, 0.75],
+            }
+        )
+
+        with TemporaryDirectory() as temporary_directory:
+            base_dir = Path(temporary_directory)
+            processed_dir = base_dir / "data_processed"
+            processed_dir.mkdir(parents=True)
+            phase3.to_csv(
+                processed_dir / "phase3_features.csv",
+                index=False,
+            )
+
+            selected = _select_functional_node_theory_universe(
+                base_dir=base_dir,
+                phase2_ranking=phase2,
+                phase2_features=phase2,
+                workspace_metadata={
+                    "organism": "Helicobacter pylori",
+                    "taxon_id": 210,
+                    "strain": "not_reported",
+                },
+            )
+
+        selected = selected.set_index("protein_id")
+
+        self.assertEqual(
+            float(selected.loc["P1", "functional_node_theory_score"]),
+            0.80,
+        )
+        self.assertEqual(
+            float(selected.loc["P2", "contextual_essentiality_score"]),
+            0.85,
+        )
+        self.assertEqual(
+            selected.loc["P1", "phase2_only_note"],
+            "keep-one",
+        )
 
 
 if __name__ == "__main__":

@@ -414,8 +414,13 @@ def _select_functional_node_theory_universe(
     universe = _merge_missing_candidate_columns(universe, _read_csv_if_exists(processed_dir / "scored_nodes.csv"))
 
     phase3_features = _read_csv_if_exists(processed_dir / "phase3_features.csv")
-    if _is_candidate_table(phase3_features) and len(phase3_features) >= len(universe):
-        universe = _merge_missing_candidate_columns(universe, phase3_features)
+    if _phase3_covers_candidate_universe(phase3_features, universe):
+        # Phase 3 is authoritative when it contains every candidate in the
+        # selected universe. Backfill only columns absent from Phase 3.
+        universe = _merge_missing_candidate_columns(
+            phase3_features.copy(),
+            universe,
+        )
     elif "audit_flags" in universe.columns:
         universe["audit_flags"] = universe["audit_flags"].fillna("").astype(str).map(
             lambda value: value.replace("phase3_not_enabled", "phase3_not_used_for_functional_node_universe")
@@ -432,6 +437,35 @@ def _read_csv_if_exists(path: Path) -> pd.DataFrame:
 
 def _is_candidate_table(table: pd.DataFrame) -> bool:
     return not table.empty and "protein_id" in table.columns
+
+
+def _phase3_covers_candidate_universe(
+    phase3_features: pd.DataFrame,
+    universe: pd.DataFrame,
+) -> bool:
+    """Return True when Phase 3 contains every candidate in the universe."""
+    if not _is_candidate_table(phase3_features):
+        return False
+    if not _is_candidate_table(universe):
+        return False
+
+    universe_ids = set(
+        universe["protein_id"]
+        .dropna()
+        .astype(str)
+        .str.strip()
+    )
+    phase3_ids = set(
+        phase3_features["protein_id"]
+        .dropna()
+        .astype(str)
+        .str.strip()
+    )
+
+    universe_ids.discard("")
+    phase3_ids.discard("")
+
+    return bool(universe_ids) and universe_ids.issubset(phase3_ids)
 
 
 def _candidate_table_value(table: pd.DataFrame) -> int:

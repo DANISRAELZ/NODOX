@@ -137,6 +137,8 @@ def build_functional_node_theory_audit(df: pd.DataFrame) -> pd.DataFrame:
 def _theory_config(params: Mapping[str, object] | None) -> dict[str, object]:
     phase3 = _mapping_get(params or {}, "phase3")
     theory = _mapping_get(phase3, "functional_node_theory")
+    theory_weights = _mapping_get(theory, "weights")
+    theory_penalties = _mapping_get(theory, "penalties")
     merged = _deep_merge(DEFAULT_FUNCTIONAL_NODE_THEORY_PARAMS, theory)
     legacy_scoring = _mapping_get(phase3, "scoring")
     legacy_weights = _mapping_get(legacy_scoring, "weights")
@@ -149,7 +151,13 @@ def _theory_config(params: Mapping[str, object] | None) -> dict[str, object]:
             "w_evolutionary_constraint": legacy_weights.get("evolutionary_space_constraint_score"),
             "w_evidence_quality": legacy_weights.get("evidence_quality_score"),
         }
-        merged["weights"].update({key: float(value) for key, value in mapped_weights.items() if value is not None})
+        merged["weights"].update(
+            {
+                key: float(value)
+                for key, value in mapped_weights.items()
+                if value is not None and key not in theory_weights
+            }
+        )
     if legacy_penalties:
         mapped_penalties = {
             "p_redundancy": legacy_penalties.get("redundancy_penalty"),
@@ -158,7 +166,13 @@ def _theory_config(params: Mapping[str, object] | None) -> dict[str, object]:
             "p_hgt": legacy_penalties.get("horizontal_transfer_penalty"),
             "p_host_similarity": legacy_penalties.get("host_similarity_penalty"),
         }
-        merged["penalties"].update({key: float(value) for key, value in mapped_penalties.items() if value is not None})
+        merged["penalties"].update(
+            {
+                key: float(value)
+                for key, value in mapped_penalties.items()
+                if value is not None and key not in theory_penalties
+            }
+        )
     return merged
 
 
@@ -267,19 +281,26 @@ def _dependency_component(df: pd.DataFrame, defaults: Mapping[str, float]) -> pd
 
 
 def _redundancy_constraint_component(df: pd.DataFrame, defaults: Mapping[str, float]) -> pd.Series:
-    redundancy_constraint = 1.0 - _signal(df, "redundancy_penalty", defaults)
-    escape_constraint = 1.0 - _signal(df, "evolutionary_escape_risk_score", defaults)
-    return pd.concat(
+    """Require convergent support for evolutionary and redundancy constraint.
+
+    Missing risk measurements are not converted into perfect constraint.
+    """
+    return _mean_available_signals(
+        df,
         [
-            redundancy_constraint,
-            escape_constraint,
-            _signal(df, "strain_coverage_score", defaults),
-            _signal(df, "conservation_score", defaults),
-            _signal(df, "evolutionary_constraint_score", defaults),
-            _signal(df, "evolutionary_space_constraint_score", defaults),
+            "redundancy_penalty",
+            "evolutionary_escape_risk_score",
+            "strain_coverage_score",
+            "conservation_score",
+            "evolutionary_constraint_score",
+            "evolutionary_space_constraint_score",
         ],
-        axis=1,
-    ).max(axis=1)
+        invert={
+            "redundancy_penalty",
+            "evolutionary_escape_risk_score",
+        },
+        default=0.0,
+    )
 
 
 def _context_component(df: pd.DataFrame, defaults: Mapping[str, float]) -> pd.Series:
@@ -287,23 +308,43 @@ def _context_component(df: pd.DataFrame, defaults: Mapping[str, float]) -> pd.Se
 
 
 def _host_safety_component(df: pd.DataFrame, defaults: Mapping[str, float]) -> pd.Series:
-    host_similarity_risk = _signal(df, "host_similarity_risk", defaults)
-    host_similarity_penalty = _signal(df, "host_similarity_penalty", defaults)
-    return pd.concat(
+    """Estimate host safety without treating missing host-risk data as safety."""
+    return _mean_available_signals(
+        df,
         [
-            _signal(df, "host_safety_score", defaults),
-            1.0 - host_similarity_risk,
-            1.0 - host_similarity_penalty,
+            "host_safety_score",
+            "host_similarity_risk",
+            "host_similarity_penalty",
         ],
-        axis=1,
-    ).max(axis=1)
+        invert={
+            "host_similarity_risk",
+            "host_similarity_penalty",
+        },
+        default=0.0,
+    )
 
 
 def _evidence_quality_component(df: pd.DataFrame, defaults: Mapping[str, float]) -> pd.Series:
-    base = _max_signal(df, defaults, ["evidence_quality_score", "evidence_confidence_score", "evidence_coverage_score"])
-    layer_count = _signal(df, "real_evidence_layer_count", defaults).clip(upper=1.0)
-    phase3_layer_count = _signal(df, "phase3_real_evidence_layer_count", defaults).clip(upper=1.0)
-    return pd.concat([base, layer_count, phase3_layer_count], axis=1).max(axis=1)
+    """Combine evidence quality, coverage, and reported multilayer support.
+
+    Missing layer-count metadata does not reduce an otherwise reported evidence
+    score. When layer counts are available, they contribute conservatively.
+    """
+    base = _mean_available_signals(
+        df,
+        [
+            "evidence_quality_score",
+            "evidence_confidence_score",
+            "evidence_coverage_score",
+        ],
+        default=0.0,
+    )
+    layer_support = _normalized_real_layer_support(df, required_layers=3.0)
+    combined = 0.75 * base + 0.25 * layer_support.fillna(0.0)
+    return combined.where(layer_support.notna(), base).clip(
+        lower=0.0,
+        upper=1.0,
+    )
 
 
 def _functional_node_therapeutic_exploitability_score(df: pd.DataFrame) -> pd.Series:
@@ -319,6 +360,86 @@ def _functional_node_therapeutic_exploitability_score(df: pd.DataFrame) -> pd.Se
 def _max_signal(df: pd.DataFrame, defaults: Mapping[str, float], columns: list[str]) -> pd.Series:
     signals = [_signal(df, column, defaults) for column in columns]
     return pd.concat(signals, axis=1).max(axis=1)
+
+
+def _mean_available_signals(
+    df: pd.DataFrame,
+    columns: list[str],
+    *,
+    invert: set[str] | None = None,
+    default: float = 0.0,
+) -> pd.Series:
+    """Average only reported numeric signals.
+
+    Missing columns and NaN values do not become favorable values. Inverted
+    signals are used for risk or penalty columns, where lower values are better.
+    """
+    invert = invert or set()
+    available: list[pd.Series] = []
+
+    for column in columns:
+        if column not in df.columns:
+            continue
+
+        values = pd.to_numeric(df[column], errors="coerce").clip(
+            lower=0.0,
+            upper=1.0,
+        )
+        if column in invert:
+            values = 1.0 - values
+
+        available.append(values.rename(column))
+
+    if not available:
+        return pd.Series(
+            [default] * len(df),
+            index=df.index,
+            dtype=float,
+        )
+
+    frame = pd.concat(available, axis=1)
+    return (
+        frame.mean(axis=1, skipna=True)
+        .fillna(default)
+        .clip(lower=0.0, upper=1.0)
+    )
+
+
+def _normalized_real_layer_support(
+    df: pd.DataFrame,
+    *,
+    required_layers: float,
+) -> pd.Series:
+    """Normalize real evidence counts against a multidimensional threshold."""
+    count_columns = [
+        "real_evidence_layer_count",
+        "phase3_real_evidence_layer_count",
+        "curated_real_evidence_layer_count",
+    ]
+    available: list[pd.Series] = []
+
+    for column in count_columns:
+        if column not in df.columns:
+            continue
+        available.append(
+            pd.to_numeric(df[column], errors="coerce")
+            .clip(lower=0.0)
+            .rename(column)
+        )
+
+    if not available:
+        return pd.Series(
+            [float("nan")] * len(df),
+            index=df.index,
+            dtype=float,
+        )
+
+    # These columns are alternative reports of layer count, not independent
+    # biological dimensions. Use the strongest reported count only once.
+    # Preserve NaN when no count was reported for a particular candidate.
+    count = pd.concat(available, axis=1).max(axis=1, skipna=True)
+    denominator = max(float(required_layers), 1.0)
+    return (count / denominator).clip(lower=0.0, upper=1.0)
 
 
 def _source_confidence_ceiling(row: pd.Series) -> float:
