@@ -26,6 +26,7 @@ from src.nodos_funcionales.online_only_validation import (
     run_online_only_validation,
     run_pseudomonas_online_only_validation,
     seed_candidate_essentiality_from_uniprot,
+    _attempt_string_enrichment,
     _materialize_unresolved_required_external_layers,
     _write_online_only_config,
 )
@@ -67,6 +68,82 @@ def _workspace(tmp_path: Path) -> Path:
     (workspace / "results").mkdir()
     shutil.copy2(PROJECT_ROOT / "config" / "params.yaml", workspace / "config" / "params.yaml")
     return workspace
+
+
+def test_online_only_string_requires_usable_edge_before_materializing_layer(
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    config = load_config(workspace / "config" / "params.yaml")
+    candidates = pd.DataFrame(
+        [{"protein_id": "P1", "gene": "gene1"}]
+    )
+    diagnostic = pd.DataFrame(
+        [
+            {
+                "protein_id": "P1",
+                "gene": "gene1",
+                "network_centrality": 0.0,
+                "pathway_bottleneck_score": 0.0,
+                "functional_dependency_score": 0.0,
+                "mapping_status": "synonym_match",
+                "usable_for_network": True,
+            }
+        ]
+    )
+    provider_manifest = {
+        "api_success": True,
+        "connectivity_success": True,
+        "retrieval_success": True,
+        "mapping_success": True,
+        "usable_evidence": False,
+        "affects_score": False,
+        "edge_count": 1,
+        "usable_edge_count": 0,
+        "usable_mapping_count": 1,
+        "degraded_mapping_count": 0,
+        "retrieval_status": "degraded_no_usable_edge",
+        "fallback_reason": "api_response_no_usable_edge",
+        "source_used": "api_real",
+        "network_taxon_id": "85962",
+    }
+
+    with patch(
+        "src.nodos_funcionales.online_only_validation.fetch_string_functional_network",
+        return_value={
+            "functional_network": diagnostic,
+            "manifest": provider_manifest,
+        },
+    ):
+        result = _attempt_string_enrichment(
+            workspace=workspace,
+            organism_name="Helicobacter pylori",
+            taxon_id="210",
+            config=config,
+            mode="online_strict",
+            candidates=candidates,
+        )
+
+    assert result["retrieval_success"] is True
+    assert result["mapping_success"] is True
+    assert result["usable_evidence"] is False
+    assert result["affects_score"] is False
+    assert result["usable_edge_count"] == 0
+    assert result["retrieval_status"] == "degraded_no_usable_edge"
+    assert not (
+        workspace / "data_external" / "functional_network.csv"
+    ).exists()
+
+    audit = build_online_only_provider_audit(workspace, {})
+    network = audit.loc[
+        audit["layer_key"].astype(str).eq("functional_network")
+    ].iloc[0]
+    assert int(network["retrieved_record_count"]) == 1
+    assert int(network["matched_candidate_count"]) == 1
+    assert int(network["raw_edge_count"]) == 1
+    assert int(network["usable_edge_count"]) == 0
+    assert bool(network["usable_evidence"]) is False
+    assert bool(network["affects_score"]) is False
 
 
 def test_generic_entrypoint_and_pseudomonas_wrapper_remain_available(tmp_path: Path) -> None:
@@ -770,8 +847,18 @@ def test_online_only_enrichment_attempts_string_and_materializes_network(tmp_pat
         "functional_network": network,
         "manifest": {
             "api_success": True,
+            "connectivity_success": True,
+            "retrieval_success": True,
+            "mapping_success": True,
+            "usable_evidence": True,
+            "affects_score": True,
             "source_used": "api_real",
+            "retrieval_status": "connected_structured_payload",
             "edge_count": 3,
+            "usable_edge_count": 3,
+            "usable_mapping_count": 1,
+            "degraded_mapping_count": 0,
+            "fallback_used": False,
             "fallback_reason": "",
         },
     }
@@ -1070,3 +1157,62 @@ def test_candidate_seed_and_inherited_essentiality_are_not_essentiality_evidence
     audit = build_online_only_provider_audit(workspace, seed).set_index("layer_key")
     assert bool(audit.loc["candidate_seed", "usable_evidence"]) is False
     assert bool(audit.loc["essentiality", "usable_evidence"]) is False
+
+
+def test_online_only_sanitizer_preserves_phase3_real_counts_when_raw_columns_are_not_exported(
+    tmp_path: Path,
+) -> None:
+    from src.nodos_funcionales.online_only_validation import (
+        _sanitize_online_only_ranking,
+    )
+
+    ranking_path = tmp_path / "ranking_nodos.csv"
+    pd.DataFrame(
+        [
+            {
+                "protein_id": "P12345",
+                "real_evidence_layer_count": 3,
+                "phase3_real_evidence_layer_count": 3,
+                "proxy_layer_count": 2,
+                "missing_layer_count": 4,
+                "negative_evidence_layer_count": 0,
+                "evidence_mixture_label": "real_plus_proxy",
+            }
+        ]
+    ).to_csv(ranking_path, index=False)
+
+    provider_audit = pd.DataFrame(
+        [
+            {
+                "layer_key": "localization",
+                "usable_evidence": True,
+                "affects_score": True,
+            },
+            {
+                "layer_key": "strain_conservation",
+                "usable_evidence": True,
+                "affects_score": True,
+            },
+            {
+                "layer_key": "host_annotation",
+                "usable_evidence": True,
+                "affects_score": True,
+            },
+        ]
+    )
+
+    _sanitize_online_only_ranking(
+        ranking_path,
+        {
+            "api_success": True,
+            "source_used": "api_real",
+        },
+        "online_strict",
+        provider_audit,
+    )
+
+    result = pd.read_csv(ranking_path).iloc[0]
+
+    assert int(result["real_evidence_layer_count"]) == 3
+    assert int(result["phase3_real_evidence_layer_count"]) == 3
+    assert result["evidence_mixture_label"] != "demo_proxy_only"

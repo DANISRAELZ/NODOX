@@ -123,6 +123,9 @@ class StringApiTests(unittest.TestCase):
         self.assertEqual(result["manifest"]["source_used"], "api_real")
         self.assertTrue(result["manifest"]["api_success"])
         self.assertGreater(result["manifest"]["degraded_mapping_count"], 0)
+        self.assertGreater(result["manifest"]["usable_edge_count"], 0)
+        self.assertTrue(result["manifest"]["usable_evidence"])
+        self.assertTrue(result["manifest"]["affects_score"])
 
     def test_fetch_string_functional_network_offline_uses_cache(self) -> None:
         workspace = self.make_workspace("string_cache")
@@ -193,6 +196,130 @@ class StringApiTests(unittest.TestCase):
         confidence = dict(zip(audit["input_protein_id"], audit["mapping_confidence"]))
         self.assertGreater(confidence["PA0001"], confidence["PA0002"])
         self.assertEqual(confidence["PA0003"], 0.0)
+
+    def test_string_mapping_accepts_configured_descendant_strain_taxon(
+        self,
+    ) -> None:
+        workspace = self.make_workspace(
+            "string_mapping_descendant_strain"
+        )
+        config = load_config(workspace / "config" / "params.yaml")
+
+        with patch(
+            "src.nodos_funcionales.string_api.urlopen"
+        ) as urlopen_mock:
+            urlopen_mock.side_effect = [
+                FakeResponse(
+                    [
+                        {
+                            "queryItem": "PA0001",
+                            "stringId": "85962.gyrB",
+                            "preferredName": "gyrB",
+                            "ncbiTaxonId": 85962,
+                        }
+                    ]
+                ),
+                FakeResponse([]),
+            ]
+            result = fetch_string_functional_network(
+                workspace=workspace,
+                organism_name="Helicobacter pylori",
+                taxon_id="210",
+                config=config,
+                mode="online_optional",
+                replace_existing=True,
+            )
+
+        audit = pd.read_csv(
+            workspace / "results" / "string_mapping_audit.csv"
+        )
+        candidate = audit.loc[
+            audit["input_protein_id"] == "PA0001"
+        ].iloc[0]
+
+        self.assertEqual(
+            candidate["mapping_status"],
+            "exact_match",
+        )
+        self.assertEqual(
+            candidate["taxon_relation"],
+            "descendant_strain_match",
+        )
+        self.assertEqual(
+            str(result["manifest"]["network_taxon_id"]),
+            "85962",
+        )
+
+    def test_string_network_excludes_edge_with_ambiguous_endpoint(
+        self,
+    ) -> None:
+        workspace = self.make_workspace("string_unusable_edge")
+        config = load_config(workspace / "config" / "params.yaml")
+
+        with patch(
+            "src.nodos_funcionales.string_api.urlopen"
+        ) as urlopen_mock:
+            urlopen_mock.side_effect = [
+                FakeResponse(
+                    [
+                        {
+                            "queryItem": "PA0001",
+                            "stringId": "287.gyrB",
+                            "preferredName": "gyrB",
+                            "ncbiTaxonId": 287,
+                        },
+                        {
+                            "queryItem": "PA0002",
+                            "stringId": "287.HP_0610",
+                            "preferredName": "HP_0610",
+                            "ncbiTaxonId": 287,
+                        },
+                    ]
+                ),
+                FakeResponse(
+                    [
+                        {
+                            "stringId_A": "287.gyrB",
+                            "stringId_B": "287.HP_0610",
+                            "score": 0.91,
+                        }
+                    ]
+                ),
+            ]
+            result = fetch_string_functional_network(
+                workspace=workspace,
+                organism_name="Pseudomonas aeruginosa",
+                taxon_id="287",
+                config=config,
+                mode="online_optional",
+                replace_existing=True,
+            )
+
+        manifest = result["manifest"]
+        self.assertEqual(manifest["edge_count"], 1)
+        self.assertEqual(manifest["usable_edge_count"], 0)
+        self.assertTrue(manifest["retrieval_success"])
+        self.assertTrue(manifest["mapping_success"])
+        self.assertFalse(manifest["usable_evidence"])
+        self.assertFalse(manifest["affects_score"])
+        self.assertEqual(
+            manifest["retrieval_status"],
+            "degraded_no_usable_edge",
+        )
+        self.assertFalse(
+            (workspace / "data_raw" / "functional_network.csv").exists()
+        )
+        self.assertTrue(
+            (
+                workspace
+                / "results"
+                / "string_functional_network_diagnostic.csv"
+            ).exists()
+        )
+        self.assertEqual(
+            int(result["functional_network"]["interaction_partner_count"].sum()),
+            0,
+        )
 
     def test_string_mapping_audit_classifies_ambiguous_duplicate_mapping(self) -> None:
         workspace = self.make_workspace("string_mapping_ambiguous")
@@ -308,7 +435,15 @@ class StringApiTests(unittest.TestCase):
             )
         self.assertEqual(len(result["functional_network"]), 10)
         self.assertIn("edge_count", result["manifest"])
-        self.assertEqual(result["manifest"]["retrieval_status"], "connected_structured_payload")
+        self.assertEqual(
+            result["manifest"]["retrieval_status"],
+            "api_success_no_interactions",
+        )
+        self.assertEqual(result["manifest"]["edge_count"], 0)
+        self.assertEqual(result["manifest"]["usable_edge_count"], 0)
+        self.assertFalse(result["manifest"]["retrieval_success"])
+        self.assertFalse(result["manifest"]["usable_evidence"])
+        self.assertFalse(result["manifest"]["affects_score"])
         self.assertFalse(result["manifest"]["blocks_ranking"])
 
     def test_string_ssl_error_degrades_without_evidence(self) -> None:
@@ -345,9 +480,50 @@ class StringApiTests(unittest.TestCase):
         config.setdefault("online_sources", {})["source_mode_effective"] = "offline_only"
         with patch("src.nodos_funcionales.string_api.urlopen") as urlopen_mock:
             urlopen_mock.side_effect = [
-                FakeResponse([{"queryItem": f"PA000{i}", "stringId": f"287.PA000{i}", "preferredName": f"gene{i}"} for i in range(1, 10)]
-                             + [{"queryItem": "PA0010", "stringId": "287.PA0010", "preferredName": "pvdA"}]),
-                FakeResponse([{"stringId_A": "287.PA0001", "stringId_B": "287.PA0002", "score": 0.9}]),
+                FakeResponse(
+                    [
+                        {
+                            "queryItem": "PA0001",
+                            "stringId": "287.gyrB",
+                            "preferredName": "gyrB",
+                            "ncbiTaxonId": 287,
+                        },
+                        {
+                            "queryItem": "PA0002",
+                            "stringId": "287.rpoB",
+                            "preferredName": "rpoB",
+                            "ncbiTaxonId": 287,
+                        },
+                    ]
+                    + [
+                        {
+                            "queryItem": f"PA000{i}",
+                            "stringId": f"287.PA000{i}",
+                            "preferredName": f"gene{i}",
+                            "ncbiTaxonId": 287,
+                        }
+                        for i in range(3, 10)
+                    ]
+                    + [
+                        {
+                            "queryItem": "PA0010",
+                            "stringId": "287.PA0010",
+                            "preferredName": "pvdA",
+                            "ncbiTaxonId": 287,
+                        }
+                    ]
+                ),
+                FakeResponse(
+                    [
+                        {
+                            "stringId_A": "287.gyrB",
+                            "stringId_B": "287.rpoB",
+                            "preferredName_A": "gyrB",
+                            "preferredName_B": "rpoB",
+                            "score": 0.9,
+                        }
+                    ]
+                ),
             ]
             fetch_string_functional_network(
                 workspace=workspace,

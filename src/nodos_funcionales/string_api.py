@@ -19,6 +19,12 @@ from .provider_response_audit import ProviderResponse, request_provider_payload,
 
 STRING_SOURCE_MODES = set(provider_mode_choices())
 
+USABLE_STRING_MAPPING_STATUSES = {
+    "exact_match",
+    "locus_tag_match",
+    "synonym_match",
+}
+
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -235,7 +241,93 @@ def _clean_text(value: object) -> str:
     return str(value or "").strip()
 
 
-def _classify_mapping(row: pd.Series, expected_taxon_id: str | None) -> tuple[str, float, str]:
+def _accepted_descendant_taxa(
+    config: dict[str, Any],
+    expected_taxon_id: str | None,
+) -> set[str]:
+    """Return explicitly accepted descendant taxa for one requested taxon.
+
+    A different taxon is not assumed to be biologically compatible merely
+    because STRING returned it. Compatibility must be declared explicitly.
+    """
+    expected_taxon = str(expected_taxon_id or "").strip()
+    if not expected_taxon:
+        return set()
+
+    string_cfg = config.get("online_sources", {}).get("string", {})
+    configured = string_cfg.get("accepted_descendant_taxa", {})
+    if not isinstance(configured, dict):
+        return set()
+
+    values = configured.get(expected_taxon, {})
+
+    if isinstance(values, dict):
+        return {
+            str(value).strip()
+            for value, enabled in values.items()
+            if bool(enabled) and str(value).strip()
+        }
+
+    if isinstance(values, (str, int)):
+        values = [values]
+    if not isinstance(values, (list, tuple, set)):
+        return set()
+
+    return {
+        str(value).strip()
+        for value in values
+        if str(value).strip()
+    }
+
+
+def _taxon_relation(
+    expected_taxon_id: str | None,
+    returned_taxon_id: str | None,
+    config: dict[str, Any],
+) -> str:
+    expected = str(expected_taxon_id or "").strip()
+    returned = str(returned_taxon_id or "").strip()
+
+    if not expected or not returned:
+        return "taxon_unresolved"
+    if expected == returned:
+        return "exact_taxon_match"
+    if returned in _accepted_descendant_taxa(config, expected):
+        return "descendant_strain_match"
+    return "unrelated_taxon"
+
+
+def _select_network_taxon_id(
+    mappings: pd.DataFrame,
+    expected_taxon_id: str,
+    config: dict[str, Any],
+) -> str:
+    """Use a unique compatible returned strain taxon for the network query."""
+    if mappings.empty or "ncbi_taxon_id" not in mappings.columns:
+        return expected_taxon_id
+
+    returned_taxa = {
+        str(value).strip()
+        for value in mappings["ncbi_taxon_id"].dropna().tolist()
+        if str(value).strip()
+    }
+    compatible = {
+        taxon
+        for taxon in returned_taxa
+        if _taxon_relation(expected_taxon_id, taxon, config)
+        in {"exact_taxon_match", "descendant_strain_match"}
+    }
+
+    if len(compatible) == 1:
+        return next(iter(compatible))
+    return expected_taxon_id
+
+
+def _classify_mapping(
+    row: pd.Series,
+    expected_taxon_id: str | None,
+    config: dict[str, Any],
+) -> tuple[str, float, str, str]:
     protein_id = _normalize_identifier(row.get("protein_id"))
     gene = _normalize_identifier(row.get("gene"))
     locus_tag = _normalize_identifier(row.get("locus_tag"))
@@ -246,24 +338,84 @@ def _classify_mapping(row: pd.Series, expected_taxon_id: str | None) -> tuple[st
     annotation = _normalize_identifier(row.get("annotation"))
     mapping_count = int(row.get("mapping_candidate_count") or 0)
     expected_taxon = str(expected_taxon_id or "").strip()
+    taxon_relation = _taxon_relation(
+        expected_taxon,
+        ncbi_taxon_id,
+        config,
+    )
 
     if not string_id:
-        return "missing_mapping", 0.0, "STRING returned no stringId for this local protein_id."
-    if expected_taxon and ncbi_taxon_id and ncbi_taxon_id != expected_taxon:
-        return "taxon_mismatch", 0.0, f"STRING taxon {ncbi_taxon_id} differs from expected taxon {expected_taxon}."
+        return (
+            "missing_mapping",
+            0.0,
+            "STRING returned no stringId for this local protein_id.",
+            taxon_relation,
+        )
+
+    if taxon_relation == "unrelated_taxon":
+        return (
+            "taxon_mismatch",
+            0.0,
+            (
+                f"STRING taxon {ncbi_taxon_id} is not configured as "
+                f"compatible with expected taxon {expected_taxon}."
+            ),
+            taxon_relation,
+        )
+
     if mapping_count > 1:
-        return "ambiguous_mapping", 0.40, "STRING returned multiple candidate mappings for the same query."
+        return (
+            "ambiguous_mapping",
+            0.40,
+            "STRING returned multiple candidate mappings for the same query.",
+            taxon_relation,
+        )
+
     if gene and (preferred_name == gene or string_suffix == gene):
-        return "exact_match", 0.90, ""
-    if locus_tag and (preferred_name == locus_tag or string_suffix == locus_tag):
-        return "locus_tag_match", 0.82, ""
+        return "exact_match", 0.90, "", taxon_relation
+
+    if locus_tag and (
+        preferred_name == locus_tag
+        or string_suffix == locus_tag
+    ):
+        return "locus_tag_match", 0.82, "", taxon_relation
+
     if gene and gene in annotation:
-        return "synonym_match", 0.65, "Local gene appears in STRING annotation but not as preferredName."
-    if protein_id and (preferred_name == protein_id or string_suffix == protein_id):
+        return (
+            "synonym_match",
+            0.65,
+            (
+                "Local gene appears in STRING annotation but not as "
+                "preferredName."
+            ),
+            taxon_relation,
+        )
+
+    if protein_id and (
+        preferred_name == protein_id
+        or string_suffix == protein_id
+    ):
         if gene and preferred_name and preferred_name != gene:
-            return "preferred_name_mismatch", 0.55, "STRING id matches local protein_id but preferredName differs from local gene."
-        return "exact_match", 0.90, ""
-    return "ambiguous_mapping", 0.40, "STRING mapping could not be reconciled with local protein_id, gene, or locus_tag."
+            return (
+                "preferred_name_mismatch",
+                0.55,
+                (
+                    "STRING id matches local protein_id but preferredName "
+                    "differs from local gene."
+                ),
+                taxon_relation,
+            )
+        return "exact_match", 0.90, "", taxon_relation
+
+    return (
+        "ambiguous_mapping",
+        0.40,
+        (
+            "STRING mapping could not be reconciled with local protein_id, "
+            "gene, or locus_tag."
+        ),
+        taxon_relation,
+    )
 
 
 def _extract_edges(payload: Any) -> pd.DataFrame:
@@ -336,6 +488,43 @@ def _clustering_penalty(node: str, adjacency: dict[str, set[str]]) -> float:
     return min(1.0, observed / possible)
 
 
+def _usable_edge_pairs(
+    functional_network: pd.DataFrame,
+    edges: pd.DataFrame,
+) -> set[tuple[str, str]]:
+    """Return unique edges whose two endpoints have usable local mappings."""
+    if functional_network.empty or edges.empty:
+        return set()
+
+    required_network = {"protein_id", "string_id", "mapping_status"}
+    required_edges = {"string_id_a", "string_id_b"}
+    if not required_network.issubset(functional_network.columns):
+        return set()
+    if not required_edges.issubset(edges.columns):
+        return set()
+
+    usable = functional_network.loc[
+        functional_network["mapping_status"]
+        .fillna("")
+        .astype(str)
+        .isin(USABLE_STRING_MAPPING_STATUSES)
+    ]
+    string_to_protein = {
+        str(row["string_id"]): str(row["protein_id"])
+        for _, row in usable.iterrows()
+        if str(row.get("string_id") or "").strip()
+    }
+
+    pairs: set[tuple[str, str]] = set()
+    for _, edge in edges.iterrows():
+        source = string_to_protein.get(str(edge.get("string_id_a") or ""))
+        target = string_to_protein.get(str(edge.get("string_id_b") or ""))
+        if not source or not target or source == target:
+            continue
+        pairs.add(tuple(sorted((source, target))))
+    return pairs
+
+
 def _derive_functional_network(
     proteins: pd.DataFrame,
     mappings: pd.DataFrame,
@@ -367,13 +556,21 @@ def _derive_functional_network(
         merged["gene"].fillna("").astype(str).str.casefold()
         == merged["preferred_name"].fillna("").astype(str).str.casefold()
     )
-    mapping_audit = merged.apply(lambda row: _classify_mapping(row, taxon_id), axis=1)
+    mapping_audit = merged.apply(
+        lambda row: _classify_mapping(row, taxon_id, config),
+        axis=1,
+    )
     merged["mapping_status"] = mapping_audit.map(lambda item: item[0])
     merged["mapping_confidence"] = mapping_audit.map(lambda item: item[1])
     merged["mapping_warning"] = mapping_audit.map(lambda item: item[2])
+    merged["taxon_relation"] = mapping_audit.map(lambda item: item[3])
+    merged["usable_for_network"] = merged["mapping_status"].isin(
+        USABLE_STRING_MAPPING_STATUSES
+    )
+    usable_mappings = merged.loc[merged["usable_for_network"]]
     string_to_protein = {
         str(row["string_id"]): str(row["protein_id"])
-        for _, row in merged.dropna(subset=["string_id"]).iterrows()
+        for _, row in usable_mappings.dropna(subset=["string_id"]).iterrows()
         if str(row["string_id"]).strip()
     }
     nodes = merged["protein_id"].astype(str).tolist()
@@ -436,7 +633,12 @@ def _derive_functional_network(
                 "string_id_returned": protein.get("string_id", ""),
                 "preferred_name_returned": protein.get("preferred_name", ""),
                 "ncbi_taxon_id": protein.get("ncbi_taxon_id", ""),
+                "taxon_relation": protein.get(
+                    "taxon_relation",
+                    "taxon_unresolved",
+                ),
                 "mapping_status": protein.get("mapping_status", "unresolved"),
+                "usable_for_network": bool(protein.get("usable_for_network", False)),
                 "mapping_confidence": round(float(protein.get("mapping_confidence", 0.0)), 3),
                 "mapping_warning": protein.get("mapping_warning", ""),
                 "mapping_candidate_count": int(protein.get("mapping_candidate_count", 0)),
@@ -465,7 +667,9 @@ def _write_string_mapping_audit(workspace: Path, functional_network: pd.DataFram
         "string_id_returned",
         "preferred_name_returned",
         "ncbi_taxon_id",
+        "taxon_relation",
         "mapping_status",
+        "usable_for_network",
         "mapping_confidence",
         "mapping_warning",
         "used_as_final_protein_id",
@@ -715,7 +919,16 @@ def fetch_string_functional_network(
         reason = "; ".join(notes) or "STRING no devolvio mappings utilizables para las proteinas del workspace."
         raise ValueError(f"{status}: {reason}")
 
-    network_url = _build_network_url(mappings["string_id"].dropna().astype(str).tolist(), taxon_id, cfg)
+    network_taxon_id = _select_network_taxon_id(
+        mappings,
+        taxon_id,
+        config,
+    )
+    network_url = _build_network_url(
+        mappings["string_id"].dropna().astype(str).tolist(),
+        network_taxon_id,
+        cfg,
+    )
     edge_payload, edge_errors, edge_response = _api_get_json(network_url, cfg)
     notes.extend(edge_errors)
     if edge_payload is None and normalized_mode == "online_optional" and cache["entries"].get(cache_key):
@@ -775,19 +988,30 @@ def fetch_string_functional_network(
         fallback_reason=fallback_reason,
         taxon_id=taxon_id,
     )
-    mapped_gene_matches = int(derived["mapping_matches_input_gene"].sum()) if "mapping_matches_input_gene" in derived.columns else 0
-    mapped_gene_mismatches = int(len(derived) - mapped_gene_matches)
+    mapped_mask = derived.get(
+        "string_id_returned",
+        pd.Series("", index=derived.index, dtype=object),
+    ).fillna("").astype(str).str.strip().ne("")
+    gene_match_mask = derived.get(
+        "mapping_matches_input_gene",
+        pd.Series(False, index=derived.index, dtype=bool),
+    ).fillna(False).astype(bool)
+    mapped_gene_matches = int((mapped_mask & gene_match_mask).sum())
+    mapped_gene_mismatches = int(mapped_mask.sum() - mapped_gene_matches)
     mapping_status_counts = (
         derived["mapping_status"].fillna("unresolved").astype(str).value_counts().to_dict()
         if "mapping_status" in derived.columns
         else {}
     )
-    degraded_mapping_count = int(
-        derived.get("mapping_status", pd.Series(dtype=str)).astype(str).isin(
-            ["preferred_name_mismatch", "taxon_mismatch", "ambiguous_mapping", "missing_mapping", "fallback_mapping", "unresolved"]
-        ).sum()
+    mapping_status = derived.get(
+        "mapping_status",
+        pd.Series("unresolved", index=derived.index, dtype=object),
+    ).fillna("unresolved").astype(str)
+    usable_mapping_count = int(
+        mapping_status.isin(USABLE_STRING_MAPPING_STATUSES).sum()
     )
-    usable_mapping_count = int(len(derived) - degraded_mapping_count)
+    degraded_mapping_count = int(len(derived) - usable_mapping_count)
+    usable_edge_count = len(_usable_edge_pairs(derived, edges))
     if mapped_gene_mismatches:
         notes.append(
             f"Se detectaron {mapped_gene_mismatches} discrepancias entre `gene` local y `string_preferred_name`; usar este enriquecimiento con cautela."
@@ -796,6 +1020,38 @@ def fetch_string_functional_network(
         notes.append(
             f"STRING mapping audit registro {degraded_mapping_count} mappings degradados o ambiguos; revisar string_mapping_audit.csv antes de curar snapshots."
         )
+
+    connectivity_success = bool(
+        mapping_response is not None
+        and mapping_response.http_status is not None
+    )
+    retrieval_success = bool(edge_payload is not None and len(edges) > 0)
+    mapping_success = bool(usable_mapping_count > 0)
+    usable_evidence = bool(retrieval_success and usable_edge_count > 0)
+
+    if not mapping_success:
+        final_retrieval_status = "degraded_no_usable_mapping"
+        final_fallback_reason = (
+            fallback_reason or "api_response_no_usable_mapping"
+        )
+    elif retrieval_success and not usable_evidence:
+        final_retrieval_status = "degraded_no_usable_edge"
+        final_fallback_reason = (
+            fallback_reason or "api_response_no_usable_edge"
+        )
+        notes.append(
+            "STRING returned interactions, but no edge had usable mappings "
+            "at both endpoints; network metrics were excluded from scoring."
+        )
+    elif not retrieval_success:
+        final_retrieval_status = "api_success_no_interactions"
+        final_fallback_reason = (
+            fallback_reason or "api_success_no_interactions"
+        )
+    else:
+        final_retrieval_status = retrieval_status
+        final_fallback_reason = fallback_reason
+
     manifest = {
         "source": "string",
         "provider": str(cfg["provider_name"]),
@@ -804,6 +1060,7 @@ def fetch_string_functional_network(
         "mode": normalized_mode,
         "organism_name": organism_name,
         "taxon_id": taxon_id,
+        "network_taxon_id": network_taxon_id,
         "query_cache_key": cache_key,
         "protein_count_requested": int(len(proteins)),
         "protein_count_mapped": int(mappings["string_id"].astype(str).str.strip().ne("").sum()),
@@ -813,21 +1070,24 @@ def fetch_string_functional_network(
         "degraded_mapping_count": degraded_mapping_count,
         "usable_mapping_count": usable_mapping_count,
         "edge_count": int(len(edges)),
+        "usable_edge_count": int(usable_edge_count),
+        "usable_mapping_statuses": sorted(USABLE_STRING_MAPPING_STATUSES),
         "source_used": "api_real",
-        "retrieval_status": retrieval_status,
+        "retrieval_status": final_retrieval_status,
         "cache_hit": False,
         "api_attempted": True,
         "api_success": bool(edge_payload is not None),
-        "connectivity_success": bool(mapping_response is not None and mapping_response.http_status is not None),
-        "retrieval_success": bool(edge_payload is not None and len(edges) > 0),
-        "mapping_success": bool(usable_mapping_count > 0),
-        "usable_evidence": bool(edge_payload is not None and len(edges) > 0 and usable_mapping_count > 0),
-        "fallback_reason": fallback_reason,
+        "connectivity_success": connectivity_success,
+        "retrieval_success": retrieval_success,
+        "mapping_success": mapping_success,
+        "usable_evidence": usable_evidence,
+        "fallback_used": not usable_evidence,
+        "fallback_reason": final_fallback_reason,
         "notes": notes,
         "generated_at_utc": _utc_now(),
         "data_realism_flag": "computed_online",
-        "confidence": 0.88 if edge_payload is not None else 0.78,
-        "run_kind": "fresh_api_run" if edge_payload is not None else "fallback_mapping",
+        "confidence": 0.88 if usable_evidence else (0.72 if retrieval_success else 0.0),
+        "run_kind": "fresh_api_run" if usable_evidence else "degraded_api_run",
         "provenance_summary": (
             f"provider={cfg['provider_name']}; source_used=api_real; cache_hit=False; api_success={edge_payload is not None}"
         ),
@@ -835,7 +1095,7 @@ def fetch_string_functional_network(
         "network_query_url": network_url,
         "parser_used": "string_json_list_parser",
         "blocks_ranking": False,
-        "evidence_inferred": bool(edge_payload is not None),
+        "evidence_inferred": usable_evidence,
         **audit,
     }
     manifest.update(
@@ -846,10 +1106,14 @@ def fetch_string_functional_network(
             retrieval_mode=normalized_mode,
             cache_status="cache_miss",
             source_version=str(manifest["generated_at_utc"])[:10],
-            incomplete=edge_payload is None or mappings.empty,
+            incomplete=edge_payload is None or mappings.empty or not usable_evidence,
         )
     )
-    manifest["retrieval_status"] = retrieval_status
+    manifest["retrieval_status"] = final_retrieval_status
+    manifest["usable_evidence"] = usable_evidence
+    manifest["affects_score"] = usable_evidence
+    manifest["fallback_used"] = not usable_evidence
+    manifest["fallback_reason"] = final_fallback_reason
 
     if not no_write_cache:
         cache["entries"][cache_key] = {
@@ -862,7 +1126,24 @@ def fetch_string_functional_network(
         }
         save_string_cache(workspace, config, cache)
 
-    output_path = _write_functional_network_output(workspace, derived, config, replace_existing=replace_existing)
+    diagnostic_path = workspace / "results" / "string_functional_network_diagnostic.csv"
+    diagnostic_path.parent.mkdir(parents=True, exist_ok=True)
+    derived.to_csv(diagnostic_path, index=False)
+    manifest["diagnostic_output_path"] = str(diagnostic_path)
+
+    if usable_evidence:
+        output_path = _write_functional_network_output(
+            workspace,
+            derived,
+            config,
+            replace_existing=replace_existing,
+        )
+    else:
+        output_path = None
+        stale_output = workspace / "data_raw" / "functional_network.csv"
+        if replace_existing and stale_output.exists():
+            stale_output.unlink()
+
     manifest["output_written"] = bool(output_path)
     manifest["output_path"] = str(output_path) if output_path else None
     audit_path, audit_report_path = _write_string_mapping_audit(workspace, derived, manifest)
