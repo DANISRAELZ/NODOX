@@ -134,6 +134,9 @@ online_sources:
     network_flavor: confidence
     database_label: computed_string_api_v1
     allow_replace_demo_dataset: true
+    accepted_descendant_taxa:
+      210:
+        85962: true
   deg:
     enabled: true
     provider_name: deg_real

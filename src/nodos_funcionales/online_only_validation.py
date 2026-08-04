@@ -1042,30 +1042,44 @@ def build_online_only_provider_audit(workspace: Path, seed_result: dict[str, Any
         api_success = bool(provider_manifest.get("api_success", False)) if provider_manifest else False
         provider_attempted = bool(provider_manifest.get("provider_attempted", api_attempted)) if provider_manifest else api_attempted
         provider_success = bool(provider_manifest.get("provider_success", api_success)) if provider_manifest else api_success
-        retrieved_count = _provider_count(
-            provider_manifest,
-            [
-                "retrieved_record_count",
-                "result_row_count",
-                "feature_records_retrieved",
-                "candidate_sequence_count",
-                "protein_count_requested",
-                "records_retrieved",
-                "accessions_queried",
-                "edge_count",
-            ],
-        )
-        matched_count = _provider_count(
-            provider_manifest,
-            [
-                "matched_candidate_count",
-                "hit_count",
-                "protein_count_mapped",
-                "exact_gene_match_count",
-                "mapped_protein_count",
-                "paired_domain_rows",
-            ],
-        )
+        if layer_key == "functional_network":
+            retrieved_count = _provider_count(
+                provider_manifest,
+                ["edge_count", "retrieved_record_count"],
+            )
+            matched_count = _provider_count(
+                provider_manifest,
+                [
+                    "usable_mapping_count",
+                    "matched_candidate_count",
+                    "protein_count_mapped",
+                ],
+            )
+        else:
+            retrieved_count = _provider_count(
+                provider_manifest,
+                [
+                    "retrieved_record_count",
+                    "result_row_count",
+                    "feature_records_retrieved",
+                    "candidate_sequence_count",
+                    "protein_count_requested",
+                    "records_retrieved",
+                    "accessions_queried",
+                    "edge_count",
+                ],
+            )
+            matched_count = _provider_count(
+                provider_manifest,
+                [
+                    "matched_candidate_count",
+                    "hit_count",
+                    "protein_count_mapped",
+                    "exact_gene_match_count",
+                    "mapped_protein_count",
+                    "paired_domain_rows",
+                ],
+            )
         evidence_level = str(provider_manifest.get("evidence_level") or _evidence_level_for_layer(layer_key, api_success, source_used, item)) if provider_manifest else _evidence_level_for_layer(layer_key, api_success, source_used, item)
         semantics = _provider_success_semantics(
             layer_key, provider_manifest, api_attempted, api_success, retrieved_count, matched_count, evidence_level
@@ -1115,6 +1129,12 @@ def build_online_only_provider_audit(workspace: Path, seed_result: dict[str, Any
                 **semantics,
                 "retrieved_record_count": int(retrieved_count),
                 "matched_candidate_count": int(matched_count),
+                "raw_edge_count": int(
+                    provider_manifest.get("edge_count", 0) or 0
+                ) if layer_key == "functional_network" else 0,
+                "usable_edge_count": int(
+                    provider_manifest.get("usable_edge_count", 0) or 0
+                ) if layer_key == "functional_network" else 0,
                 "fallback_used": fallback_used,
                 "fallback_reason": fallback_reason,
                 "retrieval_status": (
@@ -1319,9 +1339,10 @@ def _sanitize_online_only_ranking(
     ranking["experimental_validation_supported"] = False
     if provider_audit is not None and not provider_audit.empty:
         usable_counts = _usable_real_layer_counts(ranking, provider_audit)
-        ranking["online_only_usable_real_layer_count"] = usable_counts
-        ranking["real_evidence_layer_count"] = usable_counts.astype(int)
-        ranking["phase3_real_evidence_layer_count"] = usable_counts.astype(int)
+        if usable_counts is not None:
+            ranking["online_only_usable_real_layer_count"] = usable_counts
+            ranking["real_evidence_layer_count"] = usable_counts.astype(int)
+            ranking["phase3_real_evidence_layer_count"] = usable_counts.astype(int)
     _normalize_online_only_provenance_columns(ranking)
     ranking["online_only_label_policy"] = (
         "publication_safe_online_computational_not_experimental"
@@ -1333,20 +1354,79 @@ def _sanitize_online_only_ranking(
     ranking.to_csv(path, index=False)
 
 
-def _usable_real_layer_counts(ranking: pd.DataFrame, provider_audit: pd.DataFrame) -> pd.Series:
-    counts = pd.Series(0, index=ranking.index, dtype=int)
+def _usable_real_layer_counts(
+    ranking: pd.DataFrame,
+    provider_audit: pd.DataFrame,
+) -> pd.Series | None:
+    """Recalculate evidence counts from the observable exported columns.
+
+    When no usable scoring layer can be inspected from the publication-facing
+    ranking, preserve the authoritative Phase 3 counts. When at least one layer
+    is observable, recalculate only those observable layers instead of
+    preserving potentially stale legacy totals.
+    """
+    usable = provider_audit.get(
+        "usable_evidence",
+        pd.Series(False, index=provider_audit.index),
+    ).fillna(False).astype(bool)
+
+    affects_score = provider_audit.get(
+        "affects_score",
+        pd.Series(True, index=provider_audit.index),
+    ).fillna(False).astype(bool)
+
     usable_layers = set(
-        provider_audit.loc[provider_audit["usable_evidence"].astype(bool), "layer_key"].astype(str).tolist()
+        provider_audit.loc[
+            usable & affects_score,
+            "layer_key",
+        ].astype(str)
     )
+
+    if not usable_layers:
+        return pd.Series(0, index=ranking.index, dtype=int)
+
+    columns_by_layer: dict[str, list[str]] = {}
+
     for layer_key in usable_layers:
-        columns = [column for column in SCORING_COLUMNS_BY_LAYER.get(layer_key, ()) if column in ranking.columns]
-        if not columns:
-            continue
+        columns = [
+            column
+            for column in SCORING_COLUMNS_BY_LAYER.get(layer_key, ())
+            if column in ranking.columns
+        ]
+
+        if columns:
+            columns_by_layer[layer_key] = columns
+
+    # None of the usable provider layers can be inspected in this exported
+    # ranking. Keep the counts already calculated by Phase 3.
+    if not columns_by_layer:
+        return None
+
+    counts = pd.Series(0, index=ranking.index, dtype=int)
+
+    missing_tokens = {
+        "",
+        "nan",
+        "none",
+        "unknown",
+        "unresolved",
+    }
+
+    for columns in columns_by_layer.values():
         present = pd.Series(False, index=ranking.index)
+
         for column in columns:
             values = ranking[column]
-            present |= values.notna() & ~values.astype(str).str.strip().str.lower().isin({"", "nan", "none", "unknown", "unresolved"})
+            present |= (
+                values.notna()
+                & ~values.astype(str)
+                .str.strip()
+                .str.lower()
+                .isin(missing_tokens)
+            )
+
         counts += present.astype(int)
+
     return counts
 
 
@@ -2031,10 +2111,29 @@ def _attempt_string_enrichment(
 ) -> dict[str, Any]:
     if candidates.empty:
         return _write_online_only_provider_manifest(
-            workspace, "functional_network", "string_api", "https://string-db.org/api",
-            "string_api.fetch_string_functional_network", False, False, 0, 0, True,
-            "no_candidate_records", "unresolved", "unresolved", "unresolved", "unresolved", False,
+            workspace,
+            "functional_network",
+            "string_api",
+            "https://string-db.org/api",
+            "string_api.fetch_string_functional_network",
+            False,
+            False,
+            0,
+            0,
+            True,
+            "no_candidate_records",
+            "unresolved",
+            "unresolved",
+            "unresolved",
+            "unresolved",
+            False,
+            explicit_connectivity_success=False,
+            explicit_retrieval_success=False,
+            explicit_mapping_success=False,
+            explicit_usable_evidence=False,
+            explicit_affects_score=False,
         )
+
     try:
         result = fetch_string_functional_network(
             workspace=workspace,
@@ -2046,39 +2145,135 @@ def _attempt_string_enrichment(
         )
         df = result["functional_network"]
         manifest = result["manifest"]
-        external_path = workspace / config["layer_resolution"]["external_data_dir"] / "functional_network.csv"
-        external_path.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(external_path, index=False)
+
         api_success = bool(manifest.get("api_success", False))
-        matched = int(
-            manifest.get("usable_mapping_count", manifest.get("protein_count_mapped", len(df) if api_success else 0)) or 0
+        connectivity_success = bool(
+            manifest.get("connectivity_success", api_success)
         )
-        usable = bool(api_success and matched > 0 and not df.empty)
+        retrieval_success = bool(
+            manifest.get("retrieval_success", False)
+        )
+        mapping_success = bool(
+            manifest.get("mapping_success", False)
+        )
+        usable = bool(manifest.get("usable_evidence", False))
+        affects_score = bool(
+            manifest.get("affects_score", usable) and usable
+        )
+
+        raw_edge_count = int(manifest.get("edge_count", 0) or 0)
+        usable_edge_count = int(
+            manifest.get("usable_edge_count", 0) or 0
+        )
+        matched = int(
+            manifest.get(
+                "usable_mapping_count",
+                manifest.get("protein_count_mapped", 0),
+            )
+            or 0
+        )
+
+        external_path = (
+            workspace
+            / config["layer_resolution"]["external_data_dir"]
+            / "functional_network.csv"
+        )
+        external_path.parent.mkdir(parents=True, exist_ok=True)
+        if usable and affects_score and not df.empty:
+            df.to_csv(external_path, index=False)
+        elif external_path.exists():
+            external_path.unlink()
+
+        retrieval_status = str(
+            manifest.get("retrieval_status")
+            or (
+                "api_real"
+                if usable
+                else "degraded_no_usable_edge"
+                if retrieval_success and mapping_success
+                else "degraded_no_usable_mapping"
+            )
+        )
+        fallback_reason = str(
+            manifest.get("fallback_reason")
+            or (
+                ""
+                if usable
+                else "api_response_no_usable_edge"
+                if retrieval_success and mapping_success
+                else "api_response_no_usable_mapping"
+            )
+        )
+
         return _write_online_only_provider_manifest(
             workspace=workspace,
             layer_key="functional_network",
             provider_name="string_api",
-            provider_endpoint_or_mode=str(config["online_sources"]["string"]["provider_base_url"]),
+            provider_endpoint_or_mode=str(
+                config["online_sources"]["string"]["provider_base_url"]
+            ),
             provider_function="string_api.fetch_string_functional_network",
             api_attempted=True,
             api_success=api_success,
-            retrieved_record_count=int(manifest.get("edge_count", 0) or 0),
+            retrieved_record_count=raw_edge_count,
             matched_candidate_count=matched,
             fallback_used=not usable,
-            fallback_reason=str(manifest.get("fallback_reason") or ("" if usable else "api_response_no_usable_mapping")),
-            retrieval_status="api_real" if usable else "degraded_no_usable_mapping",
-            source_used=str(manifest.get("source_used") or ("api_real" if api_success else "api_failed")),
-            data_realism_flag="computed_online" if api_success else "unresolved",
-            evidence_level="computational_online_interaction" if api_success else "unresolved",
+            fallback_reason=fallback_reason,
+            retrieval_status=retrieval_status,
+            source_used=str(
+                manifest.get("source_used")
+                or ("api_real" if api_success else "api_failed")
+            ),
+            data_realism_flag=(
+                "computed_online" if api_success else "unresolved"
+            ),
+            evidence_level=(
+                "computational_online_interaction"
+                if usable
+                else "unresolved"
+            ),
             inherited_from_candidate_seed=False,
+            explicit_connectivity_success=connectivity_success,
+            explicit_retrieval_success=retrieval_success,
+            explicit_mapping_success=mapping_success,
+            explicit_usable_evidence=usable,
+            explicit_affects_score=affects_score,
+            extra_manifest={
+                "edge_count": raw_edge_count,
+                "usable_edge_count": usable_edge_count,
+                "usable_mapping_count": matched,
+                "degraded_mapping_count": int(
+                    manifest.get("degraded_mapping_count", 0) or 0
+                ),
+                "network_taxon_id": manifest.get("network_taxon_id"),
+            },
         )
     except Exception as exc:  # noqa: BLE001 - provider failures are audited.
         failure = classify_provider_failure(exc)
         return _write_online_only_provider_manifest(
-            workspace, "functional_network", "string_api", "https://string-db.org/api",
-            "string_api.fetch_string_functional_network", True, False, 0, 0, True,
-            failure, failure, "api_failed", "unresolved", "unresolved", False,
+            workspace,
+            "functional_network",
+            "string_api",
+            "https://string-db.org/api",
+            "string_api.fetch_string_functional_network",
+            True,
+            False,
+            0,
+            0,
+            True,
+            failure,
+            failure,
+            "api_failed",
+            "unresolved",
+            "unresolved",
+            False,
+            explicit_connectivity_success=False,
+            explicit_retrieval_success=False,
+            explicit_mapping_success=False,
+            explicit_usable_evidence=False,
+            explicit_affects_score=False,
         )
+
 
 
 def _attempt_interpro_domain_enrichment(
@@ -2337,11 +2532,35 @@ def _write_online_only_provider_manifest(
     provider_attempted: bool | None = None,
     provider_success: bool | None = None,
     provider_mode: str = "online",
+    explicit_connectivity_success: bool | None = None,
+    explicit_retrieval_success: bool | None = None,
+    explicit_mapping_success: bool | None = None,
+    explicit_usable_evidence: bool | None = None,
+    explicit_affects_score: bool | None = None,
+    extra_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    connectivity_success = bool(api_success)
-    retrieval_success = bool(connectivity_success and int(retrieved_record_count) > 0)
-    mapping_success = bool(int(matched_candidate_count) > 0)
-    usable_evidence = bool(retrieval_success and mapping_success and evidence_level not in {"", "unresolved"})
+    connectivity_success = bool(
+        api_success
+        if explicit_connectivity_success is None
+        else explicit_connectivity_success
+    )
+    retrieval_success = bool(
+        connectivity_success and int(retrieved_record_count) > 0
+        if explicit_retrieval_success is None
+        else explicit_retrieval_success
+    )
+    mapping_success = bool(
+        int(matched_candidate_count) > 0
+        if explicit_mapping_success is None
+        else explicit_mapping_success
+    )
+    usable_evidence = bool(
+        retrieval_success
+        and mapping_success
+        and evidence_level not in {"", "unresolved"}
+        if explicit_usable_evidence is None
+        else explicit_usable_evidence
+    )
     if layer_key == "essentiality" and inherited_from_candidate_seed:
         usable_evidence = False
     manifest = {
@@ -2368,10 +2587,16 @@ def _write_online_only_provider_manifest(
         "data_realism_flag": str(data_realism_flag),
         "evidence_level": str(evidence_level),
         "experimental_validation_supported": False,
-        "affects_score": False,
+        "affects_score": bool(
+            False
+            if explicit_affects_score is None
+            else explicit_affects_score
+        ),
         "inherited_from_candidate_seed": bool(inherited_from_candidate_seed),
         "generated_at_utc": _utc_now(),
     }
+    if extra_manifest:
+        manifest.update(extra_manifest)
     _json_dump(workspace / "results" / f"online_only_{layer_key}_manifest.json", manifest)
     return manifest
 
