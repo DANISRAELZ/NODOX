@@ -744,6 +744,8 @@ def _write_manifest_and_report(workspace: Path, manifest: dict[str, Any]) -> tup
         f"- Mapping gene matches: `{manifest.get('mapping_gene_matches', 0)}`",
         f"- Mapping gene mismatches: `{manifest.get('mapping_gene_mismatches', 0)}`",
         f"- Network edges recovered: `{manifest['edge_count']}`",
+        f"- Usable network edges: `{manifest.get('usable_edge_count', 0)}`",
+        f"- Excluded network edges: `{manifest.get('excluded_edge_count', 0)}`",
         f"- Output written: `{manifest.get('output_written')}`",
         "",
         "## Notes",
@@ -789,6 +791,24 @@ def _build_cache_served_manifest(cached_manifest: dict[str, Any], mode: str) -> 
     served.setdefault("mapping_status_counts", cached_manifest.get("mapping_status_counts", {}))
     served.setdefault("degraded_mapping_count", int(cached_manifest.get("degraded_mapping_count", 0)))
     served.setdefault("edge_count", int(cached_manifest.get("edge_count", 0)))
+    served.setdefault(
+        "usable_edge_count",
+        int(cached_manifest.get("usable_edge_count", 0) or 0),
+    )
+    served.setdefault(
+        "excluded_edge_count",
+        int(
+            cached_manifest.get(
+                "excluded_edge_count",
+                max(
+                    int(served["edge_count"])
+                    - int(served["usable_edge_count"]),
+                    0,
+                ),
+            )
+            or 0
+        ),
+    )
     served["run_kind"] = "cache_reuse_run"
     notes = list(served.get("notes", []))
     if "served_from_cache" not in notes:
@@ -1012,6 +1032,10 @@ def fetch_string_functional_network(
     )
     degraded_mapping_count = int(len(derived) - usable_mapping_count)
     usable_edge_count = len(_usable_edge_pairs(derived, edges))
+    excluded_edge_count = max(
+        int(len(edges)) - int(usable_edge_count),
+        0,
+    )
     if mapped_gene_mismatches:
         notes.append(
             f"Se detectaron {mapped_gene_mismatches} discrepancias entre `gene` local y `string_preferred_name`; usar este enriquecimiento con cautela."
@@ -1071,6 +1095,7 @@ def fetch_string_functional_network(
         "usable_mapping_count": usable_mapping_count,
         "edge_count": int(len(edges)),
         "usable_edge_count": int(usable_edge_count),
+        "excluded_edge_count": int(excluded_edge_count),
         "usable_mapping_statuses": sorted(USABLE_STRING_MAPPING_STATUSES),
         "source_used": "api_real",
         "retrieval_status": final_retrieval_status,

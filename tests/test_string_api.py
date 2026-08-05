@@ -124,6 +124,11 @@ class StringApiTests(unittest.TestCase):
         self.assertTrue(result["manifest"]["api_success"])
         self.assertGreater(result["manifest"]["degraded_mapping_count"], 0)
         self.assertGreater(result["manifest"]["usable_edge_count"], 0)
+        self.assertEqual(
+            result["manifest"]["edge_count"],
+            result["manifest"]["usable_edge_count"]
+            + result["manifest"]["excluded_edge_count"],
+        )
         self.assertTrue(result["manifest"]["usable_evidence"])
         self.assertTrue(result["manifest"]["affects_score"])
 
@@ -298,6 +303,12 @@ class StringApiTests(unittest.TestCase):
         manifest = result["manifest"]
         self.assertEqual(manifest["edge_count"], 1)
         self.assertEqual(manifest["usable_edge_count"], 0)
+        self.assertEqual(manifest["excluded_edge_count"], 1)
+        self.assertEqual(
+            manifest["edge_count"],
+            manifest["usable_edge_count"]
+            + manifest["excluded_edge_count"],
+        )
         self.assertTrue(manifest["retrieval_success"])
         self.assertTrue(manifest["mapping_success"])
         self.assertFalse(manifest["usable_evidence"])

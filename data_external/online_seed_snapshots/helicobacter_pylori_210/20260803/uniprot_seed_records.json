@@ -1,0 +1,2453 @@
+{
+  "results": [
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "B4XMC6",
+      "uniProtkbId": "DCDA_HELPX",
+      "annotationScore": 5.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000255",
+                "source": "HAMAP-Rule",
+                "id": "MF_02120"
+              },
+              {
+                "evidenceCode": "ECO:0000303",
+                "source": "PubMed",
+                "id": "18508763"
+              }
+            ],
+            "value": "Diaminopimelate decarboxylase"
+          },
+          "shortNames": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000255",
+                  "source": "HAMAP-Rule",
+                  "id": "MF_02120"
+                }
+              ],
+              "value": "DAP decarboxylase"
+            },
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000255",
+                  "source": "HAMAP-Rule",
+                  "id": "MF_02120"
+                }
+              ],
+              "value": "DAPDC"
+            }
+          ],
+          "ecNumbers": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000255",
+                  "source": "HAMAP-Rule",
+                  "id": "MF_02120"
+                },
+                {
+                  "evidenceCode": "ECO:0000269",
+                  "source": "PubMed",
+                  "id": "18508763"
+                }
+              ],
+              "value": "4.1.1.20"
+            }
+          ]
+        }
+      },
+      "genes": [
+        {
+          "geneName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000255",
+                "source": "HAMAP-Rule",
+                "id": "MF_02120"
+              }
+            ],
+            "value": "lysA"
+          }
+        }
+      ],
+      "comments": [],
+      "extraAttributes": {
+        "uniParcId": "UPI000179A5FA"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "Q56S04",
+      "uniProtkbId": "AROE_HELPX",
+      "annotationScore": 5.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000255",
+                "source": "HAMAP-Rule",
+                "id": "MF_00222"
+              },
+              {
+                "evidenceCode": "ECO:0000303",
+                "source": "PubMed",
+                "id": "16972983"
+              }
+            ],
+            "value": "Shikimate dehydrogenase (NADP(+))"
+          },
+          "shortNames": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000255",
+                  "source": "HAMAP-Rule",
+                  "id": "MF_00222"
+                },
+                {
+                  "evidenceCode": "ECO:0000303",
+                  "source": "PubMed",
+                  "id": "16972983"
+                }
+              ],
+              "value": "SDH"
+            }
+          ],
+          "ecNumbers": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000255",
+                  "source": "HAMAP-Rule",
+                  "id": "MF_00222"
+                },
+                {
+                  "evidenceCode": "ECO:0000269",
+                  "source": "PubMed",
+                  "id": "16972983"
+                }
+              ],
+              "value": "1.1.1.25"
+            }
+          ]
+        }
+      },
+      "genes": [
+        {
+          "geneName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000255",
+                "source": "HAMAP-Rule",
+                "id": "MF_00222"
+              },
+              {
+                "evidenceCode": "ECO:0000303",
+                "source": "PubMed",
+                "id": "16972983"
+              }
+            ],
+            "value": "aroE"
+          }
+        }
+      ],
+      "comments": [],
+      "extraAttributes": {
+        "uniParcId": "UPI00004F73BB"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "O30511",
+      "uniProtkbId": "FUCT_HELPX",
+      "annotationScore": 5.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "evidences": [
+          {
+            "evidenceCode": "ECO:0000312",
+            "source": "EMBL",
+            "id": "AAB81031.1"
+          }
+        ],
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000303",
+                "source": "PubMed",
+                "id": "9261149"
+              }
+            ],
+            "value": "Alpha-(1,3)-fucosyltransferase FucT"
+          },
+          "ecNumbers": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000269",
+                  "source": "PubMed",
+                  "id": "12676935"
+                },
+                {
+                  "evidenceCode": "ECO:0000269",
+                  "source": "PubMed",
+                  "id": "16150700"
+                },
+                {
+                  "evidenceCode": "ECO:0000269",
+                  "source": "PubMed",
+                  "id": "16800635"
+                },
+                {
+                  "evidenceCode": "ECO:0000269",
+                  "source": "PubMed",
+                  "id": "17251184"
+                },
+                {
+                  "evidenceCode": "ECO:0000269",
+                  "source": "PubMed",
+                  "id": "9261149"
+                }
+              ],
+              "value": "2.4.1.152"
+            }
+          ]
+        },
+        "alternativeNames": [
+          {
+            "fullName": {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000305"
+                }
+              ],
+              "value": "4-galactosyl-N-acetylglucosaminide 3-alpha-L-fucosyltransferase"
+            }
+          }
+        ]
+      },
+      "genes": [
+        {
+          "geneName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000312",
+                "source": "EMBL",
+                "id": "AAB81031.1"
+              }
+            ],
+            "value": "fucT"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "note": {
+            "texts": [
+              {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000269",
+                    "source": "PubMed",
+                    "id": "9261149"
+                  }
+                ],
+                "value": "Predominantly localizes at the membrane"
+              }
+            ]
+          },
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000269",
+                    "source": "PubMed",
+                    "id": "9261149"
+                  }
+                ],
+                "value": "Membrane",
+                "id": "SL-0162"
+              },
+              "topology": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000269",
+                    "source": "PubMed",
+                    "id": "9261149"
+                  }
+                ],
+                "value": "Peripheral membrane protein",
+                "id": "SL-9903"
+              }
+            },
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000269",
+                    "source": "PubMed",
+                    "id": "9261149"
+                  }
+                ],
+                "value": "Cytoplasm",
+                "id": "SL-0086"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI00000B67B5"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "A3KEZ1",
+      "uniProtkbId": "DADA_HELPX",
+      "annotationScore": 4.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000303",
+                "source": "PubMed",
+                "id": "19212808"
+              }
+            ],
+            "value": "D-amino acid dehydrogenase"
+          },
+          "shortNames": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000303",
+                  "source": "PubMed",
+                  "id": "19212808"
+                }
+              ],
+              "value": "DAD"
+            }
+          ],
+          "ecNumbers": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000269",
+                  "source": "PubMed",
+                  "id": "19212808"
+                }
+              ],
+              "value": "1.4.5.1"
+            }
+          ]
+        }
+      },
+      "genes": [
+        {
+          "geneName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000303",
+                "source": "PubMed",
+                "id": "19212808"
+              }
+            ],
+            "value": "dadA"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000269",
+                    "source": "PubMed",
+                    "id": "19212808"
+                  },
+                  {
+                    "evidenceCode": "ECO:0000305"
+                  }
+                ],
+                "value": "Cell inner membrane",
+                "id": "SL-0037"
+              },
+              "topology": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000305"
+                  }
+                ],
+                "value": "Peripheral membrane protein",
+                "id": "SL-9903"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI0000F354D4"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "Q59467",
+      "uniProtkbId": "COPA2_HELPX",
+      "annotationScore": 4.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Copper-transporting ATPase"
+          },
+          "ecNumbers": [
+            {
+              "value": "7.2.2.9"
+            }
+          ]
+        }
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "copA"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "value": "Cell membrane",
+                "id": "SL-0039"
+              },
+              "topology": {
+                "value": "Multi-pass membrane protein",
+                "id": "SL-9909"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI0000127C84"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "Q1M0P5",
+      "uniProtkbId": "METB_HELPX",
+      "annotationScore": 4.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Cystathionine gamma-synthase"
+          },
+          "shortNames": [
+            {
+              "value": "CGS"
+            }
+          ],
+          "ecNumbers": [
+            {
+              "value": "2.5.1.48"
+            }
+          ]
+        },
+        "alternativeNames": [
+          {
+            "fullName": {
+              "value": "O-succinylhomoserine (thiol)-lyase"
+            }
+          }
+        ]
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "metB"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "Cytoplasm",
+                "id": "SL-0086"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI0000D68C81"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "A8KRL3",
+      "uniProtkbId": "TENA_HELPX",
+      "annotationScore": 4.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000303",
+                "source": "PubMed",
+                "id": "19780837"
+              }
+            ],
+            "value": "Aminopyrimidine aminohydrolase"
+          },
+          "ecNumbers": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000269",
+                  "source": "PubMed",
+                  "id": "19780837"
+                }
+              ],
+              "value": "3.5.99.2"
+            }
+          ]
+        }
+      },
+      "genes": [
+        {
+          "geneName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000303",
+                "source": "PubMed",
+                "id": "19780837"
+              }
+            ],
+            "value": "tenA"
+          }
+        }
+      ],
+      "comments": [],
+      "extraAttributes": {
+        "uniParcId": "UPI00015D9C22"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "O08462",
+      "uniProtkbId": "COPA3_HELPX",
+      "annotationScore": 4.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Copper-transporting ATPase"
+          },
+          "ecNumbers": [
+            {
+              "value": "7.2.2.9"
+            }
+          ]
+        }
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "copA"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "value": "Cell membrane",
+                "id": "SL-0039"
+              },
+              "topology": {
+                "value": "Multi-pass membrane protein",
+                "id": "SL-9909"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI0000127C8F"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "P77871",
+      "uniProtkbId": "COPA1_HELPX",
+      "annotationScore": 4.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Copper-transporting ATPase"
+          },
+          "ecNumbers": [
+            {
+              "value": "7.2.2.9"
+            }
+          ]
+        }
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "copA"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "value": "Cell membrane",
+                "id": "SL-0039"
+              },
+              "topology": {
+                "value": "Multi-pass membrane protein",
+                "id": "SL-9909"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI0000127C6C"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "Q48245",
+      "uniProtkbId": "VACA2_HELPX",
+      "annotationScore": 3.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Vacuolating cytotoxin autotransporter"
+          }
+        },
+        "contains": [
+          {
+            "recommendedName": {
+              "fullName": {
+                "value": "Vacuolating cytotoxin"
+              }
+            }
+          },
+          {
+            "recommendedName": {
+              "fullName": {
+                "value": "Vacuolating cytotoxin translocator"
+              }
+            }
+          }
+        ],
+        "flag": "Precursor"
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "vacA"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "molecule": "Vacuolating cytotoxin autotransporter",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "Periplasm",
+                "id": "SL-0200"
+              }
+            }
+          ]
+        },
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "molecule": "Vacuolating cytotoxin",
+          "subcellularLocations": [
+            {
+              "location": {
+                "value": "Secreted",
+                "id": "SL-0243"
+              }
+            },
+            {
+              "location": {
+                "value": "Cell surface",
+                "id": "SL-0310"
+              }
+            }
+          ]
+        },
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "molecule": "Vacuolating cytotoxin translocator",
+          "note": {
+            "texts": [
+              {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "The cleaved C-terminal fragment (autotransporter domain) is localized in the outer membrane"
+              }
+            ]
+          },
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "Cell outer membrane",
+                "id": "SL-0040"
+              },
+              "topology": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "Multi-pass membrane protein",
+                "id": "SL-9909"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI00001380B4"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "Q48247",
+      "uniProtkbId": "VACA1_HELPX",
+      "annotationScore": 3.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Vacuolating cytotoxin autotransporter"
+          }
+        },
+        "contains": [
+          {
+            "recommendedName": {
+              "fullName": {
+                "value": "Vacuolating cytotoxin"
+              }
+            }
+          },
+          {
+            "recommendedName": {
+              "fullName": {
+                "value": "Vacuolating cytotoxin translocator"
+              }
+            }
+          }
+        ],
+        "flag": "Precursor"
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "vacA"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "molecule": "Vacuolating cytotoxin autotransporter",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "Periplasm",
+                "id": "SL-0200"
+              }
+            }
+          ]
+        },
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "molecule": "Vacuolating cytotoxin",
+          "subcellularLocations": [
+            {
+              "location": {
+                "value": "Secreted",
+                "id": "SL-0243"
+              }
+            },
+            {
+              "location": {
+                "value": "Cell surface",
+                "id": "SL-0310"
+              }
+            }
+          ]
+        },
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "molecule": "Vacuolating cytotoxin translocator",
+          "note": {
+            "texts": [
+              {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "The cleaved C-terminal fragment (autotransporter domain) is localized in the outer membrane"
+              }
+            ]
+          },
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "Cell outer membrane",
+                "id": "SL-0040"
+              },
+              "topology": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "Multi-pass membrane protein",
+                "id": "SL-9909"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI000002F93E"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "O87196",
+      "uniProtkbId": "CCOP_HELPX",
+      "annotationScore": 3.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000250",
+                "source": "UniProtKB",
+                "id": "D5ARP7"
+              }
+            ],
+            "value": "Cbb3-type cytochrome c oxidase subunit CcoP"
+          },
+          "shortNames": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000250",
+                  "source": "UniProtKB",
+                  "id": "D5ARP7"
+                }
+              ],
+              "value": "Cbb3-Cox subunit CcoP"
+            }
+          ]
+        },
+        "alternativeNames": [
+          {
+            "fullName": {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000250",
+                  "source": "UniProtKB",
+                  "id": "Q52689"
+                }
+              ],
+              "value": "C-type cytochrome CcoP"
+            },
+            "shortNames": [
+              {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250",
+                    "source": "UniProtKB",
+                    "id": "D5ARP7"
+                  }
+                ],
+                "value": "Cyt c(P)"
+              }
+            ]
+          },
+          {
+            "fullName": {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000312",
+                  "source": "EMBL",
+                  "id": "BAA33529.1"
+                }
+              ],
+              "value": "Cytochrome c oxidase subunit III"
+            }
+          }
+        ]
+      },
+      "genes": [
+        {
+          "geneName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000312",
+                "source": "EMBL",
+                "id": "BAA33529.1"
+              }
+            ],
+            "value": "ccoP"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250",
+                    "source": "UniProtKB",
+                    "id": "Q8KS19"
+                  },
+                  {
+                    "evidenceCode": "ECO:0000255"
+                  }
+                ],
+                "value": "Cell inner membrane",
+                "id": "SL-0037"
+              },
+              "topology": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250",
+                    "source": "UniProtKB",
+                    "id": "Q8KS19"
+                  },
+                  {
+                    "evidenceCode": "ECO:0000255"
+                  }
+                ],
+                "value": "Multi-pass membrane protein",
+                "id": "SL-9909"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI00000B070B"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "Q48253",
+      "uniProtkbId": "VACA3_HELPX",
+      "annotationScore": 3.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Vacuolating cytotoxin autotransporter"
+          }
+        },
+        "contains": [
+          {
+            "recommendedName": {
+              "fullName": {
+                "value": "Vacuolating cytotoxin"
+              }
+            }
+          },
+          {
+            "recommendedName": {
+              "fullName": {
+                "value": "Vacuolating cytotoxin translocator"
+              }
+            }
+          }
+        ],
+        "flag": "Precursor"
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "vacA"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "molecule": "Vacuolating cytotoxin autotransporter",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "Periplasm",
+                "id": "SL-0200"
+              }
+            }
+          ]
+        },
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "molecule": "Vacuolating cytotoxin",
+          "subcellularLocations": [
+            {
+              "location": {
+                "value": "Secreted",
+                "id": "SL-0243"
+              }
+            },
+            {
+              "location": {
+                "value": "Cell surface",
+                "id": "SL-0310"
+              }
+            }
+          ]
+        },
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "molecule": "Vacuolating cytotoxin translocator",
+          "note": {
+            "texts": [
+              {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "The cleaved C-terminal fragment (autotransporter domain) is localized in the outer membrane"
+              }
+            ]
+          },
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "Cell outer membrane",
+                "id": "SL-0040"
+              },
+              "topology": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "Multi-pass membrane protein",
+                "id": "SL-9909"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI000004CC27"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "Q48258",
+      "uniProtkbId": "VACA4_HELPX",
+      "annotationScore": 3.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Vacuolating cytotoxin autotransporter"
+          }
+        },
+        "contains": [
+          {
+            "recommendedName": {
+              "fullName": {
+                "value": "Vacuolating cytotoxin"
+              }
+            }
+          },
+          {
+            "recommendedName": {
+              "fullName": {
+                "value": "Vacuolating cytotoxin translocator"
+              }
+            }
+          }
+        ],
+        "flag": "Precursor"
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "vacA"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "molecule": "Vacuolating cytotoxin autotransporter",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "Periplasm",
+                "id": "SL-0200"
+              }
+            }
+          ]
+        },
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "molecule": "Vacuolating cytotoxin",
+          "subcellularLocations": [
+            {
+              "location": {
+                "value": "Secreted",
+                "id": "SL-0243"
+              }
+            },
+            {
+              "location": {
+                "value": "Cell surface",
+                "id": "SL-0310"
+              }
+            }
+          ]
+        },
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "molecule": "Vacuolating cytotoxin translocator",
+          "note": {
+            "texts": [
+              {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "The cleaved C-terminal fragment (autotransporter domain) is localized in the outer membrane"
+              }
+            ]
+          },
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "Cell outer membrane",
+                "id": "SL-0040"
+              },
+              "topology": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000250"
+                  }
+                ],
+                "value": "Multi-pass membrane protein",
+                "id": "SL-9909"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI00001380B5"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "P55746",
+      "uniProtkbId": "CGA2_HELPX",
+      "annotationScore": 2.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Cytotoxicity-associated immunodominant antigen"
+          }
+        },
+        "alternativeNames": [
+          {
+            "fullName": {
+              "value": "120 kDa protein"
+            }
+          }
+        ]
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "cagA"
+          },
+          "synonyms": [
+            {
+              "value": "cai"
+            }
+          ]
+        }
+      ],
+      "comments": [],
+      "extraAttributes": {
+        "uniParcId": "UPI00001275A3"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "P80200",
+      "uniProtkbId": "CGA1_HELPX",
+      "annotationScore": 2.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Cytotoxicity-associated immunodominant antigen"
+          }
+        },
+        "alternativeNames": [
+          {
+            "fullName": {
+              "value": "120 kDa protein"
+            }
+          }
+        ]
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "cagA"
+          },
+          "synonyms": [
+            {
+              "value": "cai"
+            }
+          ]
+        }
+      ],
+      "comments": [],
+      "extraAttributes": {
+        "uniParcId": "UPI000002F93F"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "Q48244",
+      "uniProtkbId": "HPAA4_HELPX",
+      "annotationScore": 2.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Neuraminyllactose-binding hemagglutinin"
+          }
+        },
+        "alternativeNames": [
+          {
+            "fullName": {
+              "value": "Adhesin A"
+            }
+          },
+          {
+            "fullName": {
+              "value": "Flagellar sheath adhesin"
+            }
+          },
+          {
+            "fullName": {
+              "value": "N-acetylneuraminyllactose-binding fibrillar hemagglutinin receptor-binding subunit"
+            },
+            "shortNames": [
+              {
+                "value": "NLBH"
+              }
+            ]
+          }
+        ],
+        "flag": "Fragment"
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "hpaA"
+          },
+          "synonyms": [
+            {
+              "value": "hnaA"
+            }
+          ]
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000305"
+                  }
+                ],
+                "value": "Cell outer membrane",
+                "id": "SL-0040"
+              },
+              "topology": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000305"
+                  }
+                ],
+                "value": "Lipid-anchor",
+                "id": "SL-9901"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI000012CB0F"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "Q48264",
+      "uniProtkbId": "HPAA1_HELPX",
+      "annotationScore": 2.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Neuraminyllactose-binding hemagglutinin"
+          }
+        },
+        "alternativeNames": [
+          {
+            "fullName": {
+              "value": "Flagellar sheath adhesin"
+            }
+          },
+          {
+            "fullName": {
+              "value": "N-acetylneuraminyllactose-binding fibrillar hemagglutinin receptor-binding subunit"
+            },
+            "shortNames": [
+              {
+                "value": "NLBH"
+              }
+            ]
+          }
+        ],
+        "flag": "Precursor"
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "hpaA"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000305"
+                  }
+                ],
+                "value": "Cell outer membrane",
+                "id": "SL-0040"
+              },
+              "topology": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000305"
+                  }
+                ],
+                "value": "Lipid-anchor",
+                "id": "SL-9901"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI000012CB0A"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "Q48254",
+      "uniProtkbId": "HPAA2_HELPX",
+      "annotationScore": 2.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Neuraminyllactose-binding hemagglutinin"
+          }
+        },
+        "alternativeNames": [
+          {
+            "fullName": {
+              "value": "Flagellar sheath adhesin"
+            }
+          },
+          {
+            "fullName": {
+              "value": "N-acetylneuraminyllactose-binding fibrillar hemagglutinin receptor-binding subunit"
+            },
+            "shortNames": [
+              {
+                "value": "NLBH"
+              }
+            ]
+          }
+        ],
+        "flag": "Precursor"
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "hpaA"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000305"
+                  }
+                ],
+                "value": "Cell outer membrane",
+                "id": "SL-0040"
+              },
+              "topology": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000305"
+                  }
+                ],
+                "value": "Lipid-anchor",
+                "id": "SL-9901"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI000012CB0C"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "Q48259",
+      "uniProtkbId": "HAP_HELPX",
+      "annotationScore": 2.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Zinc metalloprotease"
+          },
+          "ecNumbers": [
+            {
+              "value": "3.4.24.-"
+            }
+          ]
+        },
+        "flag": "Fragment"
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "hap"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000305"
+                  }
+                ],
+                "value": "Secreted",
+                "id": "SL-0243"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI000012C09C"
+      }
+    },
+    {
+      "entryType": "UniProtKB reviewed (Swiss-Prot)",
+      "primaryAccession": "Q48261",
+      "uniProtkbId": "HPAA3_HELPX",
+      "annotationScore": 2.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "value": "Neuraminyllactose-binding hemagglutinin"
+          }
+        },
+        "alternativeNames": [
+          {
+            "fullName": {
+              "value": "Flagellar sheath adhesin"
+            }
+          },
+          {
+            "fullName": {
+              "value": "N-acetylneuraminyllactose-binding fibrillar hemagglutinin receptor-binding subunit"
+            },
+            "shortNames": [
+              {
+                "value": "NLBH"
+              }
+            ]
+          }
+        ],
+        "flag": "Precursor"
+      },
+      "genes": [
+        {
+          "geneName": {
+            "value": "hpaA"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000305"
+                  }
+                ],
+                "value": "Cell outer membrane",
+                "id": "SL-0040"
+              },
+              "topology": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000305"
+                  }
+                ],
+                "value": "Lipid-anchor",
+                "id": "SL-9901"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI000012CB0D"
+      }
+    },
+    {
+      "entryType": "UniProtKB unreviewed (TrEMBL)",
+      "primaryAccession": "A0A083YEZ1",
+      "uniProtkbId": "A0A083YEZ1_HELPX",
+      "annotationScore": 3.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "evidences": [
+          {
+            "evidenceCode": "ECO:0000313",
+            "source": "EMBL",
+            "id": "MUU40733.1"
+          }
+        ],
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000256",
+                "source": "HAMAP-Rule",
+                "id": "MF_01955"
+              }
+            ],
+            "value": "Urease subunit alpha"
+          },
+          "ecNumbers": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000256",
+                  "source": "HAMAP-Rule",
+                  "id": "MF_01955"
+                }
+              ],
+              "value": "3.5.1.5"
+            }
+          ]
+        },
+        "alternativeNames": [
+          {
+            "fullName": {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000256",
+                  "source": "HAMAP-Rule",
+                  "id": "MF_01955"
+                }
+              ],
+              "value": "Urea amidohydrolase subunit alpha"
+            }
+          }
+        ]
+      },
+      "genes": [
+        {
+          "geneName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000256",
+                "source": "HAMAP-Rule",
+                "id": "MF_01955"
+              },
+              {
+                "evidenceCode": "ECO:0000313",
+                "source": "EMBL",
+                "id": "MUU40733.1"
+              }
+            ],
+            "value": "ureA"
+          },
+          "orfNames": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000313",
+                  "source": "EMBL",
+                  "id": "OOQ33662.1"
+                }
+              ],
+              "value": "B0X69_02550"
+            },
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000313",
+                  "source": "EMBL",
+                  "id": "PDX08557.1"
+                }
+              ],
+              "value": "BB406_04370"
+            },
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000313",
+                  "source": "EMBL",
+                  "id": "PDW30192.1"
+                }
+              ],
+              "value": "BB451_00735"
+            },
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000313",
+                  "source": "EMBL",
+                  "id": "SMA52082.1"
+                }
+              ],
+              "value": "BCM300_00081"
+            },
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000313",
+                  "source": "EMBL",
+                  "id": "PUD41411.1"
+                }
+              ],
+              "value": "C2R92_02555"
+            },
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000313",
+                  "source": "EMBL",
+                  "id": "RKU98417.1"
+                }
+              ],
+              "value": "DB721_00245"
+            },
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000313",
+                  "source": "EMBL",
+                  "id": "TLR85652.1"
+                }
+              ],
+              "value": "EGM89_02240"
+            },
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000313",
+                  "source": "EMBL",
+                  "id": "RPF69011.1"
+                }
+              ],
+              "value": "EGW01_01860"
+            },
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000313",
+                  "source": "EMBL",
+                  "id": "MUU40733.1"
+                }
+              ],
+              "value": "F7209_02950"
+            }
+          ]
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000256",
+                    "source": "HAMAP-Rule",
+                    "id": "MF_01955"
+                  }
+                ],
+                "value": "Cytoplasm",
+                "id": "SL-0086"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI0000137D6F"
+      }
+    },
+    {
+      "entryType": "UniProtKB unreviewed (TrEMBL)",
+      "primaryAccession": "A0AAC8MZX9",
+      "uniProtkbId": "A0AAC8MZX9_HELPX",
+      "annotationScore": 3.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "evidences": [
+          {
+            "evidenceCode": "ECO:0000313",
+            "source": "EMBL",
+            "id": "AUV79200.1"
+          }
+        ],
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000256",
+                "source": "HAMAP-Rule",
+                "id": "MF_01898"
+              }
+            ],
+            "value": "DNA gyrase subunit B"
+          },
+          "ecNumbers": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000256",
+                  "source": "HAMAP-Rule",
+                  "id": "MF_01898"
+                }
+              ],
+              "value": "5.6.2.2"
+            }
+          ]
+        }
+      },
+      "genes": [
+        {
+          "geneName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000256",
+                "source": "HAMAP-Rule",
+                "id": "MF_01898"
+              },
+              {
+                "evidenceCode": "ECO:0000313",
+                "source": "EMBL",
+                "id": "AUV79200.1"
+              }
+            ],
+            "value": "gyrB"
+          },
+          "orfNames": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000313",
+                  "source": "EMBL",
+                  "id": "AUV79200.1"
+                }
+              ],
+              "value": "C2842_02620"
+            }
+          ]
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000256",
+                    "source": "HAMAP-Rule",
+                    "id": "MF_01898"
+                  }
+                ],
+                "value": "Cytoplasm",
+                "id": "SL-0086"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI000012BEC4"
+      }
+    },
+    {
+      "entryType": "UniProtKB unreviewed (TrEMBL)",
+      "primaryAccession": "A0AAC8SAV3",
+      "uniProtkbId": "A0AAC8SAV3_HELPX",
+      "annotationScore": 3.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "evidences": [
+          {
+            "evidenceCode": "ECO:0000313",
+            "source": "EMBL",
+            "id": "AUV79382.1"
+          }
+        ],
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000256",
+                "source": "HAMAP-Rule",
+                "id": "MF_01897"
+              }
+            ],
+            "value": "DNA gyrase subunit A"
+          },
+          "ecNumbers": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000256",
+                  "source": "HAMAP-Rule",
+                  "id": "MF_01897"
+                }
+              ],
+              "value": "5.6.2.2"
+            }
+          ]
+        }
+      },
+      "genes": [
+        {
+          "geneName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000256",
+                "source": "HAMAP-Rule",
+                "id": "MF_01897"
+              }
+            ],
+            "value": "gyrA"
+          },
+          "orfNames": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000313",
+                  "source": "EMBL",
+                  "id": "AUV79382.1"
+                }
+              ],
+              "value": "C2842_03600"
+            }
+          ]
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000256",
+                    "source": "HAMAP-Rule",
+                    "id": "MF_01897"
+                  }
+                ],
+                "value": "Cytoplasm",
+                "id": "SL-0086"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI000012BE88"
+      }
+    },
+    {
+      "entryType": "UniProtKB unreviewed (TrEMBL)",
+      "primaryAccession": "B7U8J3",
+      "uniProtkbId": "B7U8J3_HELPX",
+      "annotationScore": 3.0,
+      "organism": {
+        "scientificName": "Helicobacter pylori",
+        "commonName": "Campylobacter pylori",
+        "taxonId": 210,
+        "evidences": [
+          {
+            "evidenceCode": "ECO:0000313",
+            "source": "EMBL",
+            "id": "ACJ67190.1"
+          }
+        ],
+        "lineage": [
+          "Bacteria",
+          "Pseudomonadati",
+          "Campylobacterota",
+          "Epsilonproteobacteria",
+          "Campylobacterales",
+          "Helicobacteraceae",
+          "Helicobacter"
+        ]
+      },
+      "proteinDescription": {
+        "recommendedName": {
+          "fullName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000256",
+                "source": "HAMAP-Rule",
+                "id": "MF_01953"
+              }
+            ],
+            "value": "Urease subunit beta"
+          },
+          "ecNumbers": [
+            {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000256",
+                  "source": "HAMAP-Rule",
+                  "id": "MF_01953"
+                }
+              ],
+              "value": "3.5.1.5"
+            }
+          ]
+        },
+        "alternativeNames": [
+          {
+            "fullName": {
+              "evidences": [
+                {
+                  "evidenceCode": "ECO:0000256",
+                  "source": "HAMAP-Rule",
+                  "id": "MF_01953"
+                }
+              ],
+              "value": "Urea amidohydrolase subunit beta"
+            }
+          }
+        ]
+      },
+      "genes": [
+        {
+          "geneName": {
+            "evidences": [
+              {
+                "evidenceCode": "ECO:0000256",
+                "source": "HAMAP-Rule",
+                "id": "MF_01953"
+              },
+              {
+                "evidenceCode": "ECO:0000313",
+                "source": "EMBL",
+                "id": "ACJ67190.1"
+              }
+            ],
+            "value": "ureB"
+          }
+        }
+      ],
+      "comments": [
+        {
+          "commentType": "SUBCELLULAR LOCATION",
+          "subcellularLocations": [
+            {
+              "location": {
+                "evidences": [
+                  {
+                    "evidenceCode": "ECO:0000256",
+                    "source": "HAMAP-Rule",
+                    "id": "MF_01953"
+                  },
+                  {
+                    "evidenceCode": "ECO:0000256",
+                    "source": "PROSITE-ProRule",
+                    "id": "PRU00700"
+                  }
+                ],
+                "value": "Cytoplasm",
+                "id": "SL-0086"
+              }
+            }
+          ]
+        }
+      ],
+      "extraAttributes": {
+        "uniParcId": "UPI000188F8A1"
+      }
+    }
+  ]
+}

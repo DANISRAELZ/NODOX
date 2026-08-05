@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import ssl
@@ -97,6 +98,311 @@ def _validated_provider_dataset_path(
     return path
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _snapshot_fasta_accessions(path: Path) -> list[str]:
+    accessions: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith(">"):
+            continue
+        token = line[1:].split()[0]
+        parts = token.split("|")
+        accession = (
+            parts[1]
+            if len(parts) >= 3 and parts[0] in {"sp", "tr"}
+            else token
+        )
+        if accession:
+            accessions.append(accession.strip())
+    return accessions
+
+
+def materialize_candidate_seed_snapshot(
+    workspace: Path,
+    snapshot_path: str | Path,
+    organism_name: str,
+    taxon_id: str,
+    config: dict[str, Any],
+    max_candidates: int,
+    mode: str,
+) -> dict[str, Any]:
+    """Validate and materialize a frozen UniProt candidate seed."""
+    snapshot_dir = Path(snapshot_path).expanduser().resolve()
+    if not snapshot_dir.is_dir():
+        raise ValueError(
+            "candidate seed snapshot does not exist or is not a directory: "
+            f"{snapshot_dir}"
+        )
+
+    snapshot_manifest_path = snapshot_dir / "snapshot_manifest.json"
+    if not snapshot_manifest_path.is_file():
+        raise ValueError(
+            "candidate seed snapshot manifest does not exist: "
+            f"{snapshot_manifest_path}"
+        )
+
+    try:
+        snapshot_manifest = json.loads(
+            snapshot_manifest_path.read_text(encoding="utf-8")
+        )
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"candidate seed snapshot manifest is invalid JSON: {exc}"
+        ) from exc
+
+    if (
+        str(snapshot_manifest.get("snapshot_type") or "")
+        != "versioned_uniprot_candidate_seed"
+    ):
+        raise ValueError(
+            "candidate seed snapshot_type must be "
+            "'versioned_uniprot_candidate_seed'"
+        )
+
+    expected_taxon = str(taxon_id or "").strip()
+    snapshot_taxon = str(snapshot_manifest.get("taxon_id") or "").strip()
+    if expected_taxon and snapshot_taxon != expected_taxon:
+        raise ValueError(
+            "candidate seed snapshot taxon mismatch: expected "
+            f"{expected_taxon}, found {snapshot_taxon or 'missing'}"
+        )
+
+    def normalize_name(value: object) -> str:
+        return " ".join(str(value or "").strip().casefold().split())
+
+    snapshot_organism = str(
+        snapshot_manifest.get("organism_name") or ""
+    ).strip()
+    if normalize_name(snapshot_organism) != normalize_name(organism_name):
+        raise ValueError(
+            "candidate seed snapshot organism mismatch: expected "
+            f"{organism_name!r}, found {snapshot_organism!r}"
+        )
+
+    file_manifest = snapshot_manifest.get("files")
+    if not isinstance(file_manifest, dict):
+        raise ValueError(
+            "candidate seed snapshot manifest must contain a files mapping"
+        )
+
+    required_names = {
+        "uniprot_seed_records.json",
+        "candidate_seed.csv",
+        "candidate_proteins.faa",
+    }
+    missing_metadata = sorted(required_names - set(file_manifest))
+    if missing_metadata:
+        raise ValueError(
+            "candidate seed snapshot manifest lacks required file metadata: "
+            + ", ".join(missing_metadata)
+        )
+
+    verified: dict[str, Path] = {}
+    for name, metadata in file_manifest.items():
+        relative = Path(str(name))
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ValueError(
+                f"candidate seed snapshot contains unsafe file path: {name}"
+            )
+        file_path = (snapshot_dir / relative).resolve()
+        if snapshot_dir != file_path.parent and snapshot_dir not in file_path.parents:
+            raise ValueError(
+                f"candidate seed snapshot file escapes directory: {name}"
+            )
+        if not file_path.is_file():
+            raise ValueError(
+                f"candidate seed snapshot file does not exist: {file_path}"
+            )
+        if not isinstance(metadata, dict):
+            raise ValueError(
+                f"candidate seed snapshot metadata for {name!r} must be a mapping"
+            )
+        expected_sha = str(metadata.get("sha256") or "").lower().strip()
+        actual_sha = _sha256_file(file_path)
+        if not expected_sha or expected_sha != actual_sha:
+            raise ValueError(
+                f"candidate seed snapshot checksum mismatch for {name}: "
+                f"expected {expected_sha or 'missing'}, found {actual_sha}"
+            )
+        expected_size = metadata.get("size_bytes")
+        if expected_size is not None and int(expected_size) != file_path.stat().st_size:
+            raise ValueError(
+                f"candidate seed snapshot size mismatch for {name}"
+            )
+        verified[str(name)] = file_path
+
+    records_payload = json.loads(
+        verified["uniprot_seed_records.json"].read_text(encoding="utf-8")
+    )
+    records = records_payload.get("results", [])
+    if not isinstance(records, list):
+        raise ValueError(
+            "candidate seed records JSON must contain a results list"
+        )
+
+    seed_df = pd.read_csv(verified["candidate_seed.csv"])
+    accession_column = next(
+        (
+            column
+            for column in (
+                "candidate_seed_accession",
+                "protein_id",
+                "accession",
+            )
+            if column in seed_df.columns
+        ),
+        None,
+    )
+    if accession_column is None:
+        raise ValueError(
+            "candidate seed CSV lacks an accession column"
+        )
+
+    record_ids = [
+        str(record.get("primaryAccession") or "").strip()
+        for record in records
+        if isinstance(record, dict)
+        and str(record.get("primaryAccession") or "").strip()
+    ]
+    seed_ids = [
+        str(value).strip()
+        for value in seed_df[accession_column].dropna().tolist()
+        if str(value).strip()
+    ]
+    fasta_ids = _snapshot_fasta_accessions(
+        verified["candidate_proteins.faa"]
+    )
+
+    candidate_count = len(seed_ids)
+    declared_count = int(
+        snapshot_manifest.get("candidate_count", candidate_count) or 0
+    )
+    if candidate_count != declared_count:
+        raise ValueError(
+            "candidate seed snapshot count mismatch: manifest declares "
+            f"{declared_count}, CSV contains {candidate_count}"
+        )
+    if candidate_count != int(max_candidates):
+        raise ValueError(
+            f"candidate seed snapshot contains {candidate_count} candidates "
+            f"but max_candidates is {max_candidates}; exact equality is "
+            "required to avoid silent truncation or expansion"
+        )
+    if len(record_ids) != candidate_count or len(fasta_ids) != candidate_count:
+        raise ValueError(
+            "candidate seed snapshot JSON, CSV and FASTA counts do not match"
+        )
+    if len(set(record_ids)) != candidate_count:
+        raise ValueError(
+            "candidate seed snapshot JSON contains duplicate accessions"
+        )
+    if len(set(seed_ids)) != candidate_count:
+        raise ValueError(
+            "candidate seed snapshot CSV contains duplicate accessions"
+        )
+    if len(set(fasta_ids)) != candidate_count:
+        raise ValueError(
+            "candidate seed snapshot FASTA contains duplicate accessions"
+        )
+    if set(record_ids) != set(seed_ids) or set(seed_ids) != set(fasta_ids):
+        raise ValueError(
+            "candidate seed snapshot accessions do not agree across JSON, "
+            "CSV and FASTA"
+        )
+
+    external_dir = workspace / config["layer_resolution"]["external_data_dir"]
+    results_dir = workspace / "results"
+    external_dir.mkdir(parents=True, exist_ok=True)
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    output_path = external_dir / "essentiality.csv"
+    records_output = results_dir / "online_only_uniprot_seed_records.json"
+    fasta_output = external_dir / "candidate_proteins.faa"
+
+    shutil.copy2(verified["candidate_seed.csv"], output_path)
+    shutil.copy2(verified["uniprot_seed_records.json"], records_output)
+    shutil.copy2(verified["candidate_proteins.faa"], fasta_output)
+    shutil.copy2(
+        snapshot_manifest_path,
+        results_dir / "online_only_candidate_seed_snapshot_manifest.json",
+    )
+
+    original_manifest_path = snapshot_dir / "candidate_seed_manifest_original.json"
+    original_manifest: dict[str, Any] = {}
+    if original_manifest_path.is_file():
+        original_manifest = _read_json_if_exists(original_manifest_path)
+        shutil.copy2(
+            original_manifest_path,
+            results_dir / "online_only_candidate_seed_original_manifest.json",
+        )
+
+    provider_name = str(
+        snapshot_manifest.get("provider_name")
+        or original_manifest.get("provider_name")
+        or original_manifest.get("provider")
+        or "uniprot_rest"
+    )
+
+    manifest: dict[str, Any] = {
+        "source": "uniprot_candidate_seed_snapshot",
+        "layer_key": "candidate_seed",
+        "provider": provider_name,
+        "provider_name": provider_name,
+        "provider_endpoint_or_mode": str(snapshot_dir),
+        "provider_function": "materialize_candidate_seed_snapshot",
+        "provider_mode": "versioned_snapshot",
+        "mode": mode,
+        "organism_name": organism_name,
+        "taxon_id": expected_taxon,
+        "max_seed_candidates": int(max_candidates),
+        "output_path": str(output_path),
+        "candidate_fasta_path": str(fasta_output),
+        "source_used": "versioned_snapshot",
+        "retrieval_status": "snapshot_reused",
+        "cache_hit": True,
+        "api_attempted": False,
+        "api_success": False,
+        "provider_attempted": False,
+        "provider_success": True,
+        "connectivity_success": False,
+        "technical_success": True,
+        "retrieval_success": True,
+        "mapping_success": True,
+        "usable_evidence": False,
+        "affects_score": False,
+        "retrieved_record_count": candidate_count,
+        "matched_candidate_count": candidate_count,
+        "fallback_used": False,
+        "fallback_reason": "",
+        "data_realism_flag": "versioned_external_snapshot",
+        "evidence_level": "computational_online_annotation",
+        "candidate_count": candidate_count,
+        "snapshot_id": str(snapshot_manifest.get("snapshot_id") or ""),
+        "snapshot_path": str(snapshot_dir),
+        "snapshot_manifest_path": str(snapshot_manifest_path),
+        "snapshot_manifest_sha256": _sha256_file(snapshot_manifest_path),
+        "experimental_validation_supported": False,
+        "notes": [
+            CONSERVATIVE_NOTE,
+            (
+                "Candidate seed was reused from a validated versioned "
+                "snapshot. No live UniProt request was attempted in this run."
+            ),
+        ],
+        "generated_at_utc": _utc_now(),
+    }
+    _json_dump(
+        results_dir / "online_only_candidate_seed_manifest.json",
+        manifest,
+    )
+    return manifest
+
 def build_explicit_diamond_run_config(
     project_root: Path,
     *,
@@ -181,6 +487,7 @@ def run_online_only_validation(
     strain_slug: str | None = None,
     run_dir: Path | None = None,
     max_candidates: int = 25,
+    candidate_seed_snapshot: str | Path | None = None,
     enable_string: bool = True,
     enable_interpro: bool = True,
     enable_literature: bool = True,
@@ -230,6 +537,18 @@ def run_online_only_validation(
     )
     vfdb_dataset_path = _validated_provider_dataset_path(project_root, vfdb_dataset, "VFDB")
     deg_dataset_path = _validated_provider_dataset_path(project_root, deg_dataset, "DEG")
+    candidate_seed_snapshot_path = _absolute_run_path(
+        project_root,
+        candidate_seed_snapshot,
+    )
+    if (
+        candidate_seed_snapshot_path is not None
+        and not candidate_seed_snapshot_path.is_dir()
+    ):
+        raise ValueError(
+            "candidate seed snapshot does not exist or is not a directory: "
+            f"{candidate_seed_snapshot_path}"
+        )
     base_run_dir = Path(run_dir) if run_dir else default_online_only_run_dir(project_root, output_slug)
     base_run_dir.mkdir(parents=True, exist_ok=True)
     workspace = base_run_dir / "workspace"
@@ -296,6 +615,16 @@ def run_online_only_validation(
         "diamond_execution_mode": (
             str(diamond_run_config["execution_mode"]) if diamond_run_config else "disabled"
         ),
+        "candidate_seed_mode": (
+            "versioned_snapshot"
+            if candidate_seed_snapshot_path is not None
+            else "live_uniprot"
+        ),
+        "candidate_seed_snapshot": (
+            str(candidate_seed_snapshot_path)
+            if candidate_seed_snapshot_path is not None
+            else None
+        ),
         "input_policy": (
             "online_external_only_no_user_curated_or_packaged_demo"
             if online_source_mode == "online_strict"
@@ -306,14 +635,25 @@ def run_online_only_validation(
         "generated_at_utc": _utc_now(),
     }
     _json_dump(workspace / "results" / "online_only_run_manifest.json", run_manifest)
-    seed_result = seed_candidate_essentiality_from_uniprot(
-        workspace=workspace,
-        organism_name=organism,
-        taxon_id=resolved_taxon_id,
-        config=config,
-        max_candidates=max_candidates,
-        mode=online_source_mode,
-    )
+    if candidate_seed_snapshot_path is not None:
+        seed_result = materialize_candidate_seed_snapshot(
+            workspace=workspace,
+            snapshot_path=candidate_seed_snapshot_path,
+            organism_name=organism,
+            taxon_id=resolved_taxon_id,
+            config=config,
+            max_candidates=max_candidates,
+            mode=online_source_mode,
+        )
+    else:
+        seed_result = seed_candidate_essentiality_from_uniprot(
+            workspace=workspace,
+            organism_name=organism,
+            taxon_id=resolved_taxon_id,
+            config=config,
+            max_candidates=max_candidates,
+            mode=online_source_mode,
+        )
     enrichment_result = enrich_online_only_downstream_layers(
         workspace=workspace,
         organism_name=organism,
@@ -328,7 +668,10 @@ def run_online_only_validation(
         enable_deg=enable_deg,
         enable_bvbrc=enable_bvbrc,
     )
-    if materialize_unresolved_required_fallback and not bool(seed_result.get("api_success")):
+    if (
+        materialize_unresolved_required_fallback
+        and int(seed_result.get("candidate_count", 0) or 0) == 0
+    ):
         _materialize_unresolved_required_external_layers(workspace, config, seed_result)
 
     pipeline_status = "not_started"
@@ -603,6 +946,10 @@ def enrich_online_only_downstream_layers(
     results: dict[str, Any] = {}
     candidates = _load_online_only_seed_candidates(workspace, config)
     _materialize_raw_candidate_context_for_adapters(workspace, config, candidates)
+    seed_from_snapshot = (
+        str(seed_result.get("source_used") or "") == "versioned_snapshot"
+        and str(seed_result.get("retrieval_status") or "") == "snapshot_reused"
+    )
     results["essentiality"] = _write_online_only_provider_manifest(
         workspace=workspace,
         layer_key="essentiality",
@@ -616,8 +963,20 @@ def enrich_online_only_downstream_layers(
         fallback_used=bool(seed_result.get("fallback_used", False)),
         fallback_reason=str(seed_result.get("fallback_reason") or "uniprot_seed_is_not_essentiality_evidence"),
         retrieval_status="candidate_seed_only_not_essentiality_evidence",
-        source_used="api_real_candidate_seed_only" if seed_result.get("api_success") else "api_failed",
-        data_realism_flag="computed_online" if seed_result.get("api_success") else "unresolved",
+        source_used=(
+            "versioned_snapshot_candidate_seed_only"
+            if seed_from_snapshot
+            else "api_real_candidate_seed_only"
+            if seed_result.get("api_success")
+            else "api_failed"
+        ),
+        data_realism_flag=(
+            "versioned_snapshot"
+            if seed_from_snapshot
+            else "computed_online"
+            if seed_result.get("api_success")
+            else "unresolved"
+        ),
         evidence_level="unresolved",
         inherited_from_candidate_seed=True,
     )
@@ -1101,7 +1460,31 @@ def build_online_only_provider_audit(workspace: Path, seed_result: dict[str, Any
                 if "fallback_used" in provider_manifest
                 else bool(fallback_reason) or "fallback" in str(item.get("source_name", "")).lower()
             )
-        affects_score = _layer_affects_score(layer_key, provider_name, semantics["usable_evidence"], evidence_level, provider_manifest)
+        if (
+            layer_key == "host_annotation"
+            and "affects_score" in provider_manifest
+        ):
+            affects_score = bool(
+                provider_manifest.get("affects_score")
+            )
+        elif "updated_cell_count" in provider_manifest:
+            affects_score = bool(
+                provider_manifest.get("affects_score", False)
+            ) and int(
+                provider_manifest.get(
+                    "updated_cell_count",
+                    0,
+                )
+                or 0
+            ) > 0
+        else:
+            affects_score = _layer_affects_score(
+                layer_key,
+                provider_name,
+                semantics["usable_evidence"],
+                evidence_level,
+                provider_manifest,
+            )
         rows.append(
             {
                 "layer_key": layer_key,
@@ -1135,6 +1518,34 @@ def build_online_only_provider_audit(workspace: Path, seed_result: dict[str, Any
                 "usable_edge_count": int(
                     provider_manifest.get("usable_edge_count", 0) or 0
                 ) if layer_key == "functional_network" else 0,
+                "excluded_edge_count": int(
+                    provider_manifest.get(
+                        "excluded_edge_count",
+                        max(
+                            int(provider_manifest.get("edge_count", 0) or 0)
+                            - int(
+                                provider_manifest.get(
+                                    "usable_edge_count",
+                                    0,
+                                )
+                                or 0
+                            ),
+                            0,
+                        ),
+                    )
+                    or 0
+                ) if layer_key == "functional_network" else 0,
+                "affected_candidate_count": int(
+                    provider_manifest.get(
+                        "affected_candidate_count",
+                        0,
+                    )
+                    or 0
+                ),
+                "updated_cell_count": int(
+                    provider_manifest.get("updated_cell_count", 0)
+                    or 0
+                ),
                 "fallback_used": fallback_used,
                 "fallback_reason": fallback_reason,
                 "retrieval_status": (
@@ -1698,7 +2109,9 @@ def _provider_audit_row_from_seed(seed_manifest: dict[str, Any]) -> dict[str, An
         "provider_name": str(seed_manifest.get("provider_name") or seed_manifest.get("provider") or "uniprot_rest"),
         "provider_endpoint_or_mode": str(seed_manifest.get("provider_endpoint_or_mode") or seed_manifest.get("mode") or "not_reported"),
         "provider_function": str(seed_manifest.get("provider_function") or "seed_candidate_essentiality_from_uniprot"),
-        "provider_mode": "online",
+        "provider_mode": str(
+            seed_manifest.get("provider_mode") or "online"
+        ),
         "provider_attempted": bool(seed_manifest.get("api_attempted", False)),
         "provider_success": bool(seed_manifest.get("api_success", False)),
         "api_attempted": api_attempted,
@@ -2027,6 +2440,10 @@ def _materialize_uniprot_downstream_from_seed(
 ) -> dict[str, Any]:
     payload = _read_json_if_exists(workspace / "results" / "online_only_uniprot_seed_records.json")
     entries = payload.get("results", []) if isinstance(payload, dict) else []
+    seed_from_snapshot = (
+        str(seed_result.get("source_used") or "") == "versioned_snapshot"
+        and str(seed_result.get("retrieval_status") or "") == "snapshot_reused"
+    )
     by_accession = {
         str(entry.get("primaryAccession") or entry.get("uniProtkbId") or "").strip().upper(): entry
         for entry in entries
@@ -2055,10 +2472,26 @@ def _materialize_uniprot_downstream_from_seed(
                 "uniprot_subcellular_location": location,
                 "uniprot_match_status": "inherited_from_candidate_seed" if entry else "missing_seed_record",
                 "provider": "uniprot_rest",
-                "source_used": "api_real",
-                "api_attempted": True,
-                "api_success": bool(entry),
-                "data_realism_flag": "computed_online" if entry else "unresolved",
+                "source_used": (
+                    "versioned_snapshot"
+                    if seed_from_snapshot and entry
+                    else "api_real"
+                    if entry
+                    else "unresolved"
+                ),
+                "api_attempted": (
+                    False if seed_from_snapshot else True
+                ),
+                "api_success": (
+                    False if seed_from_snapshot else bool(entry)
+                ),
+                "data_realism_flag": (
+                    "versioned_snapshot"
+                    if seed_from_snapshot and entry
+                    else "computed_online"
+                    if entry
+                    else "unresolved"
+                ),
             }
         )
         rows.append(
@@ -2066,11 +2499,40 @@ def _materialize_uniprot_downstream_from_seed(
                 "protein_id": protein_id,
                 "gene": gene,
                 "localization": _normalize_online_localization(location),
-                "database": str(config["online_sources"]["uniprot"]["database_label"]) + ":candidate_seed_reuse",
-                "evidence_source_type": "online_external_source",
-                "source_used": "api_real" if entry else "api_success_no_localization_records",
-                "data_realism_flag": "computed_online" if entry and location else "unresolved",
-                "evidence_level": "computational_online_annotation" if entry and location else "unresolved",
+                "database": (
+                    str(config["online_sources"]["uniprot"]["database_label"])
+                    + (
+                        ":candidate_seed_snapshot_reuse"
+                        if seed_from_snapshot
+                        else ":candidate_seed_reuse"
+                    )
+                ),
+                "evidence_source_type": (
+                    "versioned_external_snapshot"
+                    if seed_from_snapshot
+                    else "online_external_source"
+                ),
+                "source_used": (
+                    "versioned_snapshot"
+                    if seed_from_snapshot and entry
+                    else "api_real"
+                    if entry
+                    else "unresolved"
+                ),
+                "data_realism_flag": (
+                    "versioned_snapshot"
+                    if seed_from_snapshot and entry and location
+                    else "computed_online"
+                    if entry and location
+                    else "unresolved"
+                ),
+                "evidence_level": (
+                    "computational_versioned_annotation"
+                    if seed_from_snapshot and entry and location
+                    else "computational_online_annotation"
+                    if entry and location
+                    else "unresolved"
+                ),
                 "inherited_from_candidate_seed": True,
                 "experimental_validation_supported": False,
                 "localization_missing_flags": "none" if location else "api_success_no_localization_records",
@@ -2085,19 +2547,60 @@ def _materialize_uniprot_downstream_from_seed(
         workspace=workspace,
         layer_key="localization",
         provider_name="uniprot_rest",
-        provider_endpoint_or_mode=str(config["online_sources"]["uniprot"]["provider_base_url"]),
+        provider_endpoint_or_mode=(
+            str(seed_result.get("snapshot_path") or "versioned_snapshot")
+            if seed_from_snapshot
+            else str(config["online_sources"]["uniprot"]["provider_base_url"])
+        ),
         provider_function="online_only_validation:_materialize_uniprot_downstream_from_seed",
-        api_attempted=bool(seed_result.get("api_attempted", False)),
-        api_success=bool(seed_result.get("api_success", False) and len(rows) > 0),
+        api_attempted=(
+            False
+            if seed_from_snapshot
+            else bool(seed_result.get("api_attempted", False))
+        ),
+        api_success=(
+            False
+            if seed_from_snapshot
+            else bool(seed_result.get("api_success", False) and len(rows) > 0)
+        ),
         retrieved_record_count=int(seed_result.get("retrieved_record_count", len(entries)) or 0),
         matched_candidate_count=matched,
         fallback_used=matched == 0,
         fallback_reason="" if matched else "api_success_no_localization_records",
-        retrieval_status="inherited_from_candidate_seed" if rows else "api_success_no_candidate_records",
-        source_used="api_real" if rows else "unresolved",
-        data_realism_flag="computed_online" if rows else "unresolved",
-        evidence_level="computational_online_annotation" if matched else "unresolved",
+        retrieval_status=(
+            "snapshot_annotation_reused"
+            if seed_from_snapshot and rows
+            else "inherited_from_candidate_seed"
+            if rows
+            else "api_success_no_candidate_records"
+        ),
+        source_used=(
+            "versioned_snapshot"
+            if seed_from_snapshot and rows
+            else "api_real"
+            if rows
+            else "unresolved"
+        ),
+        data_realism_flag=(
+            "versioned_snapshot"
+            if seed_from_snapshot and rows
+            else "computed_online"
+            if rows
+            else "unresolved"
+        ),
+        evidence_level=(
+            "computational_versioned_annotation"
+            if seed_from_snapshot and matched
+            else "computational_online_annotation"
+            if matched
+            else "unresolved"
+        ),
         inherited_from_candidate_seed=True,
+        provider_mode=(
+            "versioned_snapshot"
+            if seed_from_snapshot
+            else "online"
+        ),
     )
 
 
@@ -2164,6 +2667,12 @@ def _attempt_string_enrichment(
         raw_edge_count = int(manifest.get("edge_count", 0) or 0)
         usable_edge_count = int(
             manifest.get("usable_edge_count", 0) or 0
+        )
+        raw_excluded_edge_count = manifest.get("excluded_edge_count")
+        excluded_edge_count = (
+            max(raw_edge_count - usable_edge_count, 0)
+            if raw_excluded_edge_count is None
+            else int(raw_excluded_edge_count or 0)
         )
         matched = int(
             manifest.get(
@@ -2241,6 +2750,7 @@ def _attempt_string_enrichment(
             extra_manifest={
                 "edge_count": raw_edge_count,
                 "usable_edge_count": usable_edge_count,
+                "excluded_edge_count": excluded_edge_count,
                 "usable_mapping_count": matched,
                 "degraded_mapping_count": int(
                     manifest.get("degraded_mapping_count", 0) or 0
@@ -2347,6 +2857,14 @@ def _attempt_interpro_domain_enrichment(
         data_realism_flag="computed_online" if rows else "unresolved",
         evidence_level="computational_online_domain_annotation" if rows else "unresolved",
         inherited_from_candidate_seed=False,
+        explicit_affects_score=False,
+        extra_manifest={
+            "affected_candidate_count": 0,
+            "updated_cell_count": 0,
+            "scoring_effect": (
+                "neutral_metadata_only_no_human_comparison"
+            ),
+        },
     )
 
 

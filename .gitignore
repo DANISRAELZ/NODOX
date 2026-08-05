@@ -83,3 +83,10 @@ pseudomonas_aeruginosa_20260612_*/
 *.before-*
 sp
 tr
+# Approved frozen online candidate seed: H. pylori, UniProt, 2026-08-03
+!data_external/online_seed_snapshots/
+data_external/online_seed_snapshots/*
+!data_external/online_seed_snapshots/helicobacter_pylori_210/
+data_external/online_seed_snapshots/helicobacter_pylori_210/*
+!data_external/online_seed_snapshots/helicobacter_pylori_210/20260803/
+!data_external/online_seed_snapshots/helicobacter_pylori_210/20260803/**

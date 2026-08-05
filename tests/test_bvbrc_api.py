@@ -92,6 +92,15 @@ class BvbrcApiTests(unittest.TestCase):
         )
         self.assertTrue(df["core_genome_presence"].between(0, 1).all())
         self.assertEqual(result["manifest"]["source_used"], "api_real")
+        self.assertEqual(
+            result["manifest"]["affected_candidate_count"],
+            len(df),
+        )
+        self.assertEqual(
+            result["manifest"]["updated_cell_count"],
+            len(df) * 4,
+        )
+        self.assertTrue(result["manifest"]["affects_score"])
 
     def test_query_uses_supported_taxon_and_candidate_gene_filters(self) -> None:
         config = load_config(PROJECT_ROOT / "config" / "params.yaml")

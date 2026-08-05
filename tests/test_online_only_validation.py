@@ -100,6 +100,7 @@ def test_online_only_string_requires_usable_edge_before_materializing_layer(
         "affects_score": False,
         "edge_count": 1,
         "usable_edge_count": 0,
+        "excluded_edge_count": 1,
         "usable_mapping_count": 1,
         "degraded_mapping_count": 0,
         "retrieval_status": "degraded_no_usable_edge",
@@ -129,6 +130,7 @@ def test_online_only_string_requires_usable_edge_before_materializing_layer(
     assert result["usable_evidence"] is False
     assert result["affects_score"] is False
     assert result["usable_edge_count"] == 0
+    assert result["excluded_edge_count"] == 1
     assert result["retrieval_status"] == "degraded_no_usable_edge"
     assert not (
         workspace / "data_external" / "functional_network.csv"
@@ -142,6 +144,7 @@ def test_online_only_string_requires_usable_edge_before_materializing_layer(
     assert int(network["matched_candidate_count"]) == 1
     assert int(network["raw_edge_count"]) == 1
     assert int(network["usable_edge_count"]) == 0
+    assert int(network["excluded_edge_count"]) == 1
     assert bool(network["usable_evidence"]) is False
     assert bool(network["affects_score"]) is False
 
@@ -763,6 +766,9 @@ def test_provider_audit_prefers_final_dedicated_manifest_over_preliminary_marker
                 "api_success": True,
                 "feature_records_retrieved": 12,
                 "protein_count_mapped": 2,
+                "affected_candidate_count": 2,
+                "updated_cell_count": 8,
+                "affects_score": True,
                 "evidence_level": "computational_online_evidence",
             }
         ),
@@ -777,6 +783,9 @@ def test_provider_audit_prefers_final_dedicated_manifest_over_preliminary_marker
     assert bool(bvbrc["api_success"]) is True
     assert bvbrc["retrieval_status"] == "api_real"
     assert bvbrc["matched_candidate_count"] == 2
+    assert bvbrc["affected_candidate_count"] == 2
+    assert bvbrc["updated_cell_count"] == 8
+    assert bool(bvbrc["affects_score"]) is True
 
 
 def test_provider_audit_uses_dedicated_diamond_manifest_semantics(tmp_path: Path) -> None:
@@ -1216,3 +1225,443 @@ def test_online_only_sanitizer_preserves_phase3_real_counts_when_raw_columns_are
     assert int(result["real_evidence_layer_count"]) == 3
     assert int(result["phase3_real_evidence_layer_count"]) == 3
     assert result["evidence_mixture_label"] != "demo_proxy_only"
+
+
+def _write_test_candidate_seed_snapshot(root: Path) -> Path:
+    import hashlib
+
+    root.mkdir(parents=True, exist_ok=True)
+    records = {
+        "results": [
+            {
+                "primaryAccession": "P12345",
+                "uniProtkbId": "TEST_HELPY",
+                "genes": [{"geneName": {"value": "seedA"}}],
+                "sequence": {"value": "MAAA"},
+            }
+        ]
+    }
+    (root / "uniprot_seed_records.json").write_text(
+        json.dumps(records),
+        encoding="utf-8",
+    )
+    pd.DataFrame(
+        [
+            {
+                "protein_id": "P12345",
+                "gene": "seedA",
+                "candidate_seed_accession": "P12345",
+            }
+        ]
+    ).to_csv(root / "candidate_seed.csv", index=False)
+    (root / "candidate_proteins.faa").write_text(
+        ">sp|P12345|TEST_HELPY\nMAAA\n",
+        encoding="utf-8",
+    )
+
+    files = {}
+    for name in (
+        "uniprot_seed_records.json",
+        "candidate_seed.csv",
+        "candidate_proteins.faa",
+    ):
+        file_path = root / name
+        files[name] = {
+            "sha256": hashlib.sha256(file_path.read_bytes()).hexdigest(),
+            "size_bytes": file_path.stat().st_size,
+        }
+
+    (root / "snapshot_manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "snapshot_id": "test_snapshot",
+                "snapshot_type": "versioned_uniprot_candidate_seed",
+                "organism_name": "Helicobacter pylori",
+                "taxon_id": "210",
+                "candidate_count": 1,
+                "provider_name": "uniprot_rest",
+                "files": files,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return root
+
+
+def test_candidate_seed_snapshot_is_validated_and_materialized(
+    tmp_path: Path,
+) -> None:
+    from src.nodos_funcionales.online_only_validation import (
+        materialize_candidate_seed_snapshot,
+    )
+
+    workspace = _workspace(tmp_path)
+    config = load_config(workspace / "config" / "params.yaml")
+    snapshot = _write_test_candidate_seed_snapshot(
+        tmp_path / "snapshot"
+    )
+
+    manifest = materialize_candidate_seed_snapshot(
+        workspace=workspace,
+        snapshot_path=snapshot,
+        organism_name="Helicobacter pylori",
+        taxon_id="210",
+        config=config,
+        max_candidates=1,
+        mode="online_strict",
+    )
+
+    assert manifest["source_used"] == "versioned_snapshot"
+    assert manifest["retrieval_status"] == "snapshot_reused"
+    assert manifest["cache_hit"] is True
+    assert manifest["api_attempted"] is False
+    assert manifest["api_success"] is False
+    assert manifest["provider_success"] is True
+    assert manifest["candidate_count"] == 1
+    assert manifest["matched_candidate_count"] == 1
+    assert manifest["affects_score"] is False
+    assert (
+        workspace / "data_external" / "essentiality.csv"
+    ).exists()
+    assert (
+        workspace / "data_external" / "candidate_proteins.faa"
+    ).exists()
+    assert (
+        workspace
+        / "results"
+        / "online_only_uniprot_seed_records.json"
+    ).exists()
+
+
+def test_candidate_seed_snapshot_rejects_checksum_mismatch(
+    tmp_path: Path,
+) -> None:
+    from src.nodos_funcionales.online_only_validation import (
+        materialize_candidate_seed_snapshot,
+    )
+
+    workspace = _workspace(tmp_path)
+    config = load_config(workspace / "config" / "params.yaml")
+    snapshot = _write_test_candidate_seed_snapshot(
+        tmp_path / "snapshot"
+    )
+    (snapshot / "candidate_seed.csv").write_text(
+        "protein_id,gene,candidate_seed_accession\n"
+        "Q99999,changed,Q99999\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        materialize_candidate_seed_snapshot(
+            workspace=workspace,
+            snapshot_path=snapshot,
+            organism_name="Helicobacter pylori",
+            taxon_id="210",
+            config=config,
+            max_candidates=1,
+            mode="online_strict",
+        )
+
+
+def test_candidate_seed_snapshot_requires_exact_candidate_limit(
+    tmp_path: Path,
+) -> None:
+    from src.nodos_funcionales.online_only_validation import (
+        materialize_candidate_seed_snapshot,
+    )
+
+    workspace = _workspace(tmp_path)
+    config = load_config(workspace / "config" / "params.yaml")
+    snapshot = _write_test_candidate_seed_snapshot(
+        tmp_path / "snapshot"
+    )
+
+    with pytest.raises(ValueError, match="exact equality"):
+        materialize_candidate_seed_snapshot(
+            workspace=workspace,
+            snapshot_path=snapshot,
+            organism_name="Helicobacter pylori",
+            taxon_id="210",
+            config=config,
+            max_candidates=2,
+            mode="online_strict",
+        )
+
+
+
+def test_versioned_snapshot_seed_audit_preserves_non_api_provenance() -> None:
+    from src.nodos_funcionales.online_only_validation import (
+        _provider_audit_row_from_seed,
+    )
+
+    row = _provider_audit_row_from_seed(
+        {
+            "provider_name": "uniprot_versioned_snapshot",
+            "provider_endpoint_or_mode": "versioned_snapshot",
+            "provider_function": "materialize_candidate_seed_snapshot",
+            "provider_mode": "versioned_snapshot",
+            "source_used": "versioned_snapshot",
+            "retrieval_status": "snapshot_reused",
+            "cache_hit": True,
+            "api_attempted": False,
+            "api_success": False,
+            "retrieved_record_count": 25,
+            "matched_candidate_count": 25,
+            "candidate_count": 25,
+            "retrieval_success": True,
+            "mapping_success": True,
+            "usable_evidence": False,
+            "evidence_level": "computational_candidate_discovery",
+            "data_realism_flag": "versioned_snapshot",
+        }
+    )
+
+    assert row["source_used"] == "versioned_snapshot"
+    assert row["retrieval_status"] == "snapshot_reused"
+    assert row["api_attempted"] is False
+    assert row["api_success"] is False
+    assert row["provider_attempted"] is False
+    assert row["provider_success"] is False
+    assert row["provider_mode"] == "versioned_snapshot"
+    assert row["retrieved_record_count"] == 25
+    assert row["matched_candidate_count"] == 25
+    assert row["usable_evidence"] is False
+    assert row["affects_score"] is False
+
+
+def test_snapshot_localization_preserves_versioned_provenance(
+    tmp_path: Path,
+) -> None:
+    from src.nodos_funcionales.online_only_validation import (
+        _materialize_uniprot_downstream_from_seed,
+    )
+
+    workspace = _workspace(tmp_path)
+    config = load_config(workspace / "config" / "params.yaml")
+
+    records = {
+        "results": [
+            {
+                "primaryAccession": "P12345",
+                "uniProtkbId": "TEST_HELPY",
+                "genes": [
+                    {
+                        "geneName": {
+                            "value": "seedA",
+                        }
+                    }
+                ],
+            }
+        ]
+    }
+
+    (
+        workspace
+        / "results"
+        / "online_only_uniprot_seed_records.json"
+    ).write_text(
+        json.dumps(records),
+        encoding="utf-8",
+    )
+
+    candidates = pd.DataFrame(
+        [
+            {
+                "protein_id": "P12345",
+                "gene": "seedA",
+                "candidate_seed_accession": "P12345",
+            }
+        ]
+    )
+
+    result = _materialize_uniprot_downstream_from_seed(
+        workspace=workspace,
+        config=config,
+        candidates=candidates,
+        seed_result={
+            "source_used": "versioned_snapshot",
+            "retrieval_status": "snapshot_reused",
+            "provider_mode": "versioned_snapshot",
+            "snapshot_path": "/snapshot/example",
+            "api_attempted": False,
+            "api_success": False,
+            "retrieved_record_count": 1,
+            "matched_candidate_count": 1,
+        },
+    )
+
+    assert result["provider_name"] == "uniprot_rest"
+    assert result["provider_mode"] == "versioned_snapshot"
+    assert result["source_used"] == "versioned_snapshot"
+    assert result["retrieval_status"] == "snapshot_annotation_reused"
+    assert result["api_attempted"] is False
+    assert result["api_success"] is False
+
+    annotations = pd.read_csv(
+        workspace / "data_raw" / "uniprot_annotations.csv"
+    )
+
+    assert set(annotations["provider"]) == {"uniprot_rest"}
+    assert set(annotations["source_used"]) == {
+        "versioned_snapshot"
+    }
+    assert not annotations["api_attempted"].astype(bool).any()
+    assert not annotations["api_success"].astype(bool).any()
+
+
+def test_provider_audit_respects_explicit_neutral_interpro_effect(
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    manifest = {
+        "provider_name": "interpro",
+        "provider_mode": "online",
+        "source_used": "api_real",
+        "retrieval_status": "connected_structured_payload",
+        "provider_attempted": True,
+        "provider_success": True,
+        "api_attempted": True,
+        "api_success": True,
+        "connectivity_success": True,
+        "retrieval_success": True,
+        "mapping_success": True,
+        "usable_evidence": True,
+        "accessions_queried": 25,
+        "paired_domain_rows": 25,
+        "affected_candidate_count": 0,
+        "updated_cell_count": 0,
+        "evidence_level": "computational_online_evidence",
+        "affects_score": False,
+    }
+    (
+        workspace
+        / "results"
+        / "interpro_host_annotation_manifest.json"
+    ).write_text(
+        json.dumps(manifest),
+        encoding="utf-8",
+    )
+
+    row = build_online_only_provider_audit(
+        workspace,
+        {},
+    ).set_index("layer_key").loc["host_annotation"]
+
+    assert bool(row["usable_evidence"]) is True
+    assert bool(row["affects_score"]) is False
+    assert int(row["affected_candidate_count"]) == 0
+    assert int(row["updated_cell_count"]) == 0
+
+
+def test_interpro_effective_updates_ignore_neutral_values() -> None:
+    from src.nodos_funcionales.interpro_api import (
+        _effective_host_annotation_updates,
+    )
+
+    neutral = pd.DataFrame(
+        [
+            {
+                "protein_id": "P1",
+                "domain_overlap_score": 0.5,
+                "host_criticality_penalty": 0.5,
+            },
+            {
+                "protein_id": "P2",
+                "domain_overlap_score": 0.5,
+                "host_criticality_penalty": 0.5,
+            },
+        ]
+    )
+    assert _effective_host_annotation_updates(
+        neutral,
+        0.5,
+    ) == (0, 0)
+
+    changed = neutral.copy()
+    changed.loc[0, "domain_overlap_score"] = 0.25
+    assert _effective_host_annotation_updates(
+        changed,
+        0.5,
+    ) == (1, 1)
+
+
+def test_online_only_interpro_bacterial_metadata_is_neutral_for_scoring(
+    tmp_path: Path,
+) -> None:
+    from src.nodos_funcionales.online_only_validation import (
+        _attempt_interpro_domain_enrichment,
+    )
+
+    workspace = _workspace(tmp_path)
+    config = load_config(
+        workspace / "config" / "params.yaml"
+    )
+
+    candidates = pd.DataFrame(
+        [
+            {
+                "protein_id": "P12345",
+                "gene": "seedA",
+                "candidate_seed_accession": "P12345",
+            }
+        ]
+    )
+
+    payload = {
+        "results": [
+            {
+                "metadata": {
+                    "accession": "IPR000001",
+                }
+            }
+        ]
+    }
+
+    with patch(
+        "src.nodos_funcionales."
+        "online_only_validation.urlopen_json",
+        return_value=payload,
+    ):
+        result = _attempt_interpro_domain_enrichment(
+            workspace=workspace,
+            organism_name="Helicobacter pylori",
+            taxon_id="210",
+            config=config,
+            mode="online_strict",
+            candidates=candidates,
+        )
+
+    assert result["retrieved_record_count"] == 1
+    assert result["matched_candidate_count"] == 1
+    assert result["usable_evidence"] is True
+    assert result["affects_score"] is False
+    assert result["affected_candidate_count"] == 0
+    assert result["updated_cell_count"] == 0
+
+    host = pd.read_csv(
+        workspace
+        / "data_external"
+        / "host_annotation.csv"
+    )
+
+    neutral = float(
+        config["imputation"]["neutral_unknown_score"]
+    )
+
+    assert host["domain_overlap_score"].eq(neutral).all()
+    assert host["host_criticality_penalty"].eq(neutral).all()
+
+    audit = build_online_only_provider_audit(
+        workspace,
+        {},
+    )
+
+    row = audit.set_index("layer_key").loc[
+        "host_annotation"
+    ]
+
+    assert bool(row["usable_evidence"]) is True
+    assert bool(row["affects_score"]) is False
+    assert int(row["affected_candidate_count"]) == 0
+    assert int(row["updated_cell_count"]) == 0
