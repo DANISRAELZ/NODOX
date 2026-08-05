@@ -11,6 +11,7 @@ def test_cli_exposes_explicit_diamond_options() -> None:
     help_text = build_parser().format_help()
 
     for flag in (
+        "--candidate-seed-snapshot",
         "--enable-diamond",
         "--diamond-execution-mode",
         "--diamond-reference-fasta",
@@ -64,3 +65,28 @@ def test_cli_rejects_unknown_online_mode_with_clear_argparse_error(capsys: pytes
     error = capsys.readouterr().err
     assert "invalid choice" in error
     assert "invented_mode" in error
+
+
+def test_cli_passes_candidate_seed_snapshot_to_validation() -> None:
+    completed = {"pipeline_status": "completed"}
+
+    with patch(
+        "scripts.run_online_only_validation.run_online_only_validation",
+        return_value=completed,
+    ) as runner:
+        exit_code = main(
+            [
+                "--organism",
+                "Helicobacter pylori",
+                "--taxon-id",
+                "210",
+                "--candidate-seed-snapshot",
+                "snapshot/path",
+            ]
+        )
+
+    assert exit_code == 0
+    assert (
+        runner.call_args.kwargs["candidate_seed_snapshot"]
+        == "snapshot/path"
+    )

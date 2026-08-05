@@ -50,6 +50,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--organism-key", help="Key from config/online_only_organisms.json.")
     parser.add_argument("--run-dir", help="Optional isolated output directory.")
     parser.add_argument("--max-candidates", type=int, default=25, help="Bounded UniProt candidate seed size.")
+    parser.add_argument(
+        "--candidate-seed-snapshot",
+        help=(
+            "Validated versioned UniProt candidate-seed snapshot directory. "
+            "Reuse is reported as snapshot_reused, not as live API success."
+        ),
+    )
     parser.add_argument("--disable-string", action="store_true", help="Record STRING as disabled and unresolved.")
     parser.add_argument("--disable-interpro", action="store_true", help="Record InterPro as disabled and unresolved.")
     parser.add_argument("--disable-literature", action="store_true", help="Record literature lookup as disabled and unresolved.")
@@ -104,6 +111,7 @@ def main(argv: list[str] | None = None) -> int:
             **organism_options,
             run_dir=Path(args.run_dir) if args.run_dir else None,
             max_candidates=args.max_candidates,
+            candidate_seed_snapshot=args.candidate_seed_snapshot,
             enable_string=not args.disable_string,
             enable_interpro=not args.disable_interpro,
             enable_literature=not args.disable_literature,

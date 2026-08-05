@@ -272,6 +272,28 @@ def _derive_host_annotation(candidates: pd.DataFrame, domain_lookup: dict[str, s
     return pd.DataFrame(rows, columns=HOST_ANNOTATION_COLUMNS), paired_domain_rows, essentiality_notes
 
 
+def _effective_host_annotation_updates(
+    df: pd.DataFrame,
+    neutral_score: float,
+) -> tuple[int, int]:
+    scoring_columns = [
+        "domain_overlap_score",
+        "host_criticality_penalty",
+    ]
+    if df.empty:
+        return 0, 0
+    numeric = df.reindex(columns=scoring_columns).apply(
+        pd.to_numeric,
+        errors="coerce",
+    )
+    changed = numeric.notna() & (
+        numeric.sub(float(neutral_score)).abs() > 1e-12
+    )
+    affected_candidate_count = int(changed.any(axis=1).sum())
+    updated_cell_count = int(changed.sum().sum())
+    return affected_candidate_count, updated_cell_count
+
+
 def _write_manifest(workspace: Path, manifest: dict[str, Any]) -> Path:
     path = workspace / "results" / "interpro_host_annotation_manifest.json"
     _json_dump(path, manifest)
@@ -308,6 +330,22 @@ def fetch_interpro_host_annotation(
         entry = cache["entries"][cache_key]
         df = pd.DataFrame(entry.get("host_annotation_rows", []), columns=HOST_ANNOTATION_COLUMNS)
         manifest = _cache_manifest(entry.get("manifest", {}), mode)
+        affected_candidate_count, updated_cell_count = (
+            _effective_host_annotation_updates(
+                df,
+                float(config["imputation"]["neutral_unknown_score"]),
+            )
+        )
+        if not bool(manifest.get("api_success", False)):
+            affected_candidate_count = 0
+            updated_cell_count = 0
+        manifest.update(
+            {
+                "affected_candidate_count": affected_candidate_count,
+                "updated_cell_count": updated_cell_count,
+                "affects_score": False,
+            }
+        )
         return {"host_annotation_data": df, "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
     if mode == "offline_only":
         raise FileNotFoundError("Modo offline_only sin cache InterPro utilizable para esta capa.")
@@ -350,6 +388,15 @@ def fetch_interpro_host_annotation(
         domain_lookup[accession] = entries
 
     df, paired_domain_rows, essentiality_notes = _derive_host_annotation(candidates, domain_lookup, config, workspace)
+    affected_candidate_count, updated_cell_count = (
+        _effective_host_annotation_updates(
+            df,
+            float(config["imputation"]["neutral_unknown_score"]),
+        )
+    )
+    if not (api_success and paired_domain_rows):
+        affected_candidate_count = 0
+        updated_cell_count = 0
     source_used = "api_real" if api_success and paired_domain_rows else ("api_real_partial" if api_success else "api_failed")
     all_notes = notes + essentiality_notes
     manifest = {
@@ -363,6 +410,8 @@ def fetch_interpro_host_annotation(
         "proteins_queried": int(len(candidates)),
         "accessions_queried": int(len(accessions)),
         "paired_domain_rows": int(paired_domain_rows),
+        "affected_candidate_count": int(affected_candidate_count),
+        "updated_cell_count": int(updated_cell_count),
         "source_used": source_used,
         "cache_hit": False,
         "api_attempted": bool(accessions),

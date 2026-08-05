@@ -247,6 +247,27 @@ def _cache_manifest(cached_manifest: dict[str, Any], mode: str) -> dict[str, Any
     return manifest
 
 
+def _effective_conservation_updates(
+    df: pd.DataFrame,
+) -> tuple[int, int]:
+    scoring_columns = [
+        "core_genome_presence",
+        "strain_coverage_score",
+        "allelic_conservation",
+        "variant_burden",
+    ]
+    if df.empty:
+        return 0, 0
+    numeric = df.reindex(columns=scoring_columns).apply(
+        pd.to_numeric,
+        errors="coerce",
+    )
+    present = numeric.notna()
+    affected_candidate_count = int(present.any(axis=1).sum())
+    updated_cell_count = int(present.sum().sum())
+    return affected_candidate_count, updated_cell_count
+
+
 def fetch_bvbrc_strain_conservation(
     workspace: Path,
     organism_name: str,
@@ -300,6 +321,16 @@ def fetch_bvbrc_strain_conservation(
         entry = cached_entry
         df = pd.DataFrame(entry.get("strain_conservation_rows", []), columns=CONSERVATION_COLUMNS)
         manifest = _cache_manifest(entry.get("manifest", {}), mode)
+        affected_candidate_count, updated_cell_count = (
+            _effective_conservation_updates(df)
+        )
+        manifest.update(
+            {
+                "affected_candidate_count": affected_candidate_count,
+                "updated_cell_count": updated_cell_count,
+                "affects_score": bool(updated_cell_count),
+            }
+        )
         return {"strain_conservation_data": df, "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
     if mode == "offline_only":
         raise FileNotFoundError("Modo offline_only sin cache BV-BRC utilizable para este conjunto de proteinas.")
@@ -395,8 +426,24 @@ def fetch_bvbrc_strain_conservation(
         return {"strain_conservation_data": pd.DataFrame(columns=CONSERVATION_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
 
     df, matched, notes = _derive_rows(proteins, records, genome_ids, config)
-    audit = response_audit_fields(response, affects_score=False) if response else {"provider_url": provider_url, "affects_score": False}
+    affected_candidate_count, updated_cell_count = (
+        _effective_conservation_updates(df)
+    )
+    audit = response_audit_fields(
+        response,
+        affects_score=bool(updated_cell_count),
+    ) if response else {
+        "provider_url": provider_url,
+        "affects_score": bool(updated_cell_count),
+    }
     manifest = {"source": "bvbrc", "provider": str(cfg["provider_name"]), "provider_name": str(cfg["provider_name"]), "provider_mode": "online", "mode": mode, "organism_name": organism_name, "taxon_id": taxon_id, "query_cache_key": cache_key, "proteins_queried": int(len(proteins)), "candidate_genes_queried": genes, "protein_count_mapped": int(matched), "genomes_retrieved": int(len(genome_ids)), "genome_records_available": int(genome_total), "feature_records_retrieved": int(len(records)), "feature_records_available": int(feature_total), "feature_pages_retrieved": int(feature_pages), "query_complete": True, "source_used": "api_real" if matched else "bvbrc_filtered_no_matches", "retrieval_status": "api_real" if matched else "not_found", "cache_hit": False, "provider_attempted": True, "provider_success": True, "api_attempted": True, "api_success": True, "fallback_reason": None if matched else "no_bvbrc_matches_for_workspace_candidates", "evidence_level": "computational_online_evidence" if matched else "unresolved", "data_realism_flag": "computed_online" if matched else "unresolved", "notes": genome_errors + feature_errors + notes, "generated_at_utc": _utc_now(), "genome_provider_url": genome_url, **audit}
+    manifest.update(
+        {
+            "affected_candidate_count": int(affected_candidate_count),
+            "updated_cell_count": int(updated_cell_count),
+            "affects_score": bool(updated_cell_count),
+        }
+    )
     if not no_write_cache:
         cache["entries"][cache_key] = {"saved_at_utc": _utc_now(), "strain_conservation_rows": df.to_dict(orient="records"), "manifest": manifest}
         save_bvbrc_cache(workspace, config, cache)

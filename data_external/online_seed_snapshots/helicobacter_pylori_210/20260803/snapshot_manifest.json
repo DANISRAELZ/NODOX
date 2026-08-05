@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0",
+  "snapshot_id": "helicobacter_pylori_210_20260803_uniprot_seed_25",
+  "snapshot_type": "versioned_uniprot_candidate_seed",
+  "organism_name": "Helicobacter pylori",
+  "taxon_id": "210",
+  "candidate_count": 25,
+  "unique_accession_count": 25,
+  "provider_name": "uniprot_rest",
+  "provider_endpoint": "https://rest.uniprot.org/uniprotkb/search",
+  "original_provider_url": "https://rest.uniprot.org/uniprotkb/search?query=%28organism_id%3A210%29&format=json&size=25&fields=accession%2Cid%2Cprotein_name%2Cgene_names%2Creviewed%2Cannotation_score%2Corganism_name%2Ccc_subcellular_location",
+  "original_acquired_at_utc": "2026-08-03T16:21:49.206804+00:00",
+  "original_source_used": "api_real",
+  "original_retrieval_status": "api_real",
+  "intended_use": "Reproducible candidate discovery seed for online-only validation.",
+  "scientific_limitations": [
+    "The snapshot preserves candidate discovery records and does not constitute experimental essentiality evidence.",
+    "Reuse must be reported as a versioned snapshot and not as a new live UniProt API retrieval.",
+    "The accession set must not be silently truncated, expanded or remapped."
+  ],
+  "accessions": [
+    "A0A083YEZ1",
+    "A0AAC8MZX9",
+    "A0AAC8SAV3",
+    "A3KEZ1",
+    "A8KRL3",
+    "B4XMC6",
+    "B7U8J3",
+    "O08462",
+    "O30511",
+    "O87196",
+    "P55746",
+    "P77871",
+    "P80200",
+    "Q1M0P5",
+    "Q48244",
+    "Q48245",
+    "Q48247",
+    "Q48253",
+    "Q48254",
+    "Q48258",
+    "Q48259",
+    "Q48261",
+    "Q48264",
+    "Q56S04",
+    "Q59467"
+  ],
+  "files": {
+    "uniprot_seed_records.json": {
+      "sha256": "cd066ff02c536e129b74cd8cea53d8fa6eb79183eb2e3cafbcefdb312945e144",
+      "size_bytes": 62559
+    },
+    "candidate_seed_manifest_original.json": {
+      "sha256": "abf475d72ae765e7dea58d9b25c757660e46a9ac01fc866a2543b885f5ecd344",
+      "size_bytes": 1996
+    },
+    "candidate_seed.csv": {
+      "sha256": "3f26baf5532bb4cb102dcf022a446d0bd4f6a1c09e5061040fde8db535a49734",
+      "size_bytes": 5777
+    },
+    "candidate_proteins.faa": {
+      "sha256": "807b0cae63f22289fcfde016ec4c3f62c6c6d724c5f463614a6bcf825a6165b1",
+      "size_bytes": 18666
+    }
+  }
+}
