@@ -1,0 +1,63 @@
+schema_version: "1.0"
+phase_id: integrated_validation_stage1
+phase_name: Fase integrada de validación biológica y computacional — preparación
+baseline:
+  expected_branch: main
+  expected_commit: b7b86769d5cf9a69d01959cab328332d1f0aff84
+  deadline: "2026-09-18"
+  modify_scoring: false
+  modify_weights: false
+  modify_historical_results: false
+output:
+  default_directory: results/integrated_validation_stage1
+  overwrite_existing: true
+scan_roots:
+  - results
+  - data_sessions
+  - data_external
+  - src/nodos_funcionales
+  - config
+  - docs
+  - tests
+run_markers:
+  - online_only_run_manifest.json
+  - ranking_nodos.csv
+  - ranking_nodos_phase3.csv
+  - ranking_nodos_phase3_real_candidates.csv
+  - layer_resolution_manifest.json
+  - online_only_provider_audit.csv
+  - human_homology_diamond_manifest.json
+providers:
+  - key: uniprot
+    layers: [candidate_seed, localization, annotation]
+  - key: string
+    layers: [functional_network]
+  - key: interpro
+    layers: [protein_annotation]
+  - key: bvbrc
+    layers: [strain_conservation, specialized_genes]
+  - key: vfdb
+    layers: [virulence]
+  - key: deg
+    layers: [essentiality, contextual_essentiality]
+  - key: diamond
+    layers: [human_homology]
+  - key: literature
+    layers: [literature_support]
+source_classes:
+  - real_external_online
+  - versioned_snapshot
+  - curated
+  - cache
+  - proxy
+  - synthetic_fixture
+  - demo
+  - unresolved
+  - unknown
+scientific_guards:
+  missing_is_negative: false
+  no_human_hit_is_safe: false
+  retrieved_is_usable: false
+  online_success_is_score_effect: false
+  proxy_is_experimental: false
+  benchmark_claims_without_reference: false

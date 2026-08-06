@@ -1,0 +1,50 @@
+version: 1
+stage: selected_run_audit_and_evolutionary_ablation
+
+selected_run:
+  default_run_dir: results/20260805_helicobacter_pylori_online_strict_25_v10g_final_audit
+  expected_candidate_count: 25
+  candidate_table_priority:
+    - ranking_nodos_phase3_real_candidates.csv
+    - ranking_nodos_phase3.csv
+    - ranking_nodos.csv
+    - phase3_features.csv
+    - phase2_features.csv
+  provider_audit_names:
+    - online_only_provider_audit.csv
+  diamond_manifest_names:
+    - human_homology_diamond_manifest.json
+
+ablation:
+  reported_score_column: functional_node_theory_score
+  baseline_name: full_functional_node_theory
+  scenarios:
+    no_escape_penalty:
+      remove_positive_weights: []
+      remove_penalties:
+        - p_escape
+    no_evolutionary_dimension:
+      remove_positive_weights:
+        - w_evolutionary_constraint
+      remove_penalties:
+        - p_escape
+        - p_biofilm
+        - p_hgt
+  sensitivity_multipliers:
+    - 0.80
+    - 0.90
+    - 1.10
+    - 1.20
+  sensitivity_positive_weights:
+    - w_evolutionary_constraint
+  sensitivity_penalties:
+    - p_escape
+    - p_biofilm
+    - p_hgt
+  baseline_tolerance: 1.0e-6
+
+scientific_rules:
+  missing_is_not_negative: true
+  diamond_no_hit_is_not_host_safety: true
+  unknown_escape_is_not_low_escape: true
+  generated_outputs_are_hypothesis_level: true

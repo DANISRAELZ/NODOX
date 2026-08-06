@@ -1,0 +1,75 @@
+{
+  "version": 2,
+  "selected_run": {
+    "expected_candidate_count": 25,
+    "ranking_table_priority": [
+      "ranking_nodos_phase3_real_candidates.csv",
+      "ranking_nodos_phase3.csv",
+      "ranking_nodos.csv"
+    ],
+    "feature_table_priority": [
+      "phase3_features.csv"
+    ],
+    "provider_audit_names": [
+      "online_only_provider_audit.csv"
+    ],
+    "diamond_manifest_names": [
+      "human_homology_diamond_manifest.json"
+    ]
+  },
+  "ablation": {
+    "reported_score_column": "functional_node_theory_score",
+    "baseline_name": "full_functional_node_theory",
+    "baseline_tolerance": 1e-06,
+    "scenarios": {
+      "no_escape_penalty": {
+        "remove_positive_weights": [],
+        "remove_penalties": [
+          "p_escape"
+        ]
+      },
+      "no_evolutionary_dimension": {
+        "remove_positive_weights": [
+          "w_evolutionary_constraint"
+        ],
+        "remove_penalties": [
+          "p_escape",
+          "p_biofilm",
+          "p_hgt"
+        ]
+      }
+    },
+    "sensitivity_multipliers": [
+      0.8,
+      0.9,
+      1.1,
+      1.2
+    ],
+    "sensitivity_positive_weights": [
+      "w_evolutionary_constraint"
+    ],
+    "sensitivity_penalties": [
+      "p_escape",
+      "p_biofilm",
+      "p_hgt"
+    ],
+    "supported_evidence": {
+      "minimum_explicit_variables": 3,
+      "unknown_statuses": [
+        "unknown_missing_evidence",
+        "unknown",
+        "missing",
+        "not_reported",
+        "unresolved",
+        "insufficient_evidence",
+        "derived_from_related_layers"
+      ]
+    }
+  },
+  "scientific_rules": {
+    "missing_is_not_negative": true,
+    "diamond_no_hit_is_not_host_safety": true,
+    "unknown_escape_is_not_low_escape": true,
+    "generated_outputs_are_hypothesis_level": true
+  }
+}
