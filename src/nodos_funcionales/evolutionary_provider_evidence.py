@@ -5,8 +5,6 @@ from typing import Any
 
 import pandas as pd
 
-from .evolutionary_evidence_contract import utc_now_iso
-
 
 BV_BRC_SOURCE_TOKENS = ("bvbrc", "bv-brc", "patric")
 BV_BRC_ALLOWED_LAYER_SOURCE_TYPES = {"external", "cache"}
@@ -17,6 +15,21 @@ BV_BRC_INELIGIBLE_GENERATORS = {
 }
 BV_BRC_CONSTRAINT_VARIABLE = "evolutionary_constraint_score"
 BV_BRC_ADAPTER_VERSION = "nodox_bvbrc_constraint_adapter_v1"
+BV_BRC_PROVIDER_PROVENANCE_FIELDS = (
+    "conservation_source_record",
+    "conservation_source_version",
+    "conservation_retrieved_at",
+    "conservation_mapping_method",
+    "conservation_mapping_status",
+    "conservation_evidence_status",
+    "conservation_evidence_confidence",
+    "conservation_independence_group",
+    "conservation_method_scope",
+    "conservation_taxon_id",
+    "conservation_provider_retrieval_status",
+    "conservation_provider_query_cache_key",
+    "conservation_provider_source_used",
+)
 
 
 def _norm(value: Any) -> str:
@@ -129,15 +142,33 @@ def _bvbrc_row_eligibility(row: pd.Series) -> tuple[bool, str]:
     }:
         return False, f"strain_conservation_retrieval_not_usable:{retrieval_status}"
 
-    taxon_id = _norm(row.get("taxon_id"))
-    gene = _norm(row.get("gene"))
     candidate_id = _row_candidate_id(row)
+    gene = _norm(row.get("gene"))
+    taxon_id = _norm(row.get("taxon_id"))
     if not candidate_id:
         return False, "missing_candidate_id"
     if not gene:
         return False, "missing_gene_for_exact_gene_and_taxon_mapping"
     if not taxon_id:
         return False, "missing_taxon_id_for_exact_gene_and_taxon_mapping"
+
+    missing_provenance = [
+        column
+        for column in BV_BRC_PROVIDER_PROVENANCE_FIELDS
+        if not _norm(row.get(column))
+    ]
+    if missing_provenance:
+        return False, "missing_original_bvbrc_provenance:" + "|".join(missing_provenance)
+
+    provider_taxon = _norm(row.get("conservation_taxon_id"))
+    if provider_taxon != taxon_id:
+        return False, "bvbrc_provider_taxon_mismatch"
+    if _norm_lower(row.get("conservation_mapping_status")) != "exact_gene_and_taxon":
+        return False, "bvbrc_mapping_not_direct_gene_and_taxon"
+    if _norm_lower(row.get("conservation_evidence_status")) != "observed":
+        return False, "bvbrc_provider_evidence_not_observed"
+    if _norm_lower(row.get("conservation_provider_retrieval_status")) != "api_real":
+        return False, "bvbrc_original_retrieval_not_api_real"
 
     if _as_bool(row.get("core_genome_presence_is_placeholder")):
         return False, "core_genome_presence_is_placeholder"
@@ -171,8 +202,9 @@ def materialize_provider_evolutionary_evidence(frame: pd.DataFrame) -> pd.DataFr
     or independence group.
 
     Existing canonical evolutionary evidence is never overwritten. Provider rows
-    that cannot prove source class, direct gene+taxon mapping, or non-placeholder
-    measurements remain audit-only and do not request explicit evidence.
+    that cannot prove source class, original provider-query provenance, direct
+    gene+taxon mapping, or non-placeholder measurements remain audit-only and do
+    not request explicit evidence.
     """
 
     result = frame.copy()
@@ -189,7 +221,6 @@ def materialize_provider_evolutionary_evidence(frame: pd.DataFrame) -> pd.DataFr
         )
         return result
 
-    adapted_at = utc_now_iso()
     for index, row in result.iterrows():
         eligible, reason = _bvbrc_row_eligibility(row)
         result.at[index, "bvbrc_evolutionary_evidence_reason"] = reason
@@ -208,38 +239,29 @@ def materialize_provider_evolutionary_evidence(frame: pd.DataFrame) -> pd.DataFr
             )
             continue
 
-        candidate_id = _row_candidate_id(row)
-        gene = _norm(row.get("gene"))
-        taxon_id = _norm(row.get("taxon_id"))
         database = _norm(row.get("conservation_database")) or "BV-BRC"
         layer_source_type = _norm_lower(row.get("strain_conservation_source_type"))
         source_name = _norm(row.get("strain_conservation_source_name")) or "bvbrc_real"
-        retrieval_status = _norm_lower(row.get("strain_conservation_retrieval_status")) or "not_reported"
-        if layer_source_type == "external" and retrieval_status == "api_real":
+        provider_source_used = _norm_lower(row.get("conservation_provider_source_used"))
+        if layer_source_type == "external" and provider_source_used == "api_real":
             source_type = "real_external_online"
-            source_version = "bvbrc_live_api_unversioned"
         elif layer_source_type == "external":
             source_type = "real_external"
-            source_version = "bvbrc_external_snapshot_unversioned"
         else:
             source_type = "computed_from_real_data"
-            source_version = "bvbrc_provider_cache_unversioned"
-        independence_group = f"bvbrc_strain_conservation_taxon_{taxon_id}"
-        source_record = (
-            f"bvbrc_aggregate:taxon={taxon_id};gene={gene};candidate={candidate_id}"
-        )
+
+        provider_method_scope = _norm(row.get("conservation_method_scope"))
         method_scope = (
-            "candidate-level BV-BRC strain-conservation aggregate; "
+            f"{provider_method_scope}; Stage4C transformation: "
             "constraint=0.5*core_genome_presence+0.5*allelic_conservation; "
             "strain_coverage_score excluded as duplicate of presence in current provider; "
             "variant_burden excluded as inverse of allelic_conservation"
         )
         notes = (
             f"Stage4C adapter={BV_BRC_ADAPTER_VERSION}; source_name={source_name}; "
-            f"retrieval_status={retrieval_status}; database release/version is not "
-            "exposed by the current BV-BRC layer, so source_version is explicitly "
-            "marked unversioned; retrieved_at records adapter materialization time; "
-            "all correlated BV-BRC transformations share one independence group."
+            "original provider retrieval timestamp, query record, mapping and "
+            "snapshot marker were preserved from the BV-BRC manifest; all correlated "
+            "BV-BRC transformations share the original single independence group."
         )
 
         prefix = BV_BRC_CONSTRAINT_VARIABLE
@@ -247,21 +269,61 @@ def materialize_provider_evolutionary_evidence(frame: pd.DataFrame) -> pd.DataFr
         _set_if_missing(result, f"{prefix}_is_explicit", index, True)
         _set_if_missing(result, f"{prefix}_source_type", index, source_type)
         _set_if_missing(result, f"{prefix}_source_database", index, database)
-        _set_if_missing(result, f"{prefix}_source_record", index, source_record)
-        _set_if_missing(result, f"{prefix}_source_version", index, source_version)
-        _set_if_missing(result, f"{prefix}_retrieved_at", index, adapted_at)
+        _set_if_missing(
+            result,
+            f"{prefix}_source_record",
+            index,
+            _norm(row.get("conservation_source_record")),
+        )
+        _set_if_missing(
+            result,
+            f"{prefix}_source_version",
+            index,
+            _norm(row.get("conservation_source_version")),
+        )
+        _set_if_missing(
+            result,
+            f"{prefix}_retrieved_at",
+            index,
+            _norm(row.get("conservation_retrieved_at")),
+        )
         _set_if_missing(
             result,
             f"{prefix}_mapping_method",
             index,
-            "bvbrc_gene_filter_with_taxon_scope",
+            _norm(row.get("conservation_mapping_method")),
         )
-        _set_if_missing(result, f"{prefix}_mapping_status", index, "exact_gene_and_taxon")
-        _set_if_missing(result, f"{prefix}_evidence_status", index, "observed")
-        _set_if_missing(result, f"{prefix}_evidence_confidence", index, "moderate")
-        _set_if_missing(result, f"{prefix}_independence_group", index, independence_group)
+        _set_if_missing(
+            result,
+            f"{prefix}_mapping_status",
+            index,
+            _norm_lower(row.get("conservation_mapping_status")),
+        )
+        _set_if_missing(
+            result,
+            f"{prefix}_evidence_status",
+            index,
+            _norm_lower(row.get("conservation_evidence_status")),
+        )
+        _set_if_missing(
+            result,
+            f"{prefix}_evidence_confidence",
+            index,
+            _norm_lower(row.get("conservation_evidence_confidence")),
+        )
+        _set_if_missing(
+            result,
+            f"{prefix}_independence_group",
+            index,
+            _norm(row.get("conservation_independence_group")),
+        )
         _set_if_missing(result, f"{prefix}_method_scope", index, method_scope)
-        _set_if_missing(result, f"{prefix}_taxon_id", index, taxon_id)
+        _set_if_missing(
+            result,
+            f"{prefix}_taxon_id",
+            index,
+            _norm(row.get("conservation_taxon_id")),
+        )
         _set_if_missing(result, f"{prefix}_notes", index, notes)
 
     return result
