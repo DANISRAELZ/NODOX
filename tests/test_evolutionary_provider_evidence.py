@@ -36,6 +36,19 @@ def bvbrc_frame(**overrides: object) -> pd.DataFrame:
         "strain_conservation_confidence": 0.82,
         "strain_conservation_retrieval_status": "api_real",
         "strain_conservation_generated_by": "external",
+        "conservation_source_record": "bvbrc::287::query123;candidate=PTEST1;gene=gyrB",
+        "conservation_source_version": "bvbrc_unversioned_snapshot@2026-08-07T12:00:00+00:00",
+        "conservation_retrieved_at": "2026-08-07T12:00:00+00:00",
+        "conservation_mapping_method": "bvbrc_gene_filter_with_taxon_scope",
+        "conservation_mapping_status": "exact_gene_and_taxon",
+        "conservation_evidence_status": "observed",
+        "conservation_evidence_confidence": "moderate",
+        "conservation_independence_group": "bvbrc_strain_conservation_taxon_287",
+        "conservation_method_scope": "query_complete=true; genomes_retrieved=100",
+        "conservation_taxon_id": "287",
+        "conservation_provider_retrieval_status": "api_real",
+        "conservation_provider_query_cache_key": "bvbrc::287::query123",
+        "conservation_provider_source_used": "api_real",
     }
     row.update(overrides)
     return pd.DataFrame([row])
@@ -87,6 +100,14 @@ class EvolutionaryProviderEvidenceTests(unittest.TestCase):
         self.assertEqual(
             result.loc[0, "evolutionary_constraint_score_independence_group"],
             "bvbrc_strain_conservation_taxon_287",
+        )
+        self.assertEqual(
+            result.loc[0, "evolutionary_constraint_score_retrieved_at"],
+            "2026-08-07T12:00:00+00:00",
+        )
+        self.assertEqual(
+            result.loc[0, "evolutionary_constraint_score_source_record"],
+            "bvbrc::287::query123;candidate=PTEST1;gene=gyrB",
         )
         self.assertIn(
             "unversioned",
@@ -182,12 +203,58 @@ class EvolutionaryProviderEvidenceTests(unittest.TestCase):
                 strain_conservation_source_type="cache",
                 strain_conservation_is_external=False,
                 strain_conservation_is_cached=True,
+                conservation_provider_source_used="cache",
             )
         )
         self.assertFalse(bool(demo.loc[0, "bvbrc_evolutionary_evidence_eligible"]))
         self.assertEqual(
             demo.loc[0, "bvbrc_evolutionary_evidence_reason"],
             "strain_conservation_layer_is_demo_or_mixed_demo",
+        )
+
+    def test_old_cache_without_original_provider_provenance_fails_closed(self) -> None:
+        frame = bvbrc_frame(
+            strain_conservation_source_type="cache",
+            strain_conservation_is_external=False,
+            strain_conservation_is_cached=True,
+            conservation_provider_source_used="cache",
+        )
+        frame = frame.drop(
+            columns=[
+                "conservation_source_record",
+                "conservation_source_version",
+                "conservation_retrieved_at",
+            ]
+        )
+
+        result = materialize_provider_evolutionary_evidence(frame)
+
+        self.assertFalse(bool(result.loc[0, "bvbrc_evolutionary_evidence_eligible"]))
+        self.assertIn(
+            "missing_original_bvbrc_provenance",
+            str(result.loc[0, "bvbrc_evolutionary_evidence_reason"]),
+        )
+
+    def test_provider_cache_preserves_original_retrieval_provenance(self) -> None:
+        frame = bvbrc_frame(
+            strain_conservation_source_type="cache",
+            strain_conservation_is_external=False,
+            strain_conservation_is_cached=True,
+            strain_conservation_retrieval_status="resolved_from_cache",
+            strain_conservation_generated_by="cache",
+            conservation_provider_source_used="cache",
+        )
+
+        result = materialize_provider_evolutionary_evidence(frame)
+
+        self.assertTrue(bool(result.loc[0, "bvbrc_evolutionary_evidence_eligible"]))
+        self.assertEqual(
+            result.loc[0, "evolutionary_constraint_score_retrieved_at"],
+            "2026-08-07T12:00:00+00:00",
+        )
+        self.assertEqual(
+            result.loc[0, "evolutionary_constraint_score_source_type"],
+            "computed_from_real_data",
         )
 
     def test_existing_canonical_evidence_is_preserved(self) -> None:
