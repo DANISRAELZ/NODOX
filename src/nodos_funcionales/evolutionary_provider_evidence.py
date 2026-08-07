@@ -31,6 +31,55 @@ BV_BRC_PROVIDER_PROVENANCE_FIELDS = (
     "conservation_provider_source_used",
 )
 
+AMRFINDER_SOURCE_TOKENS = (
+    "amrfinder",
+    "amrfinderplus",
+    "ncbi_amrfinderplus",
+)
+AMRFINDER_ALLOWED_LAYER_SOURCE_TYPES = {"external", "cache"}
+AMRFINDER_INELIGIBLE_GENERATORS = {
+    "packaged_demo",
+    "mixed_external_and_demo",
+    "proxy_default",
+}
+AMRFINDER_RESISTANCE_VARIABLE = "resistance_emergence_risk"
+AMRFINDER_ADAPTER_VERSION = "nodox_amrfinderplus_resistance_adapter_v1"
+AMRFINDER_PROVIDER_PROVENANCE_FIELDS = (
+    "amrfinder_source_record",
+    "amrfinder_source_version",
+    "amrfinder_retrieved_at",
+    "amrfinder_catalog_sha256",
+    "amrfinder_mapping_method",
+    "amrfinder_mapping_status",
+    "amrfinder_evidence_status",
+    "amrfinder_evidence_confidence",
+    "amrfinder_independence_group",
+    "amrfinder_method_scope",
+    "amrfinder_taxon_id",
+    "amrfinder_organism_group",
+    "amrfinder_mutation_symbols",
+    "amrfinder_mutation_count",
+    "amrfinder_provider_retrieval_status",
+    "amrfinder_provider_source_used",
+    "amrfinder_provider_url",
+)
+
+EVIDENCE_METADATA_SUFFIXES = (
+    "source_type",
+    "source_database",
+    "source_record",
+    "source_version",
+    "retrieved_at",
+    "mapping_method",
+    "mapping_status",
+    "evidence_status",
+    "evidence_confidence",
+    "independence_group",
+    "method_scope",
+    "taxon_id",
+    "notes",
+)
+
 
 def _norm(value: Any) -> str:
     if value is None:
@@ -70,9 +119,22 @@ def _as_bool(value: Any) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "y"}
 
 
-def _contains_bvbrc(value: Any) -> bool:
+def _contains_token(value: Any, tokens: tuple[str, ...]) -> bool:
     normalized = _norm_lower(value).replace("_", "-")
-    return any(token in normalized for token in BV_BRC_SOURCE_TOKENS)
+    normalized_compact = normalized.replace("-", "")
+    return any(
+        token.replace("_", "-") in normalized
+        or token.replace("_", "").replace("-", "") in normalized_compact
+        for token in tokens
+    )
+
+
+def _contains_bvbrc(value: Any) -> bool:
+    return _contains_token(value, BV_BRC_SOURCE_TOKENS)
+
+
+def _contains_amrfinder(value: Any) -> bool:
+    return _contains_token(value, AMRFINDER_SOURCE_TOKENS)
 
 
 def _row_candidate_id(row: pd.Series) -> str:
@@ -106,6 +168,15 @@ def _existing_canonical_payload(row: pd.Series) -> bool:
             "evidence_status",
             "independence_group",
         )
+    )
+
+
+def _existing_variable_evidence_metadata(row: pd.Series, variable: str) -> bool:
+    if _as_bool(row.get(f"{variable}_is_explicit")):
+        return True
+    return any(
+        _norm(row.get(f"{variable}_{suffix}"))
+        for suffix in EVIDENCE_METADATA_SUFFIXES
     )
 
 
@@ -184,30 +255,84 @@ def _bvbrc_row_eligibility(row: pd.Series) -> tuple[bool, str]:
     return True, "eligible_bvbrc_strain_conservation"
 
 
+def _amrfinder_row_eligibility(row: pd.Series) -> tuple[bool, str]:
+    risk = _finite01(row.get(AMRFINDER_RESISTANCE_VARIABLE))
+    if risk is None or not math.isclose(risk, 1.0, rel_tol=0.0, abs_tol=1e-12):
+        return False, "no_positive_amrfinder_point_mutation_evidence"
+
+    layer_source_type = _norm_lower(row.get("evolutionary_escape_risk_source_type"))
+    source_name = row.get("evolutionary_escape_risk_source_name")
+    database = row.get("evolutionary_escape_risk_database")
+    evidence_source = row.get("evolutionary_escape_risk_evidence_source")
+    generated_by = _norm_lower(row.get("evolutionary_escape_risk_generated_by"))
+    is_external = _as_bool(row.get("evolutionary_escape_risk_is_external"))
+    is_cached = _as_bool(row.get("evolutionary_escape_risk_is_cached"))
+
+    if _as_bool(row.get("evolutionary_escape_risk_is_proxy")):
+        return False, "evolutionary_escape_risk_layer_is_proxy"
+    if generated_by in AMRFINDER_INELIGIBLE_GENERATORS or "demo" in generated_by:
+        return False, "evolutionary_escape_risk_layer_is_demo_or_mixed_demo"
+    if layer_source_type not in AMRFINDER_ALLOWED_LAYER_SOURCE_TYPES:
+        return False, "amrfinder_layer_not_external_or_provider_cache"
+    if layer_source_type == "external" and not is_external:
+        return False, "amrfinder_external_source_without_external_flag"
+    if layer_source_type == "cache" and not is_cached:
+        return False, "amrfinder_cache_source_without_cache_flag"
+    if not (
+        _contains_amrfinder(source_name)
+        or _contains_amrfinder(database)
+        or _contains_amrfinder(evidence_source)
+    ):
+        return False, "evolutionary_escape_risk_source_not_identified_as_amrfinderplus"
+
+    candidate_id = _row_candidate_id(row)
+    gene = _norm(row.get("gene"))
+    taxon_id = _norm(row.get("taxon_id"))
+    if not candidate_id:
+        return False, "missing_candidate_id"
+    if not gene:
+        return False, "missing_gene_for_amrfinder_mapping"
+    if not taxon_id:
+        return False, "missing_taxon_id_for_amrfinder_mapping"
+
+    missing_provenance = [
+        column
+        for column in AMRFINDER_PROVIDER_PROVENANCE_FIELDS
+        if not _norm(row.get(column))
+    ]
+    if missing_provenance:
+        return False, "missing_original_amrfinder_provenance:" + "|".join(missing_provenance)
+
+    if _norm(row.get("amrfinder_taxon_id")) != taxon_id:
+        return False, "amrfinder_provider_taxon_mismatch"
+    if _norm_lower(row.get("amrfinder_mapping_status")) != "exact_gene_and_taxon":
+        return False, "amrfinder_mapping_not_direct_gene_and_taxon"
+    if _norm_lower(row.get("amrfinder_evidence_status")) != "observed":
+        return False, "amrfinder_evidence_not_observed"
+    if _norm_lower(row.get("amrfinder_provider_source_used")) != "api_real":
+        return False, "amrfinder_original_source_not_api_real"
+    if _norm_lower(row.get("amrfinder_provider_retrieval_status")) != "api_real":
+        return False, "amrfinder_original_retrieval_not_api_real"
+
+    mutation_count = pd.to_numeric(
+        pd.Series([row.get("amrfinder_mutation_count")]), errors="coerce"
+    ).iloc[0]
+    if pd.isna(mutation_count) or float(mutation_count) < 1.0:
+        return False, "amrfinder_positive_row_without_mutation_count"
+    if not _norm(row.get("amrfinder_mutation_symbols")):
+        return False, "amrfinder_positive_row_without_mutation_symbols"
+    if len(_norm(row.get("amrfinder_catalog_sha256"))) != 64:
+        return False, "amrfinder_invalid_catalog_sha256"
+    return True, "eligible_amrfinderplus_point_mutation_evidence"
+
+
 def _set_if_missing(frame: pd.DataFrame, column: str, index: Any, value: Any) -> None:
     if column not in frame.columns:
         frame[column] = pd.NA
     frame.at[index, column] = value
 
 
-def materialize_provider_evolutionary_evidence(frame: pd.DataFrame) -> pd.DataFrame:
-    """Materialize conservative provider-derived Stage 4A evidence.
-
-    Stage 4C currently recognizes one BV-BRC-derived canonical variable:
-    `evolutionary_constraint_score`. It intentionally reduces the four historical
-    conservation fields to two non-duplicate inputs: core-genome presence and
-    allelic conservation. `strain_coverage_score` duplicates the current BV-BRC
-    presence calculation and `variant_burden` is the inverse of allelic
-    conservation, so neither is counted as an additional evolutionary variable
-    or independence group.
-
-    Existing canonical evolutionary evidence is never overwritten. Provider rows
-    that cannot prove source class, original provider-query provenance, direct
-    gene+taxon mapping, or non-placeholder measurements remain audit-only and do
-    not request explicit evidence.
-    """
-
-    result = frame.copy()
+def _materialize_bvbrc_evidence(result: pd.DataFrame) -> pd.DataFrame:
     result["bvbrc_evolutionary_evidence_eligible"] = False
     result["bvbrc_evolutionary_evidence_reason"] = "not_evaluated"
     result["bvbrc_evolutionary_constraint_score"] = pd.Series(
@@ -326,4 +451,156 @@ def materialize_provider_evolutionary_evidence(frame: pd.DataFrame) -> pd.DataFr
         )
         _set_if_missing(result, f"{prefix}_notes", index, notes)
 
+    return result
+
+
+def _materialize_amrfinder_evidence(result: pd.DataFrame) -> pd.DataFrame:
+    result["amrfinder_evolutionary_evidence_eligible"] = False
+    result["amrfinder_evolutionary_evidence_reason"] = "not_evaluated"
+    result["amrfinder_resistance_emergence_risk"] = pd.Series(
+        [math.nan] * len(result), index=result.index, dtype=float
+    )
+
+    if AMRFINDER_RESISTANCE_VARIABLE not in result.columns:
+        result["amrfinder_evolutionary_evidence_reason"] = (
+            "missing_amrfinder_resistance_signal"
+        )
+        return result
+
+    for index, row in result.iterrows():
+        eligible, reason = _amrfinder_row_eligibility(row)
+        result.at[index, "amrfinder_evolutionary_evidence_reason"] = reason
+        if not eligible:
+            continue
+
+        risk = float(row[AMRFINDER_RESISTANCE_VARIABLE])
+        result.at[index, "amrfinder_resistance_emergence_risk"] = risk
+        result.at[index, "amrfinder_evolutionary_evidence_eligible"] = True
+
+        if _existing_variable_evidence_metadata(row, AMRFINDER_RESISTANCE_VARIABLE):
+            result.at[index, "amrfinder_evolutionary_evidence_reason"] = (
+                "eligible_but_existing_resistance_evidence_preserved"
+            )
+            continue
+
+        database = _norm(row.get("evolutionary_escape_risk_database")) or (
+            "NCBI AMRFinderPlus"
+        )
+        input_source_type = _norm_lower(
+            row.get("evolutionary_escape_risk_input_source_type")
+        )
+        source_type = (
+            input_source_type
+            if input_source_type in {
+                "literature_curated",
+                "real_external",
+                "real_external_online",
+                "computed_from_real_data",
+            }
+            else (
+                "literature_curated"
+                if _norm(row.get("amrfinder_pubmed_references"))
+                else "real_external"
+            )
+        )
+        provider_scope = _norm(row.get("amrfinder_method_scope"))
+        method_scope = (
+            f"{provider_scope}; Stage4D interpretation: positive target-level evidence "
+            "that at least one curated AMR point mutation exists for this gene and "
+            "organism. The value 1.0 denotes a documented escape route, not a "
+            "prospective probability and not evidence that the current sequence "
+            "already carries the mutation."
+        )
+        notes = (
+            f"Stage4D adapter={AMRFINDER_ADAPTER_VERSION}; mutations="
+            f"{_norm(row.get('amrfinder_mutation_symbols'))}; drug_classes="
+            f"{_norm(row.get('amrfinder_drug_classes')) or 'not_reported'}; "
+            f"drug_subclasses={_norm(row.get('amrfinder_drug_subclasses')) or 'not_reported'}; "
+            f"pubmed={_norm(row.get('amrfinder_pubmed_references')) or 'not_reported'}; "
+            f"catalog_sha256={_norm(row.get('amrfinder_catalog_sha256'))}; "
+            "absence of an AMRFinderPlus catalog match is never encoded as low risk."
+        )
+
+        prefix = AMRFINDER_RESISTANCE_VARIABLE
+        result.at[index, prefix] = risk
+        _set_if_missing(result, f"{prefix}_is_explicit", index, True)
+        _set_if_missing(result, f"{prefix}_source_type", index, source_type)
+        _set_if_missing(result, f"{prefix}_source_database", index, database)
+        _set_if_missing(
+            result,
+            f"{prefix}_source_record",
+            index,
+            _norm(row.get("amrfinder_source_record")),
+        )
+        _set_if_missing(
+            result,
+            f"{prefix}_source_version",
+            index,
+            _norm(row.get("amrfinder_source_version")),
+        )
+        _set_if_missing(
+            result,
+            f"{prefix}_retrieved_at",
+            index,
+            _norm(row.get("amrfinder_retrieved_at")),
+        )
+        _set_if_missing(
+            result,
+            f"{prefix}_mapping_method",
+            index,
+            _norm_lower(row.get("amrfinder_mapping_method")),
+        )
+        _set_if_missing(
+            result,
+            f"{prefix}_mapping_status",
+            index,
+            _norm_lower(row.get("amrfinder_mapping_status")),
+        )
+        _set_if_missing(
+            result,
+            f"{prefix}_evidence_status",
+            index,
+            _norm_lower(row.get("amrfinder_evidence_status")),
+        )
+        _set_if_missing(
+            result,
+            f"{prefix}_evidence_confidence",
+            index,
+            _norm_lower(row.get("amrfinder_evidence_confidence")),
+        )
+        _set_if_missing(
+            result,
+            f"{prefix}_independence_group",
+            index,
+            _norm(row.get("amrfinder_independence_group")),
+        )
+        _set_if_missing(result, f"{prefix}_method_scope", index, method_scope)
+        _set_if_missing(
+            result,
+            f"{prefix}_taxon_id",
+            index,
+            _norm(row.get("amrfinder_taxon_id")),
+        )
+        _set_if_missing(result, f"{prefix}_notes", index, notes)
+
+    return result
+
+
+def materialize_provider_evolutionary_evidence(frame: pd.DataFrame) -> pd.DataFrame:
+    """Materialize conservative provider-derived Stage 4A evidence.
+
+    Stage 4C contributes one BV-BRC-derived `evolutionary_constraint_score` from
+    non-duplicate comparative-genomic signals. Stage 4D can additionally promote
+    positive NCBI AMRFinderPlus point-mutation catalog matches to one independent
+    `resistance_emergence_risk` variable.
+
+    Both adapters fail closed. Correlated BV-BRC transformations remain one
+    independence group; AMRFinderPlus contributes a separate curated resistance
+    mutation group. Missing provider matches are never converted into negative
+    biological evidence. Existing canonical evidence metadata is preserved.
+    """
+
+    result = frame.copy()
+    result = _materialize_bvbrc_evidence(result)
+    result = _materialize_amrfinder_evidence(result)
     return result

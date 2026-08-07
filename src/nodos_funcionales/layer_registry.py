@@ -30,6 +30,7 @@ DEFAULT_EXTERNAL_PROVIDERS = {
     "curated_disease_context": "controlled_therapeutic_context_v2",
     "therapy_site_context": "controlled_therapeutic_context_v2",
     "literature_support": "curated_online_examples",
+    "evolutionary_escape_risk": "amrfinderplus_point_mutations",
 }
 
 

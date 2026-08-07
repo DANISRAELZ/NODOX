@@ -9,6 +9,12 @@ from typing import Any
 import pandas as pd
 
 from .acquisition import map_source_dataframe
+from .amrfinderplus_provider import (
+    _cache_key as amrfinder_cache_key,
+    _candidate_proteins as amrfinder_candidate_proteins,
+    _read_cache as read_amrfinder_cache,
+    fetch_amrfinderplus_point_mutation_evidence,
+)
 from .layer_registry import LayerDefinition, get_layer_definition, list_layer_definitions
 from .online_sources import effective_online_source_mode, fetch_layer_external_source
 
@@ -83,6 +89,201 @@ def _source_name(path: Path | None, fallback: str) -> str:
     return path.name
 
 
+def _organism_context(base_dir: Path) -> tuple[str | None, str | None]:
+    profile_path = base_dir / "results" / "organism_profile.json"
+    if not profile_path.exists():
+        return None, None
+    try:
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None, None
+    organism_name = str(
+        profile.get("organism_canonical_name")
+        or profile.get("organism_input_name")
+        or ""
+    ).strip() or None
+    taxon_id = str(profile.get("taxon_id") or "").strip() or None
+    return organism_name, taxon_id
+
+
+def _looks_like_amrfinder_provider_table(path: Path) -> bool:
+    if not path.exists():
+        return False
+    try:
+        columns = set(pd.read_csv(path, nrows=1).columns)
+    except Exception:  # noqa: BLE001 - only used to classify stale provider output.
+        return False
+    return {
+        "amrfinder_source_record",
+        "amrfinder_source_version",
+        "amrfinder_taxon_id",
+        "amrfinder_provider_source_used",
+    }.issubset(columns)
+
+
+def _amrfinder_exact_query_cached(
+    base_dir: Path,
+    config: dict[str, Any],
+    organism_name: str | None,
+    taxon_id: str | None,
+) -> bool:
+    if not organism_name or not taxon_id:
+        return False
+    candidates = amrfinder_candidate_proteins(base_dir)
+    key = amrfinder_cache_key(taxon_id, organism_name, candidates)
+    cache = read_amrfinder_cache(base_dir, config)
+    entry = cache.get("entries", {}).get(key)
+    return bool(
+        isinstance(entry, dict)
+        and entry.get("manifest", {}).get("query_complete", False)
+    )
+
+
+def _remove_stale_amrfinder_provider_outputs(*paths: Path) -> None:
+    for path in paths:
+        if _looks_like_amrfinder_provider_table(path):
+            try:
+                path.unlink()
+            except OSError:
+                pass
+
+
+def _resolve_amrfinderplus_layer(
+    base_dir: Path,
+    config: dict[str, Any],
+    definition: LayerDefinition,
+    *,
+    strategy: str,
+    dirs: dict[str, Path],
+    online_source_mode: str,
+) -> LayerResolution | None:
+    """Resolve AMRFinderPlus through its query-specific cache, not generic CSV state.
+
+    A non-provider user/raw table is deliberately left to the normal resolver. Once
+    NODOX itself generated the AMRFinderPlus table, however, subsequent runs must
+    re-resolve it against the current organism and candidate gene set. Otherwise a
+    generic `evolutionary_escape_risk.csv` from a previous organism could suppress
+    a valid query in a later multi-organism run.
+    """
+
+    user_path = dirs["user"] / definition.filename
+    raw_path = dirs["raw"] / definition.filename
+    external_path = dirs["external"] / definition.filename
+    generic_cache_path = dirs["cache"] / definition.filename
+
+    if user_path.exists():
+        return None
+    if raw_path.exists() and not _looks_like_amrfinder_provider_table(raw_path):
+        return None
+
+    organism_name, taxon_id = _organism_context(base_dir)
+    exact_cache_available = _amrfinder_exact_query_cached(
+        base_dir,
+        config,
+        organism_name,
+        taxon_id,
+    )
+
+    if online_source_mode == "offline_only" and not exact_cache_available:
+        _remove_stale_amrfinder_provider_outputs(
+            raw_path,
+            external_path,
+            generic_cache_path,
+        )
+        return LayerResolution(
+            layer_key=definition.table_key,
+            filename=definition.filename,
+            strategy=strategy,
+            resolved_from="missing",
+            source_type="missing",
+            source_name="ncbi_amrfinderplus_point_mutations",
+            is_user_supplied=False,
+            is_external=False,
+            is_cached=False,
+            is_proxy=False,
+            confidence=0.0,
+            retrieval_status="offline_only_without_matching_query_cache",
+            output_path=None,
+            selected_inputs=[],
+            generated_by="not_generated",
+        )
+
+    provider_result = fetch_amrfinderplus_point_mutation_evidence(
+        workspace=base_dir,
+        organism_name=organism_name,
+        taxon_id=taxon_id,
+        config=config,
+        mode=online_source_mode,
+    )
+    provider_data = provider_result["evolutionary_escape_risk_data"]
+    provider_manifest = provider_result["manifest"]
+
+    if provider_data.empty:
+        _remove_stale_amrfinder_provider_outputs(
+            raw_path,
+            external_path,
+            generic_cache_path,
+        )
+        return LayerResolution(
+            layer_key=definition.table_key,
+            filename=definition.filename,
+            strategy=strategy,
+            resolved_from="missing",
+            source_type="missing",
+            source_name="ncbi_amrfinderplus_point_mutations",
+            is_user_supplied=False,
+            is_external=False,
+            is_cached=False,
+            is_proxy=False,
+            confidence=0.0,
+            retrieval_status=str(
+                provider_manifest.get("retrieval_status", "unresolved")
+            ),
+            output_path=None,
+            selected_inputs=[],
+            generated_by="amrfinderplus_provider",
+        )
+
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    external_path.parent.mkdir(parents=True, exist_ok=True)
+    provider_data.to_csv(raw_path, index=False)
+    provider_data.to_csv(external_path, index=False)
+    _remove_stale_amrfinder_provider_outputs(generic_cache_path)
+
+    source_used = str(provider_manifest.get("source_used", "api_real"))
+    delivered_from_cache = source_used == "cache"
+    confidence_cfg = config.get("online_sources", {}).get("amrfinderplus", {})
+    confidence = float(confidence_cfg.get("confidence_real", 0.95))
+    return LayerResolution(
+        layer_key=definition.table_key,
+        filename=definition.filename,
+        strategy=strategy,
+        resolved_from="cache" if delivered_from_cache else "external",
+        source_type="cache" if delivered_from_cache else "external",
+        source_name="ncbi_amrfinderplus_point_mutations",
+        is_user_supplied=False,
+        is_external=not delivered_from_cache,
+        is_cached=delivered_from_cache,
+        is_proxy=False,
+        confidence=confidence,
+        retrieval_status=str(
+            provider_manifest.get(
+                "retrieval_status",
+                "cache_reused" if delivered_from_cache else "api_real",
+            )
+        ),
+        output_path=str(raw_path),
+        selected_inputs=[
+            (
+                "provider_cache:amrfinderplus_point_mutation_cache.json"
+                if delivered_from_cache
+                else "external:NCBI_AMRFinderPlus_ReferenceGeneCatalog.txt"
+            )
+        ],
+        generated_by="amrfinderplus_provider",
+    )
+
+
 def _demo_raw_files(base_dir: Path) -> set[str]:
     return set(_demo_raw_metadata(base_dir).keys())
 
@@ -139,6 +340,23 @@ def _resolve_single_layer(
     external_provider = str(layer_cfg.get("external_provider", definition.external_provider or "workspace_stub"))
     raw_demo_meta = _demo_raw_metadata(base_dir).get(definition.filename, {})
     raw_is_demo = bool(raw_demo_meta)
+    online_source_mode = effective_online_source_mode(config)
+
+    if (
+        external_provider == "amrfinderplus_point_mutations"
+        and definition.table_key == "evolutionary_escape_risk"
+    ):
+        specialized = _resolve_amrfinderplus_layer(
+            base_dir,
+            config,
+            definition,
+            strategy=strategy,
+            dirs=dirs,
+            online_source_mode=online_source_mode,
+        )
+        if specialized is not None:
+            return specialized
+
     external_result: dict[str, Any] = {
         "source_name": external_provider,
         "status": "external_not_requested",
@@ -152,7 +370,6 @@ def _resolve_single_layer(
         "external": external_path if external_path.exists() else None,
         "raw": raw_path if raw_path.exists() else None,
     }
-    online_source_mode = effective_online_source_mode(config)
 
     should_fetch_external = available_paths["external"] is None and (
         strategy in {"external_preferred", "merge_with_priority"}

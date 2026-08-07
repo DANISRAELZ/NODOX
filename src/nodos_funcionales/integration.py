@@ -149,7 +149,15 @@ def _merge_optional_feature_table(
     if table is None:
         return merged
 
-    available = ["protein_id_canonical"] + [column for column in feature_columns if column in table.columns]
+    provider_audit_columns = [
+        column for column in table.columns if column.startswith("amrfinder_")
+    ]
+    available = ["protein_id_canonical"] + [
+        column for column in feature_columns if column in table.columns
+    ]
+    for column in provider_audit_columns:
+        if column not in available:
+            available.append(column)
     if "source_database" in table.columns:
         available.append("source_database")
     subset = table[available].copy()
@@ -606,6 +614,9 @@ def integrate_tables(base_dir: Path) -> pd.DataFrame:
                 f"{layer_key}_generated_by",
             ]
         )
+    for column in merged.columns:
+        if column.startswith("amrfinder_") and column not in keep_columns:
+            keep_columns.append(column)
     integrated = merged[[column for column in keep_columns if column in merged.columns]].copy()
     integrated = apply_organism_metadata(
         integrated,
