@@ -93,6 +93,33 @@ Only values whose records pass the Stage 4A contract enter `evolutionary_escape_
 
 The supported score remains `NaN` when the full contract gate is not satisfied. Its supported penalty is therefore zero in that case, and missing evidence is not interpreted as biological protection.
 
+### Fail-closed status semantics
+
+`evolutionary_escape_risk_status=sufficient_evidence` is reserved exclusively for candidates whose full Stage 4A contract gate is satisfied. This rule protects legacy Phase 3 classification and reporting code from mistaking a high proxy score or partial explicit evidence for evidence-backed evolutionary risk.
+
+Contract-unsupported candidates use either `unknown_missing_evidence` when no contract-valid explicit variable is available, or `insufficient_evidence` when some valid explicit evidence exists but the full gate is not met.
+
+The detailed reason is retained separately in `evolutionary_escape_contract_failure_reason`, including values such as:
+
+- `no_contract_explicit_evidence`
+- `explicit_records_rejected_by_contract`
+- `insufficient_explicit_variables`
+- `insufficient_independent_evidence`
+- `contract_not_supported`
+- `none` for a supported candidate.
+
+This separation keeps downstream semantics conservative without discarding audit detail.
+
+## Ablation behavior
+
+The Stage 4B supported ablation starts from the model with the evolutionary dimension removed. It restores only terms that are backed by the explicit-evidence contract:
+
+- the escape term uses `evolutionary_escape_supported_score`;
+- the positive evolutionary-constraint term is restored only when the canonical constraint variable is contract-explicit;
+- biofilm and horizontal-transfer penalties remain outside the supported reconstruction because Stage 4A does not yet define them as explicit evolutionary evidence variables.
+
+The historical full evolutionary reconstruction remains available as the proxy/hypothesis-level comparison.
+
 ## Audit outputs
 
 Stage 4B adds or standardizes the following diagnostics in the evolutionary-risk result:
@@ -102,6 +129,7 @@ Stage 4B adds or standardizes the following diagnostics in the evolutionary-risk
 - `evolutionary_escape_risk_explicit_variables`
 - `evolutionary_escape_risk_independence_groups`
 - `evolutionary_evidence_contract_supported`
+- `evolutionary_escape_contract_failure_reason`
 - `evolutionary_evidence_contract_record_count`
 - `evolutionary_evidence_contract_valid_record_count`
 - `evolutionary_evidence_contract_explicit_record_count`
@@ -110,6 +138,8 @@ Stage 4B adds or standardizes the following diagnostics in the evolutionary-risk
 - `evolutionary_evidence_contract_warnings`
 
 Each evolutionary variable also receives a `<variable>_contract_explicit` boolean in the scoring result.
+
+The selected-run audit also fails closed: legacy `_is_explicit` flags remain visible as historical/unvalidated information but do not count as usable evolutionary evidence without `evolutionary_evidence_contract_supported=True`.
 
 ## Scientific guardrails
 
@@ -135,6 +165,8 @@ The Stage 4B regression suite must verify at least the following cases:
 5. three valid variables from one group cannot enable supported scoring;
 6. unknown source types are rejected as explicit;
 7. ambiguous mapping is rejected as explicit;
-8. the historical proxy alias remains numerically unchanged.
+8. the historical proxy alias remains numerically unchanged;
+9. unsupported candidates cannot receive `sufficient_evidence` status;
+10. ablation and selected-run auditing require the same contract-supported gate.
 
 The full repository test suite remains required before merging the Stage 4B pull request.
