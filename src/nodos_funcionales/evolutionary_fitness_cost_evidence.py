@@ -13,6 +13,7 @@ from .organism_metadata import load_organism_metadata
 
 
 FITNESS_COST_VARIABLE = "fitness_cost_of_escape"
+AMRFINDER_SHARED_INDEPENDENCE_GROUP = "ncbi_amrfinderplus_curated_point_mutations"
 DEFAULT_FITNESS_COST_CONFIG: dict[str, Any] = {
     "enabled": True,
     "base_dir": "data_curated/organisms",
@@ -69,6 +70,7 @@ AUDIT_COLUMNS = [
     "fitness_cost_curated_selected_relative_fitness",
     "fitness_cost_curated_aggregation_rule",
     "fitness_cost_curated_source_records",
+    "fitness_cost_curated_independence_reason",
 ]
 
 
@@ -83,6 +85,21 @@ def _norm(value: Any) -> str:
 
 def _norm_lower(value: Any) -> str:
     return _norm(value).casefold()
+
+
+def _as_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None or value is pd.NA:
+        return False
+    if isinstance(value, (int, float)):
+        try:
+            if math.isnan(float(value)):
+                return False
+        except (TypeError, ValueError):
+            pass
+        return bool(value)
+    return _norm_lower(value) in {"1", "true", "yes", "y"}
 
 
 def _slugify(value: Any) -> str:
@@ -177,7 +194,7 @@ def _candidate_id(row: pd.Series) -> str:
 
 
 def _existing_explicit_metadata(row: pd.Series) -> bool:
-    if bool(row.get(f"{FITNESS_COST_VARIABLE}_is_explicit", False)):
+    if _as_bool(row.get(f"{FITNESS_COST_VARIABLE}_is_explicit", False)):
         return True
     return any(
         _norm(row.get(f"{FITNESS_COST_VARIABLE}_{suffix}"))
@@ -192,6 +209,20 @@ def _existing_explicit_metadata(row: pd.Series) -> bool:
             "independence_group",
         )
     )
+
+
+def _pmid_tokens(value: Any) -> set[str]:
+    return set(re.findall(r"(?<!\d)\d{6,9}(?!\d)", _norm(value)))
+
+
+def _shares_amrfinder_literature(candidate: pd.Series, record: pd.Series) -> bool:
+    amrfinder_pmids = _pmid_tokens(candidate.get("amrfinder_pubmed_references"))
+    if not amrfinder_pmids:
+        return False
+    record_pmids = set()
+    for column in ("pmid", "source_record", "reference"):
+        record_pmids.update(_pmid_tokens(record.get(column)))
+    return bool(amrfinder_pmids & record_pmids)
 
 
 def _validate_record(
@@ -296,7 +327,9 @@ def apply_curated_fitness_cost_evidence(
     evolutionary escape risk.
 
     `online_strict`/`online_only` disable this local evidence source. Missing or
-    rejected records never become zero-cost or negative evidence.
+    rejected records never become zero-cost or negative evidence. If the chosen
+    fitness-cost study shares a PMID with the AMRFinderPlus evidence already
+    attached to the candidate, both observations share one independence group.
     """
 
     result = frame.copy()
@@ -369,6 +402,7 @@ def apply_curated_fitness_cost_evidence(
     )
     result["fitness_cost_curated_aggregation_rule"] = str(cfg["aggregation_rule"])
     result["fitness_cost_curated_source_records"] = ""
+    result["fitness_cost_curated_independence_reason"] = "not_evaluated"
 
     summary_rows: list[dict[str, Any]] = []
     eligible_candidates = 0
@@ -424,7 +458,13 @@ def apply_curated_fitness_cost_evidence(
 
         # Minimum cost = least costly documented route = conservative escape-risk view.
         chosen_record, chosen_cost = min(valid, key=lambda item: item[1])
-        source_records = sorted({_norm(record.get("source_record")) for record, _ in valid if _norm(record.get("source_record"))})
+        source_records = sorted(
+            {
+                _norm(record.get("source_record"))
+                for record, _ in valid
+                if _norm(record.get("source_record"))
+            }
+        )
         result.at[index, "fitness_cost_curated_evidence_eligible"] = True
         result.at[index, "fitness_cost_curated_evidence_reason"] = "eligible_experimental_fitness_cost"
         result.at[index, "fitness_cost_curated_selected_mutation"] = _norm(chosen_record.get("mutation"))
@@ -434,9 +474,17 @@ def apply_curated_fitness_cost_evidence(
 
         if not _existing_explicit_metadata(candidate):
             source_record = _norm(chosen_record.get("source_record"))
-            independence_group = _norm(chosen_record.get("independence_group"))
-            if not independence_group:
-                independence_group = "fitness_cost_study:" + re.sub(r"[^A-Za-z0-9_.:-]+", "_", source_record)
+            if _shares_amrfinder_literature(candidate, chosen_record):
+                independence_group = AMRFINDER_SHARED_INDEPENDENCE_GROUP
+                independence_reason = "shared_pubmed_with_amrfinderplus_same_independence_group"
+            else:
+                independence_group = _norm(chosen_record.get("independence_group"))
+                if not independence_group:
+                    independence_group = "fitness_cost_study:" + re.sub(
+                        r"[^A-Za-z0-9_.:-]+", "_", source_record
+                    )
+                independence_reason = "independent_fitness_cost_study"
+            result.at[index, "fitness_cost_curated_independence_reason"] = independence_reason
 
             method_scope = (
                 f"{_norm(chosen_record.get('method_scope'))}; Stage4E transformation: "
@@ -451,27 +499,71 @@ def apply_curated_fitness_cost_evidence(
                 f"assay_context={_norm(chosen_record.get('assay_context'))}; "
                 f"pmid={_norm(chosen_record.get('pmid')) or 'not_reported'}; "
                 f"doi={_norm(chosen_record.get('doi')) or 'not_reported'}; "
+                f"independence_reason={independence_reason}; "
                 "the least costly valid documented route is selected conservatively."
             )
 
             result.at[index, FITNESS_COST_VARIABLE] = float(chosen_cost)
             _set_column(result, index, f"{FITNESS_COST_VARIABLE}_is_explicit", True)
-            _set_column(result, index, f"{FITNESS_COST_VARIABLE}_source_type", _norm_lower(chosen_record.get("source_type")))
-            _set_column(result, index, f"{FITNESS_COST_VARIABLE}_source_database", _norm(chosen_record.get("source_database")))
+            _set_column(
+                result,
+                index,
+                f"{FITNESS_COST_VARIABLE}_source_type",
+                _norm_lower(chosen_record.get("source_type")),
+            )
+            _set_column(
+                result,
+                index,
+                f"{FITNESS_COST_VARIABLE}_source_database",
+                _norm(chosen_record.get("source_database")),
+            )
             _set_column(result, index, f"{FITNESS_COST_VARIABLE}_source_record", source_record)
-            _set_column(result, index, f"{FITNESS_COST_VARIABLE}_source_version", _norm(chosen_record.get("source_version")))
-            _set_column(result, index, f"{FITNESS_COST_VARIABLE}_retrieved_at", _norm(chosen_record.get("retrieved_at")))
-            _set_column(result, index, f"{FITNESS_COST_VARIABLE}_mapping_method", _norm_lower(chosen_record.get("mapping_method")))
-            _set_column(result, index, f"{FITNESS_COST_VARIABLE}_mapping_status", _norm_lower(chosen_record.get("mapping_status")))
+            _set_column(
+                result,
+                index,
+                f"{FITNESS_COST_VARIABLE}_source_version",
+                _norm(chosen_record.get("source_version")),
+            )
+            _set_column(
+                result,
+                index,
+                f"{FITNESS_COST_VARIABLE}_retrieved_at",
+                _norm(chosen_record.get("retrieved_at")),
+            )
+            _set_column(
+                result,
+                index,
+                f"{FITNESS_COST_VARIABLE}_mapping_method",
+                _norm_lower(chosen_record.get("mapping_method")),
+            )
+            _set_column(
+                result,
+                index,
+                f"{FITNESS_COST_VARIABLE}_mapping_status",
+                _norm_lower(chosen_record.get("mapping_status")),
+            )
             _set_column(result, index, f"{FITNESS_COST_VARIABLE}_evidence_status", "observed")
-            _set_column(result, index, f"{FITNESS_COST_VARIABLE}_evidence_confidence", _norm_lower(chosen_record.get("evidence_confidence")))
-            _set_column(result, index, f"{FITNESS_COST_VARIABLE}_independence_group", independence_group)
+            _set_column(
+                result,
+                index,
+                f"{FITNESS_COST_VARIABLE}_evidence_confidence",
+                _norm_lower(chosen_record.get("evidence_confidence")),
+            )
+            _set_column(
+                result,
+                index,
+                f"{FITNESS_COST_VARIABLE}_independence_group",
+                independence_group,
+            )
             _set_column(result, index, f"{FITNESS_COST_VARIABLE}_method_scope", method_scope)
             _set_column(result, index, f"{FITNESS_COST_VARIABLE}_taxon_id", candidate_taxon)
             _set_column(result, index, f"{FITNESS_COST_VARIABLE}_notes", notes)
         else:
             result.at[index, "fitness_cost_curated_evidence_reason"] = (
                 "eligible_but_existing_canonical_fitness_cost_evidence_preserved"
+            )
+            result.at[index, "fitness_cost_curated_independence_reason"] = (
+                "existing_canonical_evidence_preserved"
             )
 
         summary_rows.append(
@@ -483,6 +575,9 @@ def apply_curated_fitness_cost_evidence(
                 "selected_cost": float(chosen_cost),
                 "selected_mutation": _norm(chosen_record.get("mutation")),
                 "selected_source_record": _norm(chosen_record.get("source_record")),
+                "independence_reason": result.at[
+                    index, "fitness_cost_curated_independence_reason"
+                ],
                 "status": result.at[index, "fitness_cost_curated_evidence_reason"],
             }
         )
@@ -501,6 +596,10 @@ def apply_curated_fitness_cost_evidence(
             "allowed_escape_associations": sorted(cfg["allowed_escape_associations"]),
             "matched_candidate_count": matched_candidates,
             "eligible_candidate_count": eligible_candidates,
+            "amrfinder_shared_independence_policy": (
+                "If the selected fitness-cost record shares a PMID with candidate AMRFinderPlus "
+                "evidence, both use the AMRFinderPlus independence group."
+            ),
             "interpretation_warning": (
                 "Fitness-cost evidence is mutation- and assay-specific. It is not a universal gene property; "
                 "absence of curated evidence is not evidence of zero cost."
