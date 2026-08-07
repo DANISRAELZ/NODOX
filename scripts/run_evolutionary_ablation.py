@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Run a read-only evolutionary ablation against a selected NODOX run.
 
-Stage 2.1 reconstructs the score from the run's full Phase 3 feature table,
-separates unsupported proxy hypotheses from evidence-supported evolutionary
-signals, aggregates results by accession and gene, and never converts missing
-evolutionary evidence into low risk.
+Stage 4B keeps historical proxy hypotheses separate from contract-supported
+explicit evolutionary evidence. Missing evidence is never converted into low
+risk or into a supported evolutionary contribution.
 """
 from __future__ import annotations
 
@@ -79,6 +78,8 @@ DEFAULT_STAGE2_CONFIG = {
         "sensitivity_penalties": ["p_escape", "p_biofilm", "p_hgt"],
         "supported_evidence": {
             "minimum_explicit_variables": 3,
+            "minimum_independent_evidence_groups": 2,
+            "require_contract_supported": True,
             "unknown_statuses": [
                 "unknown_missing_evidence",
                 "unknown",
@@ -86,6 +87,7 @@ DEFAULT_STAGE2_CONFIG = {
                 "not_reported",
                 "unresolved",
                 "insufficient_evidence",
+                "insufficient_independent_evidence",
                 "derived_from_related_layers",
             ],
         },
@@ -124,13 +126,7 @@ EVOLUTIONARY_EXPLICIT_VARIABLES = (
     "multi_node_dependency_score",
 )
 EVOLUTIONARY_PROXY_COLUMNS = (
-    "mutation_tolerance_score",
-    "functional_redundancy_escape_score",
-    "compensatory_pathway_score",
-    "fitness_cost_of_escape",
-    "evolutionary_constraint_score",
-    "resistance_emergence_risk",
-    "multi_node_dependency_score",
+    *EVOLUTIONARY_EXPLICIT_VARIABLES,
     "evolutionary_escape_risk_score",
 )
 
@@ -151,15 +147,27 @@ def load_stage2_config(path: Path) -> dict[str, Any]:
         return config
     try:
         raw = path.read_text(encoding="utf-8")
-        loaded = json.loads(raw) if path.suffix.lower() == ".json" else parse_simple_yaml(raw)
+        loaded = (
+            json.loads(raw)
+            if path.suffix.lower() == ".json"
+            else parse_simple_yaml(raw)
+        )
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
         return config
     return _deep_merge(config, loaded) if isinstance(loaded, Mapping) else config
 
 
 def effective_theory_config(params: Mapping[str, Any]) -> dict[str, Any]:
-    phase3 = params.get("phase3", {}) if isinstance(params.get("phase3"), Mapping) else {}
-    theory = phase3.get("functional_node_theory", {}) if isinstance(phase3.get("functional_node_theory"), Mapping) else {}
+    phase3 = (
+        params.get("phase3", {})
+        if isinstance(params.get("phase3"), Mapping)
+        else {}
+    )
+    theory = (
+        phase3.get("functional_node_theory", {})
+        if isinstance(phase3.get("functional_node_theory"), Mapping)
+        else {}
+    )
     return _deep_merge(DEFAULT_THEORY, theory)
 
 
@@ -178,8 +186,17 @@ def _path_priority(path: Path, names: Sequence[str]) -> tuple[int, int, str]:
 
 
 def find_artifact(run_dir: Path, names: Sequence[str]) -> Path | None:
-    matches = [path for name in names for path in run_dir.rglob(name) if path.is_file()]
-    return sorted(set(matches), key=lambda path: _path_priority(path, names))[0] if matches else None
+    matches = [
+        path
+        for name in names
+        for path in run_dir.rglob(name)
+        if path.is_file()
+    ]
+    return (
+        sorted(set(matches), key=lambda path: _path_priority(path, names))[0]
+        if matches
+        else None
+    )
 
 
 def find_params_path(run_dir: Path, repo_root: Path) -> Path:
@@ -191,57 +208,99 @@ def find_params_path(run_dir: Path, repo_root: Path) -> Path:
     for path in candidates:
         if path.exists():
             return path
-    raise FileNotFoundError("No se encontró params.yaml de la corrida ni del repositorio")
+    raise FileNotFoundError(
+        "No se encontró params.yaml de la corrida ni del repositorio"
+    )
 
 
 def candidate_ids(frame: pd.DataFrame) -> pd.Series:
     columns = [column for column in IDENTITY_COLUMNS if column in frame.columns]
     if not columns:
-        return pd.Series([f"candidate_{index + 1}" for index in range(len(frame))], index=frame.index, dtype="string")
-    values = frame[columns].astype("string").replace({"<NA>": pd.NA, "nan": pd.NA, "": pd.NA})
-    fallback = pd.Series([f"candidate_{index + 1}" for index in range(len(frame))], index=frame.index, dtype="string")
+        return pd.Series(
+            [f"candidate_{index + 1}" for index in range(len(frame))],
+            index=frame.index,
+            dtype="string",
+        )
+    values = frame[columns].astype("string").replace(
+        {"<NA>": pd.NA, "nan": pd.NA, "": pd.NA}
+    )
+    fallback = pd.Series(
+        [f"candidate_{index + 1}" for index in range(len(frame))],
+        index=frame.index,
+        dtype="string",
+    )
     return values.bfill(axis=1).iloc[:, 0].fillna(fallback)
 
 
 def _common_identity(left: pd.DataFrame, right: pd.DataFrame) -> str | None:
-    return next((column for column in IDENTITY_COLUMNS if column in left.columns and column in right.columns), None)
+    return next(
+        (
+            column
+            for column in IDENTITY_COLUMNS
+            if column in left.columns and column in right.columns
+        ),
+        None,
+    )
 
 
-def select_analysis_frame(feature_frame: pd.DataFrame, ranking_frame: pd.DataFrame | None) -> pd.DataFrame:
+def select_analysis_frame(
+    feature_frame: pd.DataFrame,
+    ranking_frame: pd.DataFrame | None,
+) -> pd.DataFrame:
     if ranking_frame is None or ranking_frame.empty:
         return feature_frame.copy().reset_index(drop=True)
     key = _common_identity(feature_frame, ranking_frame)
     if key is None:
         if len(feature_frame) == len(ranking_frame):
             return feature_frame.copy().reset_index(drop=True)
-        raise ValueError("No se pudo alinear phase3_features con el ranking seleccionado")
+        raise ValueError(
+            "No se pudo alinear phase3_features con el ranking seleccionado"
+        )
     ranked_ids = ranking_frame[key].astype(str)
     features = feature_frame.copy()
     features[key] = features[key].astype(str)
     features = features.drop_duplicates(subset=[key], keep="first").set_index(key)
     missing = [value for value in ranked_ids if value not in features.index]
     if missing:
-        raise ValueError(f"Faltan {len(missing)} candidatos del ranking en phase3_features: {missing[:5]}")
-    selected = features.loc[ranked_ids].reset_index()
-    return selected
+        raise ValueError(
+            f"Faltan {len(missing)} candidatos del ranking en phase3_features: "
+            f"{missing[:5]}"
+        )
+    return features.loc[ranked_ids].reset_index()
 
 
 def _series(frame: pd.DataFrame, column: str, default: float) -> pd.Series:
     if column not in frame.columns:
         return pd.Series([default] * len(frame), index=frame.index, dtype=float)
-    return pd.to_numeric(frame[column], errors="coerce").fillna(default).clip(lower=0.0, upper=1.0)
+    return (
+        pd.to_numeric(frame[column], errors="coerce")
+        .fillna(default)
+        .clip(lower=0.0, upper=1.0)
+    )
 
 
-def compute_theory_score(frame: pd.DataFrame, config: Mapping[str, Any]) -> pd.Series:
-    defaults = {key: float(value) for key, value in config.get("defaults", {}).items()}
-    weights = {key: max(float(value), 0.0) for key, value in config.get("weights", {}).items()}
-    penalties = {key: max(float(value), 0.0) for key, value in config.get("penalties", {}).items()}
+def compute_theory_score(
+    frame: pd.DataFrame,
+    config: Mapping[str, Any],
+) -> pd.Series:
+    defaults = {
+        key: float(value) for key, value in config.get("defaults", {}).items()
+    }
+    weights = {
+        key: max(float(value), 0.0)
+        for key, value in config.get("weights", {}).items()
+    }
+    penalties = {
+        key: max(float(value), 0.0)
+        for key, value in config.get("penalties", {}).items()
+    }
 
     positive_weight = sum(weights.get(key, 0.0) for key in POSITIVE_TERMS)
     positive = pd.Series([0.0] * len(frame), index=frame.index, dtype=float)
     if positive_weight > 0:
         positive = sum(
-            _series(frame, column, defaults.get(column, 0.0)) * weights.get(weight_key, 0.0)
+            _series(frame, column, defaults.get(column, 0.0))
+            * weights.get(weight_key, 0.0)
             for weight_key, column in POSITIVE_TERMS.items()
         ) / positive_weight
 
@@ -249,14 +308,18 @@ def compute_theory_score(frame: pd.DataFrame, config: Mapping[str, Any]) -> pd.S
     penalty = pd.Series([0.0] * len(frame), index=frame.index, dtype=float)
     if penalty_weight > 0:
         weighted = sum(
-            _series(frame, column, defaults.get(column, 0.0)) * penalties.get(penalty_key, 0.0)
+            _series(frame, column, defaults.get(column, 0.0))
+            * penalties.get(penalty_key, 0.0)
             for penalty_key, column in PENALTY_TERMS.items()
         ) / penalty_weight
         penalty = weighted * min(penalty_weight, 1.0)
     return (positive - penalty).clip(lower=0.0, upper=1.0)
 
 
-def apply_scenario(config: Mapping[str, Any], scenario: Mapping[str, Any]) -> dict[str, Any]:
+def apply_scenario(
+    config: Mapping[str, Any],
+    scenario: Mapping[str, Any],
+) -> dict[str, Any]:
     result = copy.deepcopy(dict(config))
     for key in scenario.get("remove_positive_weights", []):
         result.setdefault("weights", {})[key] = 0.0
@@ -265,18 +328,34 @@ def apply_scenario(config: Mapping[str, Any], scenario: Mapping[str, Any]) -> di
     return result
 
 
-def apply_sensitivity(config: Mapping[str, Any], multiplier: float, positive_keys: Sequence[str], penalty_keys: Sequence[str]) -> dict[str, Any]:
+def apply_sensitivity(
+    config: Mapping[str, Any],
+    multiplier: float,
+    positive_keys: Sequence[str],
+    penalty_keys: Sequence[str],
+) -> dict[str, Any]:
     result = copy.deepcopy(dict(config))
     for key in positive_keys:
-        result.setdefault("weights", {})[key] = float(result.get("weights", {}).get(key, 0.0)) * multiplier
+        result.setdefault("weights", {})[key] = (
+            float(result.get("weights", {}).get(key, 0.0)) * multiplier
+        )
     for key in penalty_keys:
-        result.setdefault("penalties", {})[key] = float(result.get("penalties", {}).get(key, 0.0)) * multiplier
+        result.setdefault("penalties", {})[key] = (
+            float(result.get("penalties", {}).get(key, 0.0)) * multiplier
+        )
     return result
 
 
 def deterministic_rank(score: pd.Series, ids: pd.Series) -> pd.Series:
-    working = pd.DataFrame({"score": score, "candidate_id": ids.astype(str)}, index=score.index)
-    ordered = working.sort_values(["score", "candidate_id"], ascending=[False, True], kind="mergesort")
+    working = pd.DataFrame(
+        {"score": score, "candidate_id": ids.astype(str)},
+        index=score.index,
+    )
+    ordered = working.sort_values(
+        ["score", "candidate_id"],
+        ascending=[False, True],
+        kind="mergesort",
+    )
     ranks = pd.Series(index=score.index, dtype=int)
     ranks.loc[ordered.index] = range(1, len(ordered) + 1)
     return ranks.astype(int)
@@ -292,6 +371,21 @@ def _normalize_status(series: pd.Series) -> pd.Series:
     )
 
 
+def _bool_series(frame: pd.DataFrame, column: str) -> pd.Series | None:
+    if column not in frame.columns:
+        return None
+    values = frame[column]
+    if pd.api.types.is_bool_dtype(values):
+        return values.fillna(False).astype(bool)
+    return (
+        values.fillna(False)
+        .astype(str)
+        .str.strip()
+        .str.lower()
+        .isin({"true", "1", "yes", "y", "supported"})
+    )
+
+
 def explicit_variable_count(frame: pd.DataFrame) -> pd.Series:
     if "evolutionary_escape_risk_explicit_variable_count" in frame.columns:
         return (
@@ -303,24 +397,29 @@ def explicit_variable_count(frame: pd.DataFrame) -> pd.Series:
             .clip(lower=0)
             .astype(int)
         )
+
+    # Legacy flags are retained only as a diagnostic count. They do not satisfy
+    # the Stage 4B contract gate without an explicit contract-supported column.
     flags: dict[str, pd.Series] = {}
     for variable in EVOLUTIONARY_EXPLICIT_VARIABLES:
-        column = f"{variable}_is_explicit"
-        if column in frame.columns:
-            values = frame[column]
-            if values.dtype == bool:
-                flags[column] = values.fillna(False)
-            else:
-                flags[column] = (
-                    values.fillna(False)
-                    .astype(str)
-                    .str.strip()
-                    .str.lower()
-                    .isin({"true", "1", "yes"})
-                )
+        values = _bool_series(frame, f"{variable}_contract_explicit")
+        if values is not None:
+            flags[variable] = values
     if not flags:
         return pd.Series([0] * len(frame), index=frame.index, dtype=int)
     return pd.DataFrame(flags, index=frame.index).sum(axis=1).astype(int)
+
+
+def independent_evidence_group_count(frame: pd.DataFrame) -> pd.Series:
+    column = "evolutionary_escape_risk_independent_evidence_group_count"
+    if column not in frame.columns:
+        return pd.Series([0] * len(frame), index=frame.index, dtype=int)
+    return (
+        pd.to_numeric(frame[column], errors="coerce")
+        .fillna(0)
+        .clip(lower=0)
+        .astype(int)
+    )
 
 
 def evolutionary_supported_mask(
@@ -332,7 +431,11 @@ def evolutionary_supported_mask(
         if isinstance(cfg.get("supported_evidence"), Mapping)
         else {}
     )
-    minimum = int(support_cfg.get("minimum_explicit_variables", 3))
+    minimum_variables = int(support_cfg.get("minimum_explicit_variables", 3))
+    minimum_groups = int(
+        support_cfg.get("minimum_independent_evidence_groups", 2)
+    )
+    require_contract = bool(support_cfg.get("require_contract_supported", True))
     unknown_statuses = {
         str(value).strip().lower()
         for value in support_cfg.get(
@@ -342,7 +445,9 @@ def evolutionary_supported_mask(
             ],
         )
     }
+
     counts = explicit_variable_count(frame)
+    groups = independent_evidence_group_count(frame)
     if "evolutionary_escape_risk_status" in frame.columns:
         status = _normalize_status(frame["evolutionary_escape_risk_status"])
     else:
@@ -351,7 +456,19 @@ def evolutionary_supported_mask(
             index=frame.index,
             dtype="string",
         )
-    return (counts >= minimum) & ~status.isin(unknown_statuses)
+
+    contract = _bool_series(frame, "evolutionary_evidence_contract_supported")
+    if contract is None:
+        contract = pd.Series(False, index=frame.index, dtype=bool)
+
+    threshold_mask = (
+        (counts >= minimum_variables)
+        & (groups >= minimum_groups)
+        & ~status.isin(unknown_statuses)
+    )
+    if require_contract:
+        return threshold_mask & contract
+    return threshold_mask
 
 
 def build_gene_summary(candidate_output: pd.DataFrame) -> pd.DataFrame:
@@ -391,6 +508,10 @@ def build_gene_summary(candidate_output: pd.DataFrame) -> pd.DataFrame:
             "evolutionary_escape_risk_explicit_variable_count",
             "max",
         ),
+        "maximum_independent_evidence_group_count": (
+            "evolutionary_escape_risk_independent_evidence_group_count",
+            "max",
+        ),
         "supported_accession_count": (
             "supported_evolutionary_dimension_applied",
             "sum",
@@ -406,19 +527,21 @@ def build_gene_summary(candidate_output: pd.DataFrame) -> pd.DataFrame:
             "evolutionary_escape_supported_score",
             "mean",
         )
-    grouped = working.groupby(group_column, dropna=False).agg(**aggregations).reset_index()
+
+    grouped = (
+        working.groupby(group_column, dropna=False)
+        .agg(**aggregations)
+        .reset_index()
+    )
     ids = grouped[group_column].astype(str)
     grouped["rank_without_evolutionary_information"] = deterministic_rank(
-        grouped["score_without_evolutionary_information"],
-        ids,
+        grouped["score_without_evolutionary_information"], ids
     )
     grouped["rank_with_proxy_evolutionary_dimension"] = deterministic_rank(
-        grouped["score_with_proxy_evolutionary_dimension"],
-        ids,
+        grouped["score_with_proxy_evolutionary_dimension"], ids
     )
     grouped["rank_with_supported_evolutionary_dimension"] = deterministic_rank(
-        grouped["score_with_supported_evolutionary_dimension"],
-        ids,
+        grouped["score_with_supported_evolutionary_dimension"], ids
     )
     grouped["proxy_rank_shift_vs_without_evolutionary_information"] = (
         grouped["rank_with_proxy_evolutionary_dimension"]
@@ -431,8 +554,7 @@ def build_gene_summary(candidate_output: pd.DataFrame) -> pd.DataFrame:
     grouped["evolutionary_evidence_mode"] = grouped.apply(
         lambda row: (
             "supported_explicit"
-            if int(row["supported_accession_count"])
-            == int(row["accession_count"])
+            if int(row["supported_accession_count"]) == int(row["accession_count"])
             else "mixed_supported_and_proxy"
             if int(row["supported_accession_count"]) > 0
             else "proxy_hypothesis_only"
@@ -454,12 +576,10 @@ def build_proxy_decomposition(
     for column in EVOLUTIONARY_PROXY_COLUMNS:
         if column in frame.columns:
             output[column] = pd.to_numeric(frame[column], errors="coerce")
-        explicit = f"{column}_is_explicit"
-        source = f"{column}_source_type"
-        if explicit in frame.columns:
-            output[explicit] = frame[explicit]
-        if source in frame.columns:
-            output[source] = frame[source]
+        for suffix in ("is_explicit", "contract_explicit", "source_type"):
+            audit_column = f"{column}_{suffix}"
+            if audit_column in frame.columns:
+                output[audit_column] = frame[audit_column]
     for column in (
         "evolutionary_escape_risk_status",
         "evolutionary_escape_risk_input_source_type",
@@ -467,6 +587,11 @@ def build_proxy_decomposition(
         "evolutionary_escape_source_type",
         "redundancy_source_type",
         "evolutionary_escape_risk_layer_source_type",
+        "evolutionary_evidence_contract_supported",
+        "evolutionary_escape_risk_independent_evidence_group_count",
+        "evolutionary_escape_risk_independence_groups",
+        "evolutionary_evidence_contract_errors",
+        "evolutionary_evidence_contract_warnings",
     ):
         if column in frame.columns:
             output[column] = frame[column]
@@ -474,6 +599,8 @@ def build_proxy_decomposition(
         "evolutionary_escape_proxy_score",
         "evolutionary_escape_supported_score",
         "evolutionary_escape_risk_explicit_variable_count",
+        "evolutionary_escape_risk_independent_evidence_group_count",
+        "evolutionary_evidence_contract_supported",
         "evolutionary_evidence_mode",
         "supported_evolutionary_dimension_applied",
         "proxy_evolutionary_score_contribution",
@@ -481,6 +608,69 @@ def build_proxy_decomposition(
     ):
         if column in candidate_output.columns:
             output[column] = candidate_output[column].values
+    return output
+
+
+def _supported_theory_score(
+    frame: pd.DataFrame,
+    theory: Mapping[str, Any],
+    no_evolution_config: Mapping[str, Any],
+    supported_mask: pd.Series,
+) -> pd.Series:
+    """Apply only contract-supported evolutionary terms.
+
+    The supported reconstruction starts from the no-evolution model. The escape
+    penalty is restored only with `evolutionary_escape_supported_score`. The
+    positive constraint dimension is restored only for rows whose canonical
+    constraint variable is contract-explicit. Biofilm/HGT remain excluded
+    because Stage 4A does not define them as explicit evolutionary variables.
+    """
+
+    no_evolution_score = compute_theory_score(frame, no_evolution_config)
+    if not bool(supported_mask.any()):
+        return no_evolution_score
+
+    supported_frame = frame.copy()
+    if "evolutionary_escape_supported_score" in supported_frame.columns:
+        supported_escape = pd.to_numeric(
+            supported_frame["evolutionary_escape_supported_score"],
+            errors="coerce",
+        )
+    else:
+        supported_escape = pd.Series(math.nan, index=frame.index)
+    supported_frame["evolutionary_escape_risk_score"] = supported_escape
+
+    escape_config = copy.deepcopy(dict(no_evolution_config))
+    escape_config.setdefault("penalties", {})["p_escape"] = float(
+        theory.get("penalties", {}).get("p_escape", 0.0)
+    )
+    escape_score = compute_theory_score(supported_frame, escape_config)
+
+    constraint_mask = _bool_series(
+        supported_frame,
+        "evolutionary_constraint_score_contract_explicit",
+    )
+    if constraint_mask is None:
+        constraint_mask = pd.Series(False, index=frame.index, dtype=bool)
+    constraint_mask = constraint_mask & supported_mask
+
+    constraint_config = copy.deepcopy(escape_config)
+    constraint_config.setdefault("weights", {})["w_evolutionary_constraint"] = float(
+        theory.get("weights", {}).get("w_evolutionary_constraint", 0.0)
+    )
+    if "evolutionary_constraint_score" in supported_frame.columns:
+        supported_frame["evolutionary_space_constraint_score"] = pd.to_numeric(
+            supported_frame["evolutionary_constraint_score"],
+            errors="coerce",
+        )
+    constraint_score = compute_theory_score(supported_frame, constraint_config)
+
+    output = no_evolution_score.copy()
+    escape_usable = supported_mask & supported_escape.notna()
+    output.loc[escape_usable] = escape_score.loc[escape_usable]
+    output.loc[constraint_mask & escape_usable] = constraint_score.loc[
+        constraint_mask & escape_usable
+    ]
     return output
 
 
@@ -520,7 +710,9 @@ def build_ablation(
     output["baseline_reconstruction_delta"] = baseline - reported
 
     explicit_counts = explicit_variable_count(frame)
+    group_counts = independent_evidence_group_count(frame)
     output["evolutionary_escape_risk_explicit_variable_count"] = explicit_counts
+    output["evolutionary_escape_risk_independent_evidence_group_count"] = group_counts
     if "evolutionary_escape_risk_available_variable_count" in frame.columns:
         output["evolutionary_escape_risk_available_variable_count"] = (
             pd.to_numeric(
@@ -532,17 +724,16 @@ def build_ablation(
             .astype(int)
         )
     if "evolutionary_escape_risk_status" in frame.columns:
-        output["evolutionary_escape_risk_status"] = (
-            frame["evolutionary_escape_risk_status"].fillna("not_reported")
-        )
+        output["evolutionary_escape_risk_status"] = frame[
+            "evolutionary_escape_risk_status"
+        ].fillna("not_reported")
     else:
-        output["evolutionary_escape_risk_status"] = explicit_counts.map(
-            lambda count: (
-                "explicit_evidence_present"
-                if int(count) > 0
-                else "unknown_missing_evidence"
-            )
-        )
+        output["evolutionary_escape_risk_status"] = "not_reported"
+
+    contract = _bool_series(frame, "evolutionary_evidence_contract_supported")
+    if contract is None:
+        contract = pd.Series(False, index=frame.index, dtype=bool)
+    output["evolutionary_evidence_contract_supported"] = contract
 
     proxy_risk = (
         pd.to_numeric(frame["evolutionary_escape_risk_score"], errors="coerce")
@@ -550,11 +741,15 @@ def build_ablation(
         else pd.Series(math.nan, index=frame.index)
     )
     supported_mask = evolutionary_supported_mask(frame, cfg)
+    if "evolutionary_escape_supported_score" in frame.columns:
+        supported_risk = pd.to_numeric(
+            frame["evolutionary_escape_supported_score"],
+            errors="coerce",
+        ).where(supported_mask, math.nan)
+    else:
+        supported_risk = proxy_risk.where(supported_mask, math.nan)
     output["evolutionary_escape_proxy_score"] = proxy_risk
-    output["evolutionary_escape_supported_score"] = proxy_risk.where(
-        supported_mask,
-        math.nan,
-    )
+    output["evolutionary_escape_supported_score"] = supported_risk
     output["supported_evolutionary_dimension_applied"] = supported_mask
     output["evolutionary_evidence_mode"] = supported_mask.map(
         {True: "supported_explicit", False: "proxy_hypothesis_only"}
@@ -582,9 +777,7 @@ def build_ablation(
 
     central = "no_evolutionary_dimension"
     if central not in scenario_scores:
-        fallback_scenario = DEFAULT_STAGE2_CONFIG["ablation"]["scenarios"][
-            central
-        ]
+        fallback_scenario = DEFAULT_STAGE2_CONFIG["ablation"]["scenarios"][central]
         scenario_scores[central] = compute_theory_score(
             frame,
             apply_scenario(theory, fallback_scenario),
@@ -605,16 +798,23 @@ def build_ablation(
 
     no_evolution_score = scenario_scores[central]
     no_evolution_rank = scenario_ranks[central]
-    supported_score = no_evolution_score.copy()
-    supported_score.loc[supported_mask] = baseline.loc[supported_mask]
+    no_evolution_config = apply_scenario(
+        theory,
+        scenarios.get(
+            central,
+            DEFAULT_STAGE2_CONFIG["ablation"]["scenarios"][central],
+        ),
+    )
+    supported_score = _supported_theory_score(
+        frame,
+        theory,
+        no_evolution_config,
+        supported_mask,
+    )
     supported_rank = deterministic_rank(supported_score, ids)
 
-    output["ranking_without_evolutionary_information_score"] = (
-        no_evolution_score
-    )
-    output["ranking_without_evolutionary_information_rank"] = (
-        no_evolution_rank
-    )
+    output["ranking_without_evolutionary_information_score"] = no_evolution_score
+    output["ranking_without_evolutionary_information_rank"] = no_evolution_rank
     output["ranking_with_proxy_evolutionary_score"] = baseline
     output["ranking_with_proxy_evolutionary_rank"] = output["baseline_rank"]
     output["ranking_with_supported_evolutionary_score"] = supported_score
@@ -627,15 +827,11 @@ def build_ablation(
         output["ranking_with_supported_evolutionary_rank"]
         - output["ranking_without_evolutionary_information_rank"]
     )
-    output["proxy_evolutionary_score_contribution"] = (
-        baseline - no_evolution_score
-    )
+    output["proxy_evolutionary_score_contribution"] = baseline - no_evolution_score
     output["supported_evolutionary_score_contribution"] = (
         supported_score - no_evolution_score
     )
 
-    # Backward-compatible aliases retained for Stage 2 consumers. These are
-    # explicitly proxy-only unless the evidence gate is satisfied.
     shift = output[f"rank_shift_full_vs_{central}"]
     output["evolutionary_rank_effect"] = shift.map(
         lambda value: (
@@ -646,9 +842,9 @@ def build_ablation(
             else "unchanged"
         )
     )
-    output["evolutionary_score_contribution"] = (
-        output[f"score_delta_full_minus_{central}"]
-    )
+    output["evolutionary_score_contribution"] = output[
+        f"score_delta_full_minus_{central}"
+    ]
 
     sensitivity_rows: list[dict[str, Any]] = []
     for multiplier in [
@@ -673,8 +869,7 @@ def build_ablation(
                     "score": float(score.loc[index]),
                     "rank": int(rank.loc[index]),
                     "rank_change_vs_baseline": int(
-                        rank.loc[index]
-                        - output.loc[index, "baseline_rank"]
+                        rank.loc[index] - output.loc[index, "baseline_rank"]
                     ),
                 }
             )
@@ -682,15 +877,19 @@ def build_ablation(
 
     tolerance = float(cfg.get("baseline_tolerance", 1.0e-6))
     deltas = pd.to_numeric(
-        output["baseline_reconstruction_delta"],
-        errors="coerce",
+        output["baseline_reconstruction_delta"], errors="coerce"
     ).abs()
     comparable = int(deltas.notna().sum())
     mismatches = int((deltas > tolerance).sum())
     supported_count = int(supported_mask.sum())
     proxy_only_count = int((~supported_mask).sum())
+    support_cfg = (
+        cfg.get("supported_evidence", {})
+        if isinstance(cfg.get("supported_evidence"), Mapping)
+        else {}
+    )
     summary = {
-        "schema_version": 3,
+        "schema_version": 4,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "candidate_count": len(output),
         "reported_baseline_comparable_count": comparable,
@@ -706,11 +905,13 @@ def build_ablation(
         "sensitivity_row_count": len(sensitivity),
         "sensitivity_rows": sensitivity_rows,
         "supported_evidence_minimum_explicit_variables": int(
-            (
-                cfg.get("supported_evidence", {})
-                if isinstance(cfg.get("supported_evidence"), Mapping)
-                else {}
-            ).get("minimum_explicit_variables", 3)
+            support_cfg.get("minimum_explicit_variables", 3)
+        ),
+        "supported_evidence_minimum_independent_evidence_groups": int(
+            support_cfg.get("minimum_independent_evidence_groups", 2)
+        ),
+        "supported_evidence_requires_contract": bool(
+            support_cfg.get("require_contract_supported", True)
         ),
         "supported_evolutionary_candidate_count": supported_count,
         "proxy_only_candidate_count": proxy_only_count,
@@ -720,14 +921,22 @@ def build_ablation(
             "unknown_escape_is_not_low_escape": True,
             "analysis_does_not_change_defaults": True,
             "proxy_ranking_is_exploratory_only": True,
-            "supported_ranking_requires_explicit_evidence_gate": True,
+            "supported_ranking_requires_contract_evidence_gate": True,
+            "supported_ranking_excludes_uncontracted_biofilm_hgt": True,
         },
     }
     return output, summary
 
+
 def _git(repo_root: Path, *args: str) -> str:
     try:
-        result = subprocess.run(["git", *args], cwd=repo_root, check=True, text=True, capture_output=True)
+        result = subprocess.run(
+            ["git", *args],
+            cwd=repo_root,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
     except (OSError, subprocess.CalledProcessError):
         return "not_available"
     return result.stdout.strip() or "not_available"
@@ -744,44 +953,18 @@ def write_summary_report(
 ) -> None:
     valid = bool(summary["baseline_reconstruction_valid"])
     proxy_shift = "proxy_rank_shift_vs_without_evolutionary_information"
-    supported_shift = (
-        "supported_rank_shift_vs_without_evolutionary_information"
-    )
-    proxy_demoted = (
-        int((output[proxy_shift] > 0).sum())
-        if valid and proxy_shift in output.columns
-        else 0
-    )
-    proxy_promoted = (
-        int((output[proxy_shift] < 0).sum())
-        if valid and proxy_shift in output.columns
-        else 0
-    )
-    proxy_unchanged = (
-        int((output[proxy_shift] == 0).sum())
-        if valid and proxy_shift in output.columns
-        else 0
-    )
-    supported_demoted = (
-        int((output[supported_shift] > 0).sum())
-        if valid and supported_shift in output.columns
-        else 0
-    )
-    supported_promoted = (
-        int((output[supported_shift] < 0).sum())
-        if valid and supported_shift in output.columns
-        else 0
-    )
-    supported_unchanged = (
-        int((output[supported_shift] == 0).sum())
-        if valid and supported_shift in output.columns
-        else 0
-    )
+    supported_shift = "supported_rank_shift_vs_without_evolutionary_information"
+
+    proxy_demoted = int((output[proxy_shift] > 0).sum()) if valid else 0
+    proxy_promoted = int((output[proxy_shift] < 0).sum()) if valid else 0
+    proxy_unchanged = int((output[proxy_shift] == 0).sum()) if valid else 0
+    supported_demoted = int((output[supported_shift] > 0).sum()) if valid else 0
+    supported_promoted = int((output[supported_shift] < 0).sum()) if valid else 0
+    supported_unchanged = int((output[supported_shift] == 0).sum()) if valid else 0
     largest = (
-        output.reindex(
-            output[proxy_shift].abs().sort_values(ascending=False).index
-        ).head(10)
-        if valid and proxy_shift in output.columns
+        output.reindex(output[proxy_shift].abs().sort_values(ascending=False).index)
+        .head(10)
+        if valid
         else output.head(0)
     )
     gene_changed = (
@@ -796,6 +979,7 @@ def write_summary_report(
         if not gene_output.empty
         else 0
     )
+
     lines = [
         "# Ablación exploratoria de la dimensión evolutiva",
         "",
@@ -822,16 +1006,13 @@ def write_summary_report(
             "- Diferencia absoluta máxima: "
             f"**{summary['maximum_absolute_baseline_delta']}**"
         ),
-        (
-            "- Reconstrucción válida: "
-            f"**{summary['baseline_reconstruction_valid']}**"
-        ),
+        f"- Reconstrucción válida: **{summary['baseline_reconstruction_valid']}**",
         "",
         "## Separación de evidencia",
         "",
         (
-            "- Candidatos con dimensión evolutiva respaldada por el "
-            f"umbral explícito: **{summary['supported_evolutionary_candidate_count']}**"
+            "- Candidatos con dimensión evolutiva respaldada por contrato: "
+            f"**{summary['supported_evolutionary_candidate_count']}**"
         ),
         (
             "- Candidatos evaluados sólo como hipótesis proxy: "
@@ -841,15 +1022,18 @@ def write_summary_report(
             "- Mínimo de variables explícitas exigido: "
             f"**{summary['supported_evidence_minimum_explicit_variables']}**"
         ),
+        (
+            "- Mínimo de grupos independientes exigido: "
+            f"**{summary['supported_evidence_minimum_independent_evidence_groups']}**"
+        ),
         "",
     ]
     if summary.get("all_candidates_proxy_only"):
         lines.extend(
             [
                 "> **Advertencia científica:** todos los candidatos carecen "
-                "de evidencia evolutiva explícita suficiente. Los cambios del "
-                "ranking proxy son exploratorios y el ranking respaldado debe "
-                "coincidir con el ranking sin información evolutiva.",
+                "de evidencia evolutiva explícita suficiente bajo el contrato. "
+                "Los cambios del ranking proxy son exploratorios.",
                 "",
             ]
         )
@@ -858,20 +1042,9 @@ def write_summary_report(
             [
                 "## Efecto del ranking proxy derivado",
                 "",
-                (
-                    "- Promovidos al añadir proxies evolutivos: "
-                    f"**{proxy_promoted}**"
-                ),
-                (
-                    "- Despriorizados al añadir proxies evolutivos: "
-                    f"**{proxy_demoted}**"
-                ),
+                f"- Promovidos al añadir proxies evolutivos: **{proxy_promoted}**",
+                f"- Despriorizados al añadir proxies evolutivos: **{proxy_demoted}**",
                 f"- Sin cambio de posición: **{proxy_unchanged}**",
-                "",
-                (
-                    "Convención: un cambio positivo indica despriorización "
-                    "al añadir la dimensión proxy."
-                ),
                 "",
                 "## Efecto del ranking respaldado",
                 "",
@@ -884,7 +1057,6 @@ def write_summary_report(
                     f"**{supported_demoted}**"
                 ),
                 f"- Sin cambio de posición: **{supported_unchanged}**",
-                "",
                 f"- Genes con cambio de rango proxy: **{gene_changed}**",
                 "",
                 "## Mayores cambios del ranking proxy",
@@ -912,8 +1084,7 @@ def write_summary_report(
                 "",
                 (
                     "Los cambios de rango no deben interpretarse hasta que "
-                    "la reconstrucción reproduzca exactamente el puntaje "
-                    "reportado."
+                    "la reconstrucción reproduzca exactamente el puntaje reportado."
                 ),
             ]
         )
@@ -923,21 +1094,26 @@ def write_summary_report(
             "## Límites científicos",
             "",
             (
-                "- El ranking proxy demuestra operacionalización "
-                "computacional, no predicción de resistencia."
+                "- El ranking proxy demuestra operacionalización computacional, "
+                "no predicción de resistencia."
             ),
             (
                 "- `unknown`, `missing` y `not_reported` no se convierten en "
                 "riesgo bajo ni en evidencia respaldada."
             ),
             (
-                "- El ranking respaldado sólo aplica la dimensión evolutiva "
-                "cuando se supera el umbral de variables explícitas."
+                "- El ranking respaldado exige simultáneamente contrato válido, "
+                "variables explícitas suficientes y grupos independientes suficientes."
+            ),
+            (
+                "- Biofilm y HGT permanecen fuera del ranking respaldado hasta "
+                "contar con un contrato explícito equivalente."
             ),
             "- Este análisis no modifica pesos ni resultados históricos.",
         ]
     )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
 
 def run(
     *,
@@ -955,9 +1131,7 @@ def run(
     ranking_path = find_artifact(run_dir, RANKING_PRIORITY)
     feature_frame = pd.read_csv(feature_path, low_memory=False)
     ranking_frame = (
-        pd.read_csv(ranking_path, low_memory=False)
-        if ranking_path
-        else None
+        pd.read_csv(ranking_path, low_memory=False) if ranking_path else None
     )
     frame = select_analysis_frame(feature_frame, ranking_frame)
     params_path = find_params_path(run_dir, repo_root)
@@ -974,9 +1148,7 @@ def run(
             "repo_branch": _git(repo_root, "branch", "--show-current"),
             "source_feature_table": feature_path.resolve().as_posix(),
             "source_ranking_table": (
-                ranking_path.resolve().as_posix()
-                if ranking_path
-                else None
+                ranking_path.resolve().as_posix() if ranking_path else None
             ),
             "source_params": params_path.resolve().as_posix(),
             "gene_count": int(len(gene_output)),
@@ -1007,25 +1179,15 @@ def run(
         }
     )
     output_dir.mkdir(parents=True, exist_ok=True)
-    output.to_csv(
-        output_dir / "evolutionary_ablation_by_candidate.csv",
-        index=False,
-    )
-    gene_output.to_csv(
-        output_dir / "evolutionary_ablation_by_gene.csv",
-        index=False,
-    )
+    output.to_csv(output_dir / "evolutionary_ablation_by_candidate.csv", index=False)
+    gene_output.to_csv(output_dir / "evolutionary_ablation_by_gene.csv", index=False)
     proxy_decomposition.to_csv(
-        output_dir / "evolutionary_proxy_decomposition.csv",
-        index=False,
+        output_dir / "evolutionary_proxy_decomposition.csv", index=False
     )
     sensitivity.to_csv(
-        output_dir / "evolutionary_weight_sensitivity.csv",
-        index=False,
+        output_dir / "evolutionary_weight_sensitivity.csv", index=False
     )
-    (
-        output_dir / "evolutionary_ablation_summary.json"
-    ).write_text(
+    (output_dir / "evolutionary_ablation_summary.json").write_text(
         json.dumps(summary, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
@@ -1040,22 +1202,42 @@ def run(
     )
     return summary
 
+
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(description=__doc__)
     value.add_argument("--repo-root", type=Path, default=Path("."))
     value.add_argument("--run-dir", type=Path, required=True)
     value.add_argument("--output-dir", type=Path, required=True)
-    value.add_argument("--stage2-config", type=Path, default=Path("config/integrated_validation_stage2.json"))
+    value.add_argument(
+        "--stage2-config",
+        type=Path,
+        default=Path("config/integrated_validation_stage2.json"),
+    )
     return value
 
 
 def main() -> int:
     args = parser().parse_args()
     repo_root = args.repo_root.resolve()
-    run_dir = args.run_dir if args.run_dir.is_absolute() else repo_root / args.run_dir
-    output_dir = args.output_dir if args.output_dir.is_absolute() else repo_root / args.output_dir
-    config = args.stage2_config if args.stage2_config.is_absolute() else repo_root / args.stage2_config
-    summary = run(repo_root=repo_root, run_dir=run_dir, output_dir=output_dir, stage2_config_path=config)
+    run_dir = (
+        args.run_dir if args.run_dir.is_absolute() else repo_root / args.run_dir
+    )
+    output_dir = (
+        args.output_dir
+        if args.output_dir.is_absolute()
+        else repo_root / args.output_dir
+    )
+    config = (
+        args.stage2_config
+        if args.stage2_config.is_absolute()
+        else repo_root / args.stage2_config
+    )
+    summary = run(
+        repo_root=repo_root,
+        run_dir=run_dir,
+        output_dir=output_dir,
+        stage2_config_path=config,
+    )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 0
 

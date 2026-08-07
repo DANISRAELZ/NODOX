@@ -55,6 +55,8 @@
     ],
     "supported_evidence": {
       "minimum_explicit_variables": 3,
+      "minimum_independent_evidence_groups": 2,
+      "require_contract_supported": true,
       "unknown_statuses": [
         "unknown_missing_evidence",
         "unknown",
@@ -62,6 +64,7 @@
         "not_reported",
         "unresolved",
         "insufficient_evidence",
+        "insufficient_independent_evidence",
         "derived_from_related_layers"
       ]
     }

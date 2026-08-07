@@ -38,6 +38,8 @@ class EvolutionaryAblationTests(unittest.TestCase):
                 "sensitivity_penalties": ["p_escape", "p_biofilm", "p_hgt"],
                 "supported_evidence": {
                     "minimum_explicit_variables": 3,
+                    "minimum_independent_evidence_groups": 2,
+                    "require_contract_supported": True,
                     "unknown_statuses": [
                         "unknown_missing_evidence",
                         "unknown",
@@ -45,6 +47,7 @@ class EvolutionaryAblationTests(unittest.TestCase):
                         "not_reported",
                         "unresolved",
                         "insufficient_evidence",
+                        "insufficient_independent_evidence",
                         "derived_from_related_layers",
                     ],
                 },
@@ -75,6 +78,8 @@ class EvolutionaryAblationTests(unittest.TestCase):
         frame = self._base_frame()
         frame["evolutionary_escape_risk_status"] = "unknown_missing_evidence"
         frame["evolutionary_escape_risk_explicit_variable_count"] = 0
+        frame["evolutionary_escape_risk_independent_evidence_group_count"] = 0
+        frame["evolutionary_evidence_contract_supported"] = False
         frame["functional_node_theory_score"] = MODULE.compute_theory_score(
             frame,
             self.theory,
@@ -95,6 +100,8 @@ class EvolutionaryAblationTests(unittest.TestCase):
         frame = self._base_frame()
         frame["evolutionary_escape_risk_status"] = "unknown_missing_evidence"
         frame["evolutionary_escape_risk_explicit_variable_count"] = 0
+        frame["evolutionary_escape_risk_independent_evidence_group_count"] = 0
+        frame["evolutionary_evidence_contract_supported"] = False
         frame["functional_node_theory_score"] = MODULE.compute_theory_score(
             frame,
             self.theory,
@@ -113,10 +120,29 @@ class EvolutionaryAblationTests(unittest.TestCase):
             (output["evolutionary_evidence_mode"] == "proxy_hypothesis_only").all()
         )
 
-    def test_sufficient_explicit_evidence_applies_supported_dimension(self) -> None:
+    def test_count_and_status_without_contract_do_not_apply_supported_dimension(self) -> None:
         frame = self._base_frame().iloc[[0]].copy()
         frame["evolutionary_escape_risk_status"] = "sufficient_evidence"
         frame["evolutionary_escape_risk_explicit_variable_count"] = 3
+        frame["evolutionary_escape_risk_independent_evidence_group_count"] = 2
+        frame["functional_node_theory_score"] = MODULE.compute_theory_score(
+            frame,
+            self.theory,
+        )
+
+        output, summary = MODULE.build_ablation(frame, self.theory, self.stage2)
+
+        self.assertFalse(bool(output.loc[0, "supported_evolutionary_dimension_applied"]))
+        self.assertTrue(pd.isna(output.loc[0, "evolutionary_escape_supported_score"]))
+        self.assertEqual(summary["supported_evolutionary_candidate_count"], 0)
+
+    def test_contract_supported_evidence_applies_supported_dimension(self) -> None:
+        frame = self._base_frame().iloc[[0]].copy()
+        frame["evolutionary_escape_risk_status"] = "sufficient_evidence"
+        frame["evolutionary_escape_risk_explicit_variable_count"] = 3
+        frame["evolutionary_escape_risk_independent_evidence_group_count"] = 2
+        frame["evolutionary_evidence_contract_supported"] = True
+        frame["evolutionary_escape_supported_score"] = 0.04
         frame["functional_node_theory_score"] = MODULE.compute_theory_score(
             frame,
             self.theory,
@@ -126,12 +152,51 @@ class EvolutionaryAblationTests(unittest.TestCase):
 
         self.assertTrue(bool(output.loc[0, "supported_evolutionary_dimension_applied"]))
         self.assertEqual(output.loc[0, "evolutionary_evidence_mode"], "supported_explicit")
-        self.assertAlmostEqual(
+        self.assertFalse(pd.isna(output.loc[0, "evolutionary_escape_supported_score"]))
+        self.assertEqual(summary["supported_evolutionary_candidate_count"], 1)
+        self.assertNotAlmostEqual(
             float(output.loc[0, "ranking_with_supported_evolutionary_score"]),
             float(output.loc[0, "ranking_with_proxy_evolutionary_score"]),
         )
-        self.assertFalse(pd.isna(output.loc[0, "evolutionary_escape_supported_score"]))
-        self.assertEqual(summary["supported_evolutionary_candidate_count"], 1)
+
+    def test_three_variables_from_one_group_do_not_apply_supported_dimension(self) -> None:
+        frame = self._base_frame().iloc[[0]].copy()
+        frame["evolutionary_escape_risk_status"] = "insufficient_independent_evidence"
+        frame["evolutionary_escape_risk_explicit_variable_count"] = 3
+        frame["evolutionary_escape_risk_independent_evidence_group_count"] = 1
+        frame["evolutionary_evidence_contract_supported"] = False
+        frame["evolutionary_escape_supported_score"] = 0.04
+        frame["functional_node_theory_score"] = MODULE.compute_theory_score(
+            frame,
+            self.theory,
+        )
+
+        output, _ = MODULE.build_ablation(frame, self.theory, self.stage2)
+
+        self.assertFalse(bool(output.loc[0, "supported_evolutionary_dimension_applied"]))
+        self.assertTrue(pd.isna(output.loc[0, "evolutionary_escape_supported_score"]))
+
+    def test_supported_ranking_does_not_reintroduce_uncontracted_biofilm_hgt(self) -> None:
+        frame = self._base_frame().iloc[[1]].copy().reset_index(drop=True)
+        frame["evolutionary_escape_risk_status"] = "sufficient_evidence"
+        frame["evolutionary_escape_risk_explicit_variable_count"] = 3
+        frame["evolutionary_escape_risk_independent_evidence_group_count"] = 2
+        frame["evolutionary_evidence_contract_supported"] = True
+        frame["evolutionary_escape_supported_score"] = 0.2
+        frame["functional_node_theory_score"] = MODULE.compute_theory_score(
+            frame,
+            self.theory,
+        )
+
+        output, _ = MODULE.build_ablation(frame, self.theory, self.stage2)
+        no_evolution = float(
+            output.loc[0, "ranking_without_evolutionary_information_score"]
+        )
+        supported = float(output.loc[0, "ranking_with_supported_evolutionary_score"])
+        proxy = float(output.loc[0, "ranking_with_proxy_evolutionary_score"])
+
+        self.assertNotEqual(supported, no_evolution)
+        self.assertNotEqual(supported, proxy)
 
     def test_missing_zero_redundancy_is_not_supported_evidence(self) -> None:
         frame = self._base_frame().iloc[[0]].copy()
@@ -139,6 +204,7 @@ class EvolutionaryAblationTests(unittest.TestCase):
         frame["functional_redundancy_escape_score_source_type"] = "missing"
         frame["functional_redundancy_escape_score_is_explicit"] = False
         frame["evolutionary_escape_risk_status"] = "unknown_missing_evidence"
+        frame["evolutionary_evidence_contract_supported"] = False
         frame["functional_node_theory_score"] = MODULE.compute_theory_score(
             frame,
             self.theory,
@@ -160,6 +226,8 @@ class EvolutionaryAblationTests(unittest.TestCase):
         frame = pd.concat([frame, duplicate], ignore_index=True)
         frame["evolutionary_escape_risk_status"] = "unknown_missing_evidence"
         frame["evolutionary_escape_risk_explicit_variable_count"] = 0
+        frame["evolutionary_escape_risk_independent_evidence_group_count"] = 0
+        frame["evolutionary_evidence_contract_supported"] = False
         frame["functional_node_theory_score"] = MODULE.compute_theory_score(
             frame,
             self.theory,
@@ -169,10 +237,15 @@ class EvolutionaryAblationTests(unittest.TestCase):
         gene = MODULE.build_gene_summary(output).set_index("gene")
 
         self.assertEqual(int(gene.loc["low", "accession_count"]), 2)
-        self.assertEqual(gene.loc["low", "evolutionary_evidence_mode"], "proxy_hypothesis_only")
+        self.assertEqual(
+            gene.loc["low", "evolutionary_evidence_mode"],
+            "proxy_hypothesis_only",
+        )
 
     def test_missing_inputs_use_declared_zero_defaults(self) -> None:
-        frame = pd.DataFrame({"protein_id": ["P1"], "functional_node_score": [1.0]})
+        frame = pd.DataFrame(
+            {"protein_id": ["P1"], "functional_node_score": [1.0]}
+        )
         score = MODULE.compute_theory_score(frame, self.theory)
         self.assertGreaterEqual(float(score.iloc[0]), 0.0)
         self.assertLessEqual(float(score.iloc[0]), 1.0)
