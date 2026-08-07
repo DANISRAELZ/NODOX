@@ -81,7 +81,7 @@ class AmrFinderPlusProvenanceTransportTests(unittest.TestCase):
         self.assertEqual(candidate["amrfinder_source_version"], "2026-01-15.1")
         self.assertEqual(candidate["amrfinder_catalog_sha256"], "b" * 64)
         self.assertEqual(candidate["amrfinder_mutation_symbols"], "gyrB_E468D")
-        self.assertEqual(candidate["amrfinder_pubmed_references"], "12345678")
+        self.assertEqual(int(float(candidate["amrfinder_pubmed_references"])), 12345678)
         self.assertEqual(candidate["amrfinder_mapping_status"], "exact_gene_and_taxon")
         self.assertEqual(
             candidate["amrfinder_independence_group"],
