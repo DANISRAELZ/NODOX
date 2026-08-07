@@ -116,7 +116,7 @@ ncbi_amrfinderplus_curated_point_mutations
 
 as the same independence group used by Stage 4D. This prevents one paper from becoming two independent evidence groups simply because one observation says that a mutation causes resistance and another observation quantifies its fitness cost.
 
-A fitness-cost study with no detected PMID overlap receives a study-specific group (or an explicitly curated group when supplied). BV-BRC comparative-genomic evidence remains a separate group.
+If there is no AMRFinderPlus PMID overlap, the independence group is derived deterministically from the study identifier: PMID first, DOI second, and `source_record` only as a final fallback. A free-text `independence_group` column does not control the contract count. This prevents manual labels from inflating evidence independence. BV-BRC comparative-genomic evidence remains a separate group.
 
 ## Contract behavior
 
@@ -153,7 +153,7 @@ No threshold is lowered to obtain this result.
 
 `online_strict` and its `online_only` alias cannot consume this local curated catalog. In those modes Stage 4E writes a disabled manifest and leaves the candidate frame unchanged.
 
-`hybrid_curated` explicitly permits the catalog with full provenance. Legacy configured modes may also use it according to existing NODOX policy.
+`hybrid_curated` explicitly permits the catalog with full provenance. Legacy configured modes may also use it according to existing NODOX policy. Setting the global `curated_real_evidence.enabled` flag to false also disables Stage 4E, even if the Stage 4E-specific flag is enabled.
 
 ## Fail-closed rules
 
