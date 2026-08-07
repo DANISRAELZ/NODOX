@@ -30,6 +30,22 @@ HOST_ANNOTATION_AUDIT_COLUMNS = [
     "host_annotation_missing_flags",
 ]
 
+CONSERVATION_PROVIDER_AUDIT_COLUMNS = [
+    "conservation_source_record",
+    "conservation_source_version",
+    "conservation_retrieved_at",
+    "conservation_mapping_method",
+    "conservation_mapping_status",
+    "conservation_evidence_status",
+    "conservation_evidence_confidence",
+    "conservation_independence_group",
+    "conservation_method_scope",
+    "conservation_taxon_id",
+    "conservation_provider_retrieval_status",
+    "conservation_provider_query_cache_key",
+    "conservation_provider_source_used",
+]
+
 PHASE3_CONTEXTUAL_COLUMNS = [
     "contextual_essentiality_score",
     "pleiotropy_score",
@@ -254,7 +270,13 @@ def integrate_tables(base_dir: Path) -> pd.DataFrame:
     merged = _merge_optional_feature_table(
         merged,
         conservation,
-        ["core_genome_presence", "strain_coverage_score", "allelic_conservation", "variant_burden"],
+        [
+            "core_genome_presence",
+            "strain_coverage_score",
+            "allelic_conservation",
+            "variant_burden",
+            *CONSERVATION_PROVIDER_AUDIT_COLUMNS,
+        ],
         "conservation_database",
     )
     merged = _merge_optional_feature_table(
@@ -530,6 +552,7 @@ def integrate_tables(base_dir: Path) -> pd.DataFrame:
         "allelic_conservation",
         "variant_burden",
         "conservation_database",
+        *CONSERVATION_PROVIDER_AUDIT_COLUMNS,
         "network_centrality",
         "pathway_bottleneck_score",
         "redundancy_penalty",
