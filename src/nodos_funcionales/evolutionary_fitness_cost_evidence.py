@@ -219,10 +219,27 @@ def _shares_amrfinder_literature(candidate: pd.Series, record: pd.Series) -> boo
     amrfinder_pmids = _pmid_tokens(candidate.get("amrfinder_pubmed_references"))
     if not amrfinder_pmids:
         return False
-    record_pmids = set()
+    record_pmids: set[str] = set()
     for column in ("pmid", "source_record", "reference"):
         record_pmids.update(_pmid_tokens(record.get(column)))
     return bool(amrfinder_pmids & record_pmids)
+
+
+def _study_independence_group(record: pd.Series) -> str:
+    pmids: set[str] = set()
+    for column in ("pmid", "source_record", "reference"):
+        pmids.update(_pmid_tokens(record.get(column)))
+    if pmids:
+        return f"fitness_cost_study:PMID_{sorted(pmids)[0]}"
+
+    doi = _norm_lower(record.get("doi"))
+    if doi:
+        token = re.sub(r"[^a-z0-9_.:-]+", "_", doi).strip("_")
+        return f"fitness_cost_study:DOI_{token}"
+
+    source_record = _norm(record.get("source_record"))
+    token = re.sub(r"[^A-Za-z0-9_.:-]+", "_", source_record).strip("_")
+    return f"fitness_cost_study:{token}"
 
 
 def _validate_record(
@@ -336,14 +353,25 @@ def apply_curated_fitness_cost_evidence(
     cfg = _config(config)
     mode = _effective_mode(config)
     strict = mode in {"online_strict", "online_only"}
+    global_curated_enabled = bool(
+        config.get("curated_real_evidence", {}).get("enabled", True)
+        if isinstance(config, dict)
+        else True
+    )
 
-    if strict or not bool(cfg.get("enabled", True)):
+    if strict or not bool(cfg.get("enabled", True)) or not global_curated_enabled:
+        if strict:
+            reason = "disabled_by_online_strict_policy"
+        elif not global_curated_enabled:
+            reason = "disabled_by_curated_real_evidence_policy"
+        else:
+            reason = "disabled_by_configuration"
         _write_outputs(
             base_dir,
             manifest={
                 "stage": "4E",
                 "enabled": False,
-                "reason": "disabled_by_online_strict_policy" if strict else "disabled_by_configuration",
+                "reason": reason,
                 "source_mode": mode or "not_reported",
                 "catalog_path": "",
                 "aggregation_rule": cfg["aggregation_rule"],
@@ -478,12 +506,8 @@ def apply_curated_fitness_cost_evidence(
                 independence_group = AMRFINDER_SHARED_INDEPENDENCE_GROUP
                 independence_reason = "shared_pubmed_with_amrfinderplus_same_independence_group"
             else:
-                independence_group = _norm(chosen_record.get("independence_group"))
-                if not independence_group:
-                    independence_group = "fitness_cost_study:" + re.sub(
-                        r"[^A-Za-z0-9_.:-]+", "_", source_record
-                    )
-                independence_reason = "independent_fitness_cost_study"
+                independence_group = _study_independence_group(chosen_record)
+                independence_reason = "study_identifier_derived_independence_group"
             result.at[index, "fitness_cost_curated_independence_reason"] = independence_reason
 
             method_scope = (
@@ -596,9 +620,10 @@ def apply_curated_fitness_cost_evidence(
             "allowed_escape_associations": sorted(cfg["allowed_escape_associations"]),
             "matched_candidate_count": matched_candidates,
             "eligible_candidate_count": eligible_candidates,
-            "amrfinder_shared_independence_policy": (
-                "If the selected fitness-cost record shares a PMID with candidate AMRFinderPlus "
-                "evidence, both use the AMRFinderPlus independence group."
+            "independence_policy": (
+                "Study groups are derived from PMID/DOI/source record. If the selected fitness-cost "
+                "record shares a PMID with candidate AMRFinderPlus evidence, both use the AMRFinderPlus "
+                "independence group."
             ),
             "interpretation_warning": (
                 "Fitness-cost evidence is mutation- and assay-specific. It is not a universal gene property; "
