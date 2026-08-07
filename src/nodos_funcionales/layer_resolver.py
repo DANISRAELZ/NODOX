@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from .acquisition import map_source_dataframe
+from .amrfinderplus_provider import fetch_amrfinderplus_point_mutation_evidence
 from .layer_registry import LayerDefinition, get_layer_definition, list_layer_definitions
 from .online_sources import effective_online_source_mode, fetch_layer_external_source
 
@@ -81,6 +82,23 @@ def _source_name(path: Path | None, fallback: str) -> str:
     if path is None:
         return fallback
     return path.name
+
+
+def _organism_context(base_dir: Path) -> tuple[str | None, str | None]:
+    profile_path = base_dir / "results" / "organism_profile.json"
+    if not profile_path.exists():
+        return None, None
+    try:
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None, None
+    organism_name = str(
+        profile.get("organism_canonical_name")
+        or profile.get("organism_input_name")
+        or ""
+    ).strip() or None
+    taxon_id = str(profile.get("taxon_id") or "").strip() or None
+    return organism_name, taxon_id
 
 
 def _demo_raw_files(base_dir: Path) -> set[str]:
@@ -166,13 +184,52 @@ def _resolve_single_layer(
     if online_source_mode in {"offline_only", "cache_first"} and available_paths["cache"] is not None:
         should_fetch_external = False
     if should_fetch_external:
-        external_result = fetch_layer_external_source(
-            layer_key=definition.table_key,
-            workspace=base_dir,
-            filename=definition.filename,
-            config=config,
-            provider_name=external_provider,
-        )
+        if (
+            external_provider == "amrfinderplus_point_mutations"
+            and definition.table_key == "evolutionary_escape_risk"
+        ):
+            if online_source_mode == "offline_only":
+                external_result = {
+                    "source_name": external_provider,
+                    "status": "api_not_requested_offline_mode",
+                    "confidence": 0.0,
+                    "path": None,
+                }
+            else:
+                organism_name, taxon_id = _organism_context(base_dir)
+                provider_result = fetch_amrfinderplus_point_mutation_evidence(
+                    workspace=base_dir,
+                    organism_name=organism_name,
+                    taxon_id=taxon_id,
+                    config=config,
+                    mode=online_source_mode,
+                )
+                provider_data = provider_result["evolutionary_escape_risk_data"]
+                provider_manifest = provider_result["manifest"]
+                if not provider_data.empty:
+                    external_path.parent.mkdir(parents=True, exist_ok=True)
+                    provider_data.to_csv(external_path, index=False)
+                    external_result = {
+                        "source_name": "ncbi_amrfinderplus_point_mutations",
+                        "status": str(provider_manifest.get("retrieval_status", "api_real")),
+                        "confidence": 0.95,
+                        "path": str(external_path),
+                    }
+                else:
+                    external_result = {
+                        "source_name": "ncbi_amrfinderplus_point_mutations",
+                        "status": str(provider_manifest.get("retrieval_status", "unresolved")),
+                        "confidence": 0.0,
+                        "path": None,
+                    }
+        else:
+            external_result = fetch_layer_external_source(
+                layer_key=definition.table_key,
+                workspace=base_dir,
+                filename=definition.filename,
+                config=config,
+                provider_name=external_provider,
+            )
         external_path = Path(external_result["path"]) if external_result.get("path") else None
         available_paths["external"] = external_path if external_path and external_path.exists() else None
 
