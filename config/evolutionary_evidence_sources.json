@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0",
+  "stage": "4A",
+  "minimum_explicit_variables": 3,
+  "minimum_independent_evidence_groups": 2,
+  "allow_supporting_mapping_as_explicit": false,
+  "allowed_variables": [
+    "mutation_tolerance_score",
+    "functional_redundancy_escape_score",
+    "compensatory_pathway_score",
+    "fitness_cost_of_escape",
+    "evolutionary_constraint_score",
+    "resistance_emergence_risk",
+    "multi_node_dependency_score"
+  ],
+  "explicit_source_types": [
+    "experimental",
+    "literature_curated",
+    "real_external",
+    "real_external_online",
+    "versioned_snapshot",
+    "computed_from_real_data",
+    "user_curated"
+  ],
+  "evaluable_evidence_statuses": [
+    "observed",
+    "not_detected_with_method"
+  ],
+  "direct_mapping_statuses": [
+    "exact_accession",
+    "exact_sequence_md5",
+    "exact_locus_tag",
+    "exact_gene_and_taxon"
+  ],
+  "supporting_mapping_statuses": [
+    "family_match",
+    "ortholog_match"
+  ],
+  "scientific_guards": {
+    "missing_is_not_negative": true,
+    "numeric_zero_without_provenance_is_not_explicit": true,
+    "proxy_is_not_explicit": true,
+    "derived_is_not_explicit": true,
+    "unknown_source_type_is_not_explicit": true,
+    "not_detected_requires_method_scope": true,
+    "correlated_transformations_require_independence_groups": true
+  }
+}
