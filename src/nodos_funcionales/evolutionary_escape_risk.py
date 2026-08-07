@@ -176,23 +176,43 @@ def _confidence_label(row: pd.Series, minimum_explicit: int) -> str:
     return "low"
 
 
-def _status_label(row: pd.Series, minimum_explicit: int) -> str:
+def _contract_failure_reason(
+    row: pd.Series,
+    minimum_explicit: int,
+    minimum_independent: int,
+) -> str:
+    if bool(row.get("evolutionary_evidence_contract_supported", False)):
+        return "none"
     explicit = int(row.get("evolutionary_escape_risk_explicit_variable_count", 0))
-    available = int(row.get("evolutionary_escape_risk_available_variable_count", 0))
-    supported = bool(row.get("evolutionary_evidence_contract_supported", False))
     groups = int(
         row.get("evolutionary_escape_risk_independent_evidence_group_count", 0)
     )
-    if supported:
+    rejected = int(
+        row.get("evolutionary_evidence_contract_rejected_explicit_record_count", 0)
+    )
+    if explicit == 0:
+        if rejected > 0:
+            return "explicit_records_rejected_by_contract"
+        return "no_contract_explicit_evidence"
+    if explicit < minimum_explicit:
+        return "insufficient_explicit_variables"
+    if groups < minimum_independent:
+        return "insufficient_independent_evidence"
+    return "contract_not_supported"
+
+
+def _status_label(row: pd.Series) -> str:
+    """Return a fail-closed status consumed by legacy Phase 3 logic.
+
+    `sufficient_evidence` is reserved for rows that passed the complete Stage 4A
+    contract. Partial explicit evidence remains visible in the separate failure
+    reason and audit fields but cannot be mistaken for supported risk.
+    """
+    if bool(row.get("evolutionary_evidence_contract_supported", False)):
         return "sufficient_evidence"
+    explicit = int(row.get("evolutionary_escape_risk_explicit_variable_count", 0))
     if explicit == 0:
         return "unknown_missing_evidence"
-    if explicit >= minimum_explicit and groups < int(
-        row.get("evolutionary_escape_risk_minimum_independent_evidence_groups", 2)
-    ):
-        return "insufficient_independent_evidence"
-    if available >= minimum_explicit:
-        return "derived_from_related_layers"
     return "insufficient_evidence"
 
 
@@ -219,20 +239,31 @@ def _supported_status_label(row: pd.Series) -> str:
 
 def _interpretation(row: pd.Series) -> str:
     status = str(row.get("evolutionary_escape_risk_status", "") or "")
+    failure_reason = str(
+        row.get("evolutionary_escape_contract_failure_reason", "") or ""
+    )
     if status == "unknown_missing_evidence":
+        if failure_reason == "explicit_records_rejected_by_contract":
+            return (
+                "Riesgo desconocido: se recibieron registros marcados como "
+                "explicitos, pero el contrato rechazo su procedencia, mapeo o "
+                "estado; no deben interpretarse como riesgo bajo."
+            )
         return (
             "Riesgo desconocido: no hay evidencia explicita validada por el "
             "contrato; no debe interpretarse como riesgo bajo."
         )
-    if status == "insufficient_independent_evidence":
+    if status == "insufficient_evidence":
+        if failure_reason == "insufficient_independent_evidence":
+            return (
+                "Evidencia explicita insuficientemente independiente: se "
+                "alcanzan variables, pero no grupos de evidencia independientes "
+                "suficientes; el valor disponible sigue siendo una hipotesis proxy."
+            )
         return (
-            "Evidencia explicita insuficientemente independiente: se alcanzan "
-            "variables, pero no grupos de evidencia independientes suficientes."
-        )
-    if status in {"derived_from_related_layers", "insufficient_evidence"}:
-        return (
-            "Hipotesis proxy: el valor deriva de capas relacionadas y no "
-            "constituye evidencia evolutiva explicita ni validacion predictiva."
+            "Evidencia explicita insuficiente para el contrato; el valor "
+            "disponible permanece como hipotesis proxy y no constituye "
+            "validacion predictiva."
         )
     risk = float(row.get("evolutionary_escape_supported_score", math.nan))
     if math.isnan(risk):
@@ -358,6 +389,14 @@ def compute_evolutionary_escape_risk_features(
     result["evolutionary_escape_risk_minimum_explicit_variables"] = minimum_explicit
     result["evolutionary_escape_risk_minimum_independent_evidence_groups"] = (
         minimum_independent
+    )
+    result["evolutionary_escape_contract_failure_reason"] = result.apply(
+        lambda row: _contract_failure_reason(
+            row,
+            minimum_explicit,
+            minimum_independent,
+        ),
+        axis=1,
     )
 
     input_values: dict[str, pd.Series] = {}
@@ -530,6 +569,7 @@ def compute_evolutionary_escape_risk_features(
         result["evolutionary_escape_risk_source_type"] = "disabled"
         result["evolutionary_escape_evidence_mode"] = "disabled"
         result["evolutionary_escape_supported_status"] = "disabled"
+        result["evolutionary_escape_contract_failure_reason"] = "disabled"
         result["evolutionary_escape_risk_interpretation"] = (
             "Subcapa desactivada por configuracion."
         )
@@ -633,7 +673,7 @@ def compute_evolutionary_escape_risk_features(
         axis=1,
     )
     result["evolutionary_escape_risk_status"] = result.apply(
-        lambda row: _status_label(row, minimum_explicit),
+        _status_label,
         axis=1,
     )
     result["evolutionary_escape_risk_source_type"] = result.apply(
@@ -669,6 +709,8 @@ def compute_evolutionary_escape_risk_features(
         ].astype(str)
         + "; contract_supported="
         + result["evolutionary_evidence_contract_supported"].astype(str)
+        + "; contract_failure_reason="
+        + result["evolutionary_escape_contract_failure_reason"].astype(str)
         + "; confidence="
         + result["evolutionary_escape_risk_confidence"].astype(str)
         + "; status="
