@@ -129,6 +129,10 @@ class EvolutionaryEvidenceModeTests(unittest.TestCase):
             ),
             0,
         )
+        self.assertEqual(
+            result.loc[0, "evolutionary_escape_contract_failure_reason"],
+            "explicit_records_rejected_by_contract",
+        )
 
     def test_three_contract_variables_from_two_groups_enable_supported_score(self) -> None:
         data: dict[str, list[object]] = {
@@ -182,6 +186,10 @@ class EvolutionaryEvidenceModeTests(unittest.TestCase):
             result.loc[0, "evolutionary_escape_supported_status"],
             "sufficient_explicit_evidence",
         )
+        self.assertEqual(
+            result.loc[0, "evolutionary_escape_contract_failure_reason"],
+            "none",
+        )
         self.assertFalse(
             math.isnan(float(result.loc[0, "evolutionary_escape_supported_score"]))
         )
@@ -232,6 +240,10 @@ class EvolutionaryEvidenceModeTests(unittest.TestCase):
         )
         self.assertEqual(
             result.loc[0, "evolutionary_escape_risk_status"],
+            "insufficient_evidence",
+        )
+        self.assertEqual(
+            result.loc[0, "evolutionary_escape_contract_failure_reason"],
             "insufficient_independent_evidence",
         )
         self.assertTrue(
