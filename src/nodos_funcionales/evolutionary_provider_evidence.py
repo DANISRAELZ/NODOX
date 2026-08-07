@@ -102,6 +102,8 @@ def _bvbrc_row_eligibility(row: pd.Series) -> tuple[bool, str]:
     database = row.get("conservation_database")
     generated_by = _norm_lower(row.get("strain_conservation_generated_by"))
     retrieval_status = _norm_lower(row.get("strain_conservation_retrieval_status"))
+    is_external = _as_bool(row.get("strain_conservation_is_external"))
+    is_cached = _as_bool(row.get("strain_conservation_is_cached"))
 
     if _as_bool(row.get("strain_conservation_is_proxy")):
         return False, "strain_conservation_layer_is_proxy"
@@ -109,6 +111,10 @@ def _bvbrc_row_eligibility(row: pd.Series) -> tuple[bool, str]:
         return False, "strain_conservation_layer_is_demo_or_mixed_demo"
     if layer_source_type not in BV_BRC_ALLOWED_LAYER_SOURCE_TYPES:
         return False, "strain_conservation_not_external_or_provider_cache"
+    if layer_source_type == "external" and not is_external:
+        return False, "external_source_type_without_external_provenance_flag"
+    if layer_source_type == "cache" and not is_cached:
+        return False, "cache_source_type_without_cache_provenance_flag"
     if not (_contains_bvbrc(source_name) or _contains_bvbrc(database)):
         return False, "strain_conservation_source_not_identified_as_bvbrc"
     if retrieval_status in {
@@ -208,15 +214,16 @@ def materialize_provider_evolutionary_evidence(frame: pd.DataFrame) -> pd.DataFr
         database = _norm(row.get("conservation_database")) or "BV-BRC"
         layer_source_type = _norm_lower(row.get("strain_conservation_source_type"))
         source_name = _norm(row.get("strain_conservation_source_name")) or "bvbrc_real"
-        retrieval_status = _norm(row.get("strain_conservation_retrieval_status")) or "not_reported"
-        source_type = (
-            "real_external_online" if layer_source_type == "external" else "computed_from_real_data"
-        )
-        source_version = (
-            "bvbrc_live_api_unversioned"
-            if layer_source_type == "external"
-            else "bvbrc_provider_cache_unversioned"
-        )
+        retrieval_status = _norm_lower(row.get("strain_conservation_retrieval_status")) or "not_reported"
+        if layer_source_type == "external" and retrieval_status == "api_real":
+            source_type = "real_external_online"
+            source_version = "bvbrc_live_api_unversioned"
+        elif layer_source_type == "external":
+            source_type = "real_external"
+            source_version = "bvbrc_external_snapshot_unversioned"
+        else:
+            source_type = "computed_from_real_data"
+            source_version = "bvbrc_provider_cache_unversioned"
         independence_group = f"bvbrc_strain_conservation_taxon_{taxon_id}"
         source_record = (
             f"bvbrc_aggregate:taxon={taxon_id};gene={gene};candidate={candidate_id}"
@@ -231,8 +238,8 @@ def materialize_provider_evolutionary_evidence(frame: pd.DataFrame) -> pd.DataFr
             f"Stage4C adapter={BV_BRC_ADAPTER_VERSION}; source_name={source_name}; "
             f"retrieval_status={retrieval_status}; database release/version is not "
             "exposed by the current BV-BRC layer, so source_version is explicitly "
-            "marked unversioned; all correlated BV-BRC transformations share one "
-            "independence group."
+            "marked unversioned; retrieved_at records adapter materialization time; "
+            "all correlated BV-BRC transformations share one independence group."
         )
 
         prefix = BV_BRC_CONSTRAINT_VARIABLE
