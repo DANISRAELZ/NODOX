@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -17,11 +18,27 @@ SUPPORTED_MEASUREMENT_TYPES = {
     "relative_fitness_ratio",
     "competition_relative_fitness_ratio",
 }
+EXPLICIT_SOURCE_TYPES = {
+    "experimental",
+    "literature_curated",
+    "user_curated",
+}
+DIRECT_ESCAPE_ASSOCIATIONS = {
+    "direct_resistance_mutation",
+    "target_site_resistance_mutation",
+}
+DIRECT_MAPPING_STATUSES = {
+    "exact_gene_and_taxon",
+    "exact_accession",
+    "exact_locus_tag",
+}
+CONFIDENCE_LEVELS = {"low", "moderate", "high"}
 REQUIRED_SCREENING_COLUMNS = {
     "gene",
     "taxon_id",
     "mutation",
     "candidate_scope",
+    "escape_association",
     "assay_context",
     "finding_direction",
     "reported_metric",
@@ -30,8 +47,12 @@ REQUIRED_SCREENING_COLUMNS = {
     "source_type",
     "source_database",
     "source_record",
+    "source_version",
+    "retrieved_at",
+    "mapping_method",
     "mapping_status",
     "evidence_status",
+    "evidence_confidence",
     "method_scope",
 }
 
@@ -91,7 +112,6 @@ def _organism_keys(base_dir: Path) -> list[str]:
     keys: list[str] = []
     for value in [
         metadata.get("organism"),
-        metadata.get("organism_canonical_name"),
         f"{metadata.get('organism', '')}_{metadata.get('strain', '')}",
     ]:
         slug = _slugify(value)
@@ -122,11 +142,23 @@ def _finite_nonnegative(value: Any) -> float | None:
     return numeric
 
 
+def _timezone_aware_iso_timestamp(value: Any) -> bool:
+    text = _norm(value)
+    if not text:
+        return False
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None
+
+
 def _has_literature_identifier(row: pd.Series) -> bool:
     return any(_norm(row.get(column)) for column in ("pmid", "doi", "reference"))
 
 
 def _derived_screening_status(row: pd.Series) -> tuple[str, bool]:
+    """Return derived audit state and strict Stage-4E promotion eligibility."""
     if _norm_lower(row.get("candidate_scope")) != "protein_candidate":
         return "screening_only_non_protein_candidate_scope", False
 
@@ -140,24 +172,33 @@ def _derived_screening_status(row: pd.Series) -> tuple[str, bool]:
     if _norm_lower(row.get("measurement_type")) not in SUPPORTED_MEASUREMENT_TYPES:
         return "screening_only_unsupported_measurement_type", False
 
-    if _norm_lower(row.get("mapping_status")) not in {
-        "exact_gene_and_taxon",
-        "exact_accession",
-        "exact_locus_tag",
-    }:
+    if _norm_lower(row.get("escape_association")) not in DIRECT_ESCAPE_ASSOCIATIONS:
+        return "screening_only_non_direct_escape_association", False
+
+    if _norm_lower(row.get("source_type")) not in EXPLICIT_SOURCE_TYPES:
+        return "screening_only_non_explicit_source_type", False
+
+    if _norm_lower(row.get("mapping_status")) not in DIRECT_MAPPING_STATUSES:
         return "screening_only_non_direct_mapping", False
 
     if _norm_lower(row.get("evidence_status")) != "observed":
         return "screening_only_non_observed_evidence", False
+
+    if _norm_lower(row.get("evidence_confidence")) not in CONFIDENCE_LEVELS:
+        return "screening_only_invalid_evidence_confidence", False
+
+    if not _timezone_aware_iso_timestamp(row.get("retrieved_at")):
+        return "screening_only_invalid_retrieved_at", False
 
     required_provenance = (
         "gene",
         "taxon_id",
         "mutation",
         "assay_context",
-        "source_type",
         "source_database",
         "source_record",
+        "source_version",
+        "mapping_method",
         "method_scope",
     )
     missing = [column for column in required_provenance if not _norm(row.get(column))]
@@ -213,7 +254,8 @@ def audit_screened_fitness_cost_literature(
     Screening records are intentionally separated from the Stage 4E production
     catalog. A qualitative fitness defect, advantage, or context dependence is
     useful evidence for curation, but it cannot be converted into a numeric
-    `fitness_cost_of_escape` unless a supported quantitative metric is available.
+    `fitness_cost_of_escape` unless a supported quantitative metric and the full
+    Stage 4E provenance envelope are available.
 
     This function writes audit artifacts only. It never mutates a candidate frame
     and never promotes a screening row into the Stage 4E production catalog.
@@ -233,6 +275,7 @@ def audit_screened_fitness_cost_literature(
                 "reason": reason,
                 "source_mode": mode or "not_reported",
                 "scoring_effect": False,
+                "auto_promotion_enabled": False,
                 "screened_record_count": 0,
                 "quantitative_candidate_count": 0,
                 "promoted_record_count": 0,
@@ -251,6 +294,7 @@ def audit_screened_fitness_cost_literature(
                 "status": "screening_catalog_not_found",
                 "source_mode": mode or "not_reported",
                 "scoring_effect": False,
+                "auto_promotion_enabled": False,
                 "screened_record_count": 0,
                 "quantitative_candidate_count": 0,
                 "promoted_record_count": 0,
@@ -271,6 +315,7 @@ def audit_screened_fitness_cost_literature(
                 "catalog_path": str(path),
                 "error": str(exc),
                 "scoring_effect": False,
+                "auto_promotion_enabled": False,
                 "screened_record_count": 0,
                 "quantitative_candidate_count": 0,
                 "promoted_record_count": 0,
@@ -294,6 +339,7 @@ def audit_screened_fitness_cost_literature(
                 "catalog_path": str(path),
                 "missing_columns": missing_columns,
                 "scoring_effect": False,
+                "auto_promotion_enabled": False,
                 "screened_record_count": int(len(table)),
                 "quantitative_candidate_count": 0,
                 "promoted_record_count": 0,
@@ -306,28 +352,26 @@ def audit_screened_fitness_cost_literature(
     production_keys = _production_keys(production_path)
     rows: list[dict[str, Any]] = []
     for _, row in table.iterrows():
-        status, quantitative = _derived_screening_status(row)
-        production_match = _row_key(row) in production_keys
-        if quantitative and production_match:
+        pre_promotion_status, quantitative = _derived_screening_status(row)
+        same_key_in_stage4e = _row_key(row) in production_keys
+        promoted = bool(quantitative and same_key_in_stage4e)
+        if promoted:
             status = "promoted_to_stage4e_catalog"
         elif quantitative:
             status = "quantitative_candidate_not_promoted"
+        else:
+            status = pre_promotion_status
 
+        declared = _norm_lower(row.get("screening_status"))
+        acceptable_declared = {status.casefold(), pre_promotion_status.casefold()}
         record = row.to_dict()
         record.update(
             {
                 "derived_screening_status": status,
                 "promotion_candidate": bool(quantitative),
-                "stage4e_catalog_match": bool(production_match),
-                "declared_status_matches_derived": (
-                    _norm_lower(row.get("screening_status")) == status.casefold()
-                    or (
-                        not quantitative
-                        and _norm_lower(row.get("screening_status"))
-                        == "screening_only_missing_numeric_relative_fitness"
-                        and status == "screening_only_missing_numeric_relative_fitness"
-                    )
-                ),
+                "matching_stage4e_record_present": bool(same_key_in_stage4e),
+                "stage4e_catalog_match": promoted,
+                "declared_status_matches_derived": declared in acceptable_declared,
             }
         )
         rows.append(record)
@@ -351,7 +395,8 @@ def audit_screened_fitness_cost_literature(
             "screening_only_count": int(len(summary) - quantitative_count),
             "interpretation_warning": (
                 "Screened literature is not scoring evidence. Qualitative findings remain unresolved for "
-                "fitness_cost_of_escape until a supported numeric measurement is curated into the Stage 4E catalog."
+                "fitness_cost_of_escape until a supported numeric measurement with complete provenance is "
+                "explicitly curated into the Stage 4E catalog."
             ),
         },
         summary,
