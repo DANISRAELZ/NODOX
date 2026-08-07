@@ -6,6 +6,7 @@ from typing import Any
 import pandas as pd
 
 from .evolutionary_evidence_integration import summarize_feature_frame_evidence
+from .evolutionary_provider_evidence import materialize_provider_evolutionary_evidence
 
 
 RISK_INPUT_COLUMNS = [
@@ -318,7 +319,7 @@ def compute_evolutionary_escape_risk_features(
     df: pd.DataFrame,
     params: dict[str, Any] | None,
 ) -> pd.DataFrame:
-    result = df.copy()
+    result = materialize_provider_evolutionary_evidence(df)
     if (
         "evolutionary_escape_risk_source_type" in result.columns
         and "evolutionary_escape_risk_layer_source_type" not in result.columns
@@ -347,7 +348,7 @@ def compute_evolutionary_escape_risk_features(
     allow_supporting = bool(cfg.get("allow_supporting_mapping_as_explicit", False))
 
     contract_summary, contract_explicit = summarize_feature_frame_evidence(
-        df,
+        result,
         minimum_explicit_variables=minimum_explicit,
         minimum_independent_groups=minimum_independent,
         allow_supporting_mapping_as_explicit=allow_supporting,
