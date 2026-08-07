@@ -36,7 +36,12 @@ def _config(mode: str = "hybrid_curated") -> dict:
     }
 
 
-def _row(*, relative_fitness: str = "", declared_status: str = "screening_only_missing_numeric_relative_fitness") -> dict:
+def _row(
+    *,
+    relative_fitness: str = "",
+    declared_status: str = "screening_only_missing_numeric_relative_fitness",
+    source_type: str = "literature_curated",
+) -> dict:
     return {
         "gene": "pbp1",
         "gene_aliases": "pbp1A",
@@ -44,6 +49,7 @@ def _row(*, relative_fitness: str = "", declared_status: str = "screening_only_m
         "mutation": "V374L",
         "candidate_scope": "protein_candidate",
         "antibiotic": "amoxicillin",
+        "escape_association": "target_site_resistance_mutation",
         "assay_type": "in_vitro_competition",
         "assay_context": "24-hour liquid competition against wild-type G27",
         "finding_direction": "fitness_defect",
@@ -52,11 +58,12 @@ def _row(*, relative_fitness: str = "", declared_status: str = "screening_only_m
         "measurement_type": "competition_relative_fitness_ratio",
         "screening_status": declared_status,
         "screening_reason": "test fixture",
-        "source_type": "literature_curated",
+        "source_type": source_type,
         "source_database": "Helicobacter",
         "source_record": "PMID:32677105",
-        "source_version": "2020-10",
+        "source_version": "version_of_record_2020",
         "screened_at": "2026-08-07",
+        "retrieved_at": "2026-08-07T19:52:00Z",
         "mapping_method": "exact gene+mutation+taxon literature curation",
         "mapping_status": "exact_gene_and_taxon",
         "evidence_status": "observed",
@@ -131,8 +138,22 @@ def test_matching_production_catalog_is_reported_as_promoted_without_auto_writin
     summary = audit_screened_fitness_cost_literature(workspace, _config())
 
     assert bool(summary.loc[0, "promotion_candidate"]) is True
+    assert bool(summary.loc[0, "matching_stage4e_record_present"]) is True
     assert bool(summary.loc[0, "stage4e_catalog_match"]) is True
     assert summary.loc[0, "derived_screening_status"] == "promoted_to_stage4e_catalog"
+
+
+def test_numeric_value_with_non_explicit_source_is_not_a_promotion_candidate(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    _write_screening(
+        workspace,
+        [_row(relative_fitness="0.82", source_type="historical_proxy")],
+    )
+
+    summary = audit_screened_fitness_cost_literature(workspace, _config())
+
+    assert bool(summary.loc[0, "promotion_candidate"]) is False
+    assert summary.loc[0, "derived_screening_status"] == "screening_only_non_explicit_source_type"
 
 
 def test_online_strict_disables_local_screening_audit(tmp_path: Path) -> None:
@@ -174,3 +195,5 @@ def test_tracked_h_pylori_screening_registry_contains_no_fabricated_numeric_fitn
     assert set(table["supporting_pmid"]) == {"35389254"}
     assert table["relative_fitness"].eq("").all()
     assert table["screening_status"].eq("screening_only_missing_numeric_relative_fitness").all()
+    assert table["escape_association"].eq("target_site_resistance_mutation").all()
+    assert table["retrieved_at"].str.endswith("Z").all()
