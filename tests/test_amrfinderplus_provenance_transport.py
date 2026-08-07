@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -13,10 +14,8 @@ from tests.helpers import make_temp_project
 
 
 class AmrFinderPlusProvenanceTransportTests(unittest.TestCase):
-    def test_external_amrfinder_provenance_survives_validation_normalization_and_integration(self) -> None:
+    def test_cached_amrfinder_provenance_survives_validation_normalization_and_integration(self) -> None:
         project_dir = make_temp_project()
-        external_dir = project_dir / "data_external"
-        external_dir.mkdir(parents=True, exist_ok=True)
 
         row = {
             "protein_id": "PA0001",
@@ -48,10 +47,6 @@ class AmrFinderPlusProvenanceTransportTests(unittest.TestCase):
             "amrfinder_provider_source_used": "api_real",
             "amrfinder_provider_url": "https://example.test/ReferenceGeneCatalog.txt",
         }
-        pd.DataFrame([row]).to_csv(
-            external_dir / "evolutionary_escape_risk.csv",
-            index=False,
-        )
 
         profile_path = project_dir / "results" / "organism_profile.json"
         profile_path.parent.mkdir(parents=True, exist_ok=True)
@@ -68,7 +63,26 @@ class AmrFinderPlusProvenanceTransportTests(unittest.TestCase):
 
         config = load_config(project_dir / "config" / "params.yaml")
         config["online_sources"]["source_mode_default"] = "offline_only"
-        load_and_validate_all(project_dir, config)
+        cached_result = {
+            "evolutionary_escape_risk_data": pd.DataFrame([row]),
+            "manifest": {
+                "source_used": "cache",
+                "retrieval_status": "cache_reused",
+                "query_complete": True,
+            },
+            "manifest_path": None,
+        }
+
+        with patch(
+            "src.nodos_funcionales.layer_resolver._amrfinder_exact_query_cached",
+            return_value=True,
+        ), patch(
+            "src.nodos_funcionales.layer_resolver.fetch_amrfinderplus_point_mutation_evidence",
+            return_value=cached_result,
+        ) as provider_mock:
+            load_and_validate_all(project_dir, config)
+
+        provider_mock.assert_called_once()
         normalize_all(project_dir, config)
         integrated = integrate_tables(project_dir)
 
@@ -87,8 +101,9 @@ class AmrFinderPlusProvenanceTransportTests(unittest.TestCase):
             candidate["amrfinder_independence_group"],
             "ncbi_amrfinderplus_curated_point_mutations",
         )
-        self.assertEqual(candidate["evolutionary_escape_risk_source_type"], "external")
-        self.assertTrue(bool(candidate["evolutionary_escape_risk_is_external"]))
+        self.assertEqual(candidate["evolutionary_escape_risk_source_type"], "cache")
+        self.assertTrue(bool(candidate["evolutionary_escape_risk_is_cached"]))
+        self.assertFalse(bool(candidate["evolutionary_escape_risk_is_external"]))
 
 
 if __name__ == "__main__":
