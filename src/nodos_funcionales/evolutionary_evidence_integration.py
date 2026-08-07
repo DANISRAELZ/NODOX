@@ -216,6 +216,9 @@ def summarize_feature_frame_evidence(
             for variable in EVOLUTIONARY_VARIABLES
             if (record := _build_record(row, variable)) is not None
         ]
+        requested_explicit = sum(
+            1 for record in records if _as_bool(record.get("is_explicit"))
+        )
         validations = validate_evidence_records(
             records,
             allow_supporting_mapping_as_explicit=(
@@ -242,9 +245,6 @@ def summarize_feature_frame_evidence(
         for variable in variables:
             explicit_matrix.at[index, variable] = True
 
-        requested_explicit = sum(
-            1 for validation in validations if validation.record.is_explicit
-        )
         valid_records = sum(1 for validation in validations if validation.valid)
         supported = (
             len(variables) >= int(minimum_explicit_variables)
