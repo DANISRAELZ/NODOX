@@ -7,6 +7,7 @@ from typing import Any
 
 import pandas as pd
 
+from .evolutionary_fitness_cost_evidence import apply_curated_fitness_cost_evidence
 from .organism_metadata import load_organism_metadata
 
 
@@ -119,9 +120,10 @@ def apply_curated_real_evidence(base_dir: Path, df: pd.DataFrame, config: dict) 
     cfg = _curated_config(config)
     results_dir = base_dir / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
+    fitness_enriched = apply_curated_fitness_cost_evidence(base_dir, df, config)
     if not cfg["enabled"]:
         _write_outputs(results_dir, _empty_summary(), _manifest(base_dir, cfg, [], status="disabled"))
-        return df.copy()
+        return fitness_enriched.copy()
 
     organism_keys = _organism_keys(base_dir)
     curated_root = _resolve_curated_root(base_dir, cfg["base_dir"])
@@ -132,9 +134,14 @@ def apply_curated_real_evidence(base_dir: Path, df: pd.DataFrame, config: dict) 
             _empty_summary(missing_layers=list(CURATED_REAL_EVIDENCE_LAYERS)),
             _manifest(base_dir, cfg, organism_keys, status="no_curated_tables", curated_root=curated_root),
         )
-        return _ensure_curated_tracking_columns(df.copy(), missing_layers=list(CURATED_REAL_EVIDENCE_LAYERS))
+        return _ensure_curated_tracking_columns(
+            fitness_enriched.copy(),
+            missing_layers=list(CURATED_REAL_EVIDENCE_LAYERS),
+        )
 
-    result = _prepare_curated_result_dtypes(_ensure_curated_tracking_columns(df.copy()))
+    result = _prepare_curated_result_dtypes(
+        _ensure_curated_tracking_columns(fitness_enriched.copy())
+    )
     summary_rows = []
     manifest_layers = []
     for layer_name, table_info in layer_tables.items():
