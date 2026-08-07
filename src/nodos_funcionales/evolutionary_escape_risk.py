@@ -1,10 +1,11 @@
-
 from __future__ import annotations
 
 import math
 from typing import Any
 
 import pandas as pd
+
+from .evolutionary_evidence_integration import summarize_feature_frame_evidence
 
 
 RISK_INPUT_COLUMNS = [
@@ -27,48 +28,12 @@ RISK_FORMULA_COLUMNS = [
     "inverse_multi_node_dependency_score",
 ]
 
-EXPLICIT_SOURCE_TYPES = {
-    "user",
-    "user_supplied",
-    "user_or_curated",
-    "user_curated",
-    "curated",
-    "literature",
-    "literature_curated",
-    "experimental",
-    "external_real",
-    "real_external",
-    "real_external_online",
-    "versioned_snapshot",
-    "computed_from_real_data",
-}
-
-NON_EXPLICIT_SOURCE_TYPES = {
-    "",
-    "nan",
-    "none",
-    "missing",
-    "not_reported",
-    "unknown",
-    "unresolved",
-    "derived",
-    "proxy",
-    "proxy_inference",
-    "proxy_hypothesis_only",
-    "controlled",
-    "controlled_provider",
-    "default",
-    "default_value",
-    "demo",
-    "demo_data",
-    "template",
-    "placeholder",
-}
-
 DEFAULT_EVOLUTIONARY_ESCAPE_RISK_CONFIG = {
     "enabled": True,
     "minimum_available_variables": 3,
     "minimum_explicit_variables": 3,
+    "minimum_independent_evidence_groups": 2,
+    "allow_supporting_mapping_as_explicit": False,
     "penalty_weight": 0.15,
     "apply_to_meta_priority": False,
     "weights": {
@@ -111,7 +76,9 @@ def _config(params: dict[str, Any] | None) -> dict[str, Any]:
         **(_mapping_get(raw, "reduced_space_weights", {}) if isinstance(raw, dict) else {}),
     }
     if "minimum_explicit_variables" not in merged:
-        merged["minimum_explicit_variables"] = int(merged.get("minimum_available_variables", 3))
+        merged["minimum_explicit_variables"] = int(
+            merged.get("minimum_available_variables", 3)
+        )
     return merged
 
 
@@ -168,108 +135,43 @@ def _first_available(
     return pd.concat(available, axis=1).bfill(axis=1).iloc[:, 0]
 
 
-def _bool_series(df: pd.DataFrame, column: str) -> pd.Series | None:
-    if column not in df.columns:
-        return None
-    values = df[column]
-    if pd.api.types.is_bool_dtype(values):
-        return values.fillna(False).astype(bool)
-    normalized = values.fillna("").astype(str).str.strip().str.lower()
-    return normalized.isin({"true", "1", "yes", "y", "explicit", "supported"})
-
-
-def _normalized_source_series(df: pd.DataFrame, column: str) -> pd.Series | None:
-    if column not in df.columns:
-        return None
-    return df[column].fillna("").astype(str).str.strip().str.lower()
-
-
-def _source_explicit_mask(source: pd.Series, values: pd.Series) -> pd.Series:
-    explicit = source.isin(EXPLICIT_SOURCE_TYPES)
-    non_explicit = source.isin(NON_EXPLICIT_SOURCE_TYPES)
-    fallback = values.notna() & ~(explicit | non_explicit)
-    return values.notna() & (explicit | fallback)
-
-
-def _explicit_input_mask(
-    df: pd.DataFrame,
-    column: str,
-    values: pd.Series,
-) -> pd.Series:
-    explicit_flag = _bool_series(df, f"{column}_is_explicit")
-    if explicit_flag is not None:
-        return values.notna() & explicit_flag
-
-    source = _normalized_source_series(df, f"{column}_source_type")
-    if source is not None:
-        return _source_explicit_mask(source, values)
-
-    for source_column in [
-        "evolutionary_escape_risk_input_source_type",
-        "source_type",
-        "evidence_source_type",
-    ]:
-        source = _normalized_source_series(df, source_column)
-        if source is not None:
-            return _source_explicit_mask(source, values)
-
-    # Backward compatibility: a direct numeric input without provenance columns
-    # is treated as user-provided. Upstream derived values should carry an
-    # explicit false flag or a derived/proxy source type.
-    return values.notna()
-
-
-def _input_value_and_mask(
-    df: pd.DataFrame,
-    column: str,
-    alias: str | None = None,
-) -> tuple[pd.Series, pd.Series]:
+def _input_value(df: pd.DataFrame, column: str, alias: str | None = None) -> pd.Series:
     primary = _series(df, column)
-    primary_mask = _explicit_input_mask(df, column, primary)
     if not alias:
-        return primary, primary_mask
-
-    alternate = _series(df, alias)
-    alternate_mask = _explicit_input_mask(df, alias, alternate)
-    combined = primary.combine_first(alternate)
-    combined_mask = primary_mask | (primary.isna() & alternate_mask)
-    return combined, combined_mask
+        return primary
+    return primary.combine_first(_series(df, alias))
 
 
 def _source_label(row: pd.Series) -> str:
+    if bool(row.get("evolutionary_evidence_contract_supported", False)):
+        return "contract_supported"
     explicit = int(row.get("evolutionary_escape_risk_explicit_variable_count", 0))
-    derived = (
-        int(row.get("evolutionary_escape_risk_available_variable_count", 0))
-        - explicit
-    )
     source_type = str(
         row.get("evolutionary_escape_risk_input_source_type", "") or ""
     ).strip()
-    if source_type and source_type.lower() not in {"nan", "not_reported"}:
+    if explicit > 0 and source_type and source_type.lower() not in {
+        "nan",
+        "not_reported",
+    }:
         return source_type
-    if explicit:
-        return "user_or_curated"
-    if derived > 0:
-        return "derived"
-    return "proxy"
+    if explicit > 0:
+        return "contract_explicit_partial"
+    return "derived"
 
 
 def _confidence_label(row: pd.Series, minimum_explicit: int) -> str:
     explicit = int(row.get("evolutionary_escape_risk_explicit_variable_count", 0))
-    available = int(row.get("evolutionary_escape_risk_available_variable_count", 0))
+    supported = bool(row.get("evolutionary_evidence_contract_supported", False))
     input_confidence = str(
         row.get("evolutionary_escape_risk_input_confidence", "") or ""
     ).strip().lower()
     if explicit == 0:
         return "low"
-    if (
-        input_confidence in {"high", "moderate", "medium", "low"}
-        and explicit >= minimum_explicit
-    ):
+    if supported and input_confidence in {"high", "moderate", "medium", "low"}:
         return "moderate" if input_confidence == "medium" else input_confidence
-    if explicit >= 5:
+    if supported and explicit >= 5:
         return "high"
-    if explicit >= minimum_explicit or available >= 5:
+    if supported or explicit >= minimum_explicit:
         return "moderate"
     return "low"
 
@@ -277,19 +179,27 @@ def _confidence_label(row: pd.Series, minimum_explicit: int) -> str:
 def _status_label(row: pd.Series, minimum_explicit: int) -> str:
     explicit = int(row.get("evolutionary_escape_risk_explicit_variable_count", 0))
     available = int(row.get("evolutionary_escape_risk_available_variable_count", 0))
+    supported = bool(row.get("evolutionary_evidence_contract_supported", False))
+    groups = int(
+        row.get("evolutionary_escape_risk_independent_evidence_group_count", 0)
+    )
+    if supported:
+        return "sufficient_evidence"
     if explicit == 0:
         return "unknown_missing_evidence"
-    if explicit >= minimum_explicit:
-        return "sufficient_evidence"
+    if explicit >= minimum_explicit and groups < int(
+        row.get("evolutionary_escape_risk_minimum_independent_evidence_groups", 2)
+    ):
+        return "insufficient_independent_evidence"
     if available >= minimum_explicit:
         return "derived_from_related_layers"
     return "insufficient_evidence"
 
 
-def _evidence_mode_label(row: pd.Series, minimum_explicit: int) -> str:
+def _evidence_mode_label(row: pd.Series) -> str:
     explicit = int(row.get("evolutionary_escape_risk_explicit_variable_count", 0))
     available = int(row.get("evolutionary_escape_risk_available_variable_count", 0))
-    if explicit >= minimum_explicit:
+    if bool(row.get("evolutionary_evidence_contract_supported", False)):
         return "supported"
     if explicit > 0:
         return "insufficient_explicit_evidence_proxy_only"
@@ -298,9 +208,9 @@ def _evidence_mode_label(row: pd.Series, minimum_explicit: int) -> str:
     return "unknown_missing_evidence"
 
 
-def _supported_status_label(row: pd.Series, minimum_explicit: int) -> str:
+def _supported_status_label(row: pd.Series) -> str:
     explicit = int(row.get("evolutionary_escape_risk_explicit_variable_count", 0))
-    if explicit >= minimum_explicit:
+    if bool(row.get("evolutionary_evidence_contract_supported", False)):
         return "sufficient_explicit_evidence"
     if explicit > 0:
         return "insufficient_explicit_evidence"
@@ -311,30 +221,37 @@ def _interpretation(row: pd.Series) -> str:
     status = str(row.get("evolutionary_escape_risk_status", "") or "")
     if status == "unknown_missing_evidence":
         return (
-            "Riesgo desconocido: no hay evidencia explicita suficiente; "
-            "no debe interpretarse como riesgo bajo."
+            "Riesgo desconocido: no hay evidencia explicita validada por el "
+            "contrato; no debe interpretarse como riesgo bajo."
+        )
+    if status == "insufficient_independent_evidence":
+        return (
+            "Evidencia explicita insuficientemente independiente: se alcanzan "
+            "variables, pero no grupos de evidencia independientes suficientes."
         )
     if status in {"derived_from_related_layers", "insufficient_evidence"}:
         return (
             "Hipotesis proxy: el valor deriva de capas relacionadas y no "
             "constituye evidencia evolutiva explicita ni validacion predictiva."
         )
-    risk = float(row.get("evolutionary_escape_risk_score", 0.0))
+    risk = float(row.get("evolutionary_escape_supported_score", math.nan))
+    if math.isnan(risk):
+        risk = float(row.get("evolutionary_escape_risk_score", 0.0))
     if risk < 0.35:
         return (
-            "Riesgo bajo bajo la evidencia explicita disponible: alta "
+            "Riesgo bajo bajo la evidencia explicita validada disponible: alta "
             "restriccion evolutiva, baja redundancia funcional o alto costo "
             "adaptativo estimado reducen el espacio de escape."
         )
     if risk < 0.65:
         return (
-            "Riesgo moderado bajo la evidencia explicita disponible: hay "
-            "senales parciales de tolerancia mutacional, redundancia o rutas "
+            "Riesgo moderado bajo la evidencia explicita validada disponible: "
+            "hay senales parciales de tolerancia mutacional, redundancia o rutas "
             "compensatorias."
         )
     return (
-        "Riesgo alto bajo la evidencia explicita disponible: el candidato "
-        "podria conservar rutas de escape por tolerancia mutacional, "
+        "Riesgo alto bajo la evidencia explicita validada disponible: el "
+        "candidato podria conservar rutas de escape por tolerancia mutacional, "
         "redundancia funcional, compensacion o bajo costo adaptativo."
     )
 
@@ -349,21 +266,21 @@ def _supported_interpretation(row: pd.Series) -> str:
         if pd.isna(score):
             return "Evidencia explicita suficiente, pero el score respaldado no pudo calcularse."
         if float(score) < 0.35:
-            return "Riesgo respaldado bajo dentro de la evidencia explicita disponible."
+            return "Riesgo respaldado bajo dentro de la evidencia explicita validada."
         if float(score) < 0.65:
-            return "Riesgo respaldado moderado dentro de la evidencia explicita disponible."
-        return "Riesgo respaldado alto dentro de la evidencia explicita disponible."
+            return "Riesgo respaldado moderado dentro de la evidencia explicita validada."
+        return "Riesgo respaldado alto dentro de la evidencia explicita validada."
     if mode == "insufficient_explicit_evidence_proxy_only":
         return (
-            "Existen variables explicitas, pero no alcanzan el umbral; "
-            "el score respaldado permanece no evaluable."
+            "La evidencia explicita no satisface simultaneamente los umbrales "
+            "de variables e independencia; el score respaldado permanece no evaluable."
         )
     if mode == "proxy_hypothesis_only":
         return (
-            "Solo hay señales derivadas o proxy; el score respaldado permanece "
+            "Solo hay senales derivadas o proxy; el score respaldado permanece "
             "no evaluable y no aplica penalizacion respaldada."
         )
-    return "Riesgo respaldado no evaluable por ausencia de evidencia explicita."
+    return "Riesgo respaldado no evaluable por ausencia de evidencia explicita validada."
 
 
 def compute_evolutionary_escape_risk_features(
@@ -386,21 +303,71 @@ def compute_evolutionary_escape_risk_features(
             result["evolutionary_escape_risk_confidence"],
             errors="coerce",
         )
+
     cfg = _config(params)
     enabled = bool(cfg.get("enabled", True))
+    minimum_explicit = int(
+        cfg.get(
+            "minimum_explicit_variables",
+            cfg.get("minimum_available_variables", 3),
+        )
+    )
+    minimum_independent = int(cfg.get("minimum_independent_evidence_groups", 2))
+    allow_supporting = bool(cfg.get("allow_supporting_mapping_as_explicit", False))
+
+    contract_summary, contract_explicit = summarize_feature_frame_evidence(
+        df,
+        minimum_explicit_variables=minimum_explicit,
+        minimum_independent_groups=minimum_independent,
+        allow_supporting_mapping_as_explicit=allow_supporting,
+    )
+
+    result["evolutionary_escape_risk_explicit_variable_count"] = (
+        contract_summary["explicit_variable_count"].fillna(0).astype(int)
+    )
+    result["evolutionary_escape_risk_independent_evidence_group_count"] = (
+        contract_summary["independent_evidence_group_count"].fillna(0).astype(int)
+    )
+    result["evolutionary_escape_risk_explicit_variables"] = contract_summary[
+        "explicit_variables"
+    ].fillna("none")
+    result["evolutionary_escape_risk_independence_groups"] = contract_summary[
+        "independence_groups"
+    ].fillna("none")
+    result["evolutionary_evidence_contract_supported"] = contract_summary[
+        "supported_by_contract"
+    ].fillna(False).astype(bool)
+    result["evolutionary_evidence_contract_record_count"] = contract_summary[
+        "contract_record_count"
+    ].fillna(0).astype(int)
+    result["evolutionary_evidence_contract_valid_record_count"] = contract_summary[
+        "contract_valid_record_count"
+    ].fillna(0).astype(int)
+    result["evolutionary_evidence_contract_explicit_record_count"] = contract_summary[
+        "contract_explicit_record_count"
+    ].fillna(0).astype(int)
+    result["evolutionary_evidence_contract_rejected_explicit_record_count"] = contract_summary[
+        "contract_rejected_explicit_record_count"
+    ].fillna(0).astype(int)
+    result["evolutionary_evidence_contract_errors"] = contract_summary[
+        "contract_errors"
+    ].fillna("none")
+    result["evolutionary_evidence_contract_warnings"] = contract_summary[
+        "contract_warnings"
+    ].fillna("none")
+    result["evolutionary_escape_risk_minimum_explicit_variables"] = minimum_explicit
+    result["evolutionary_escape_risk_minimum_independent_evidence_groups"] = (
+        minimum_independent
+    )
 
     input_values: dict[str, pd.Series] = {}
-    explicit_masks: dict[str, pd.Series] = {}
+    explicit_values: dict[str, pd.Series] = {}
     for column in RISK_INPUT_COLUMNS:
         alias = "mutational_tolerance_score" if column == "mutation_tolerance_score" else None
-        value, mask = _input_value_and_mask(result, column, alias=alias)
-        input_values[column] = value
-        explicit_masks[column] = mask
-
-    explicit_values = {
-        column: input_values[column].where(explicit_masks[column])
-        for column in RISK_INPUT_COLUMNS
-    }
+        input_values[column] = _input_value(result, column, alias=alias)
+        strict_mask = contract_explicit[column].reindex(result.index).fillna(False)
+        explicit_values[column] = input_values[column].where(strict_mask)
+        result[f"{column}_contract_explicit"] = strict_mask.astype(bool)
 
     derived = {
         "mutation_tolerance_score": _clamp(
@@ -443,12 +410,9 @@ def compute_evolutionary_escape_risk_features(
                 math.nan,
             ).combine_first(
                 0.35 * _series(result, "conservation_score", 0.5).fillna(0.5)
-                + 0.25
-                * _series(result, "essentiality_support", 0.5).fillna(0.5)
-                + 0.20
-                * _series(result, "low_redundancy_score", 0.5).fillna(0.5)
-                + 0.20
-                * _series(result, "functional_impact_score", 0.5).fillna(0.5)
+                + 0.25 * _series(result, "essentiality_support", 0.5).fillna(0.5)
+                + 0.20 * _series(result, "low_redundancy_score", 0.5).fillna(0.5)
+                + 0.20 * _series(result, "functional_impact_score", 0.5).fillna(0.5)
             )
         ),
         "multi_node_dependency_score": _clamp(
@@ -491,52 +455,34 @@ def compute_evolutionary_escape_risk_features(
         value = input_values[column].combine_first(derived[column])
         proxy_values[column] = _clamp(value.fillna(0.5))
         result[column] = proxy_values[column]
-        result[f"{column}_is_explicit"] = explicit_masks[column]
-        existing_source = _normalized_source_series(
-            df,
-            f"{column}_source_type",
-        )
-        if existing_source is None:
-            result[f"{column}_source_type"] = explicit_masks[column].map(
-                lambda flag: "user_or_curated" if flag else "derived"
-            )
+        if f"{column}_is_explicit" not in result.columns:
+            result[f"{column}_is_explicit"] = False
+        if f"{column}_source_type" not in result.columns:
+            result[f"{column}_source_type"] = "derived"
         else:
-            result[f"{column}_source_type"] = existing_source.where(
-                existing_source.ne(""),
-                explicit_masks[column].map(
-                    lambda flag: "user_or_curated" if flag else "derived"
-                ),
+            result[f"{column}_source_type"] = (
+                result[f"{column}_source_type"].fillna("").astype(str)
             )
+            empty_source = result[f"{column}_source_type"].str.strip().eq("")
+            result.loc[empty_source, f"{column}_source_type"] = "derived"
 
-    explicit_frame = pd.DataFrame(explicit_masks)
     proxy_frame = pd.DataFrame(
         {column: proxy_values[column].notna() for column in RISK_INPUT_COLUMNS}
     )
-    explicit_count = explicit_frame.sum(axis=1)
     available_count = proxy_frame.sum(axis=1)
-
-    result["evolutionary_escape_risk_explicit_variable_count"] = (
-        explicit_count.astype(int)
-    )
     result["evolutionary_escape_risk_available_variable_count"] = (
         available_count.astype(int)
     )
-    result["evolutionary_escape_risk_missing_variables"] = explicit_frame.apply(
+    result["evolutionary_escape_risk_missing_variables"] = contract_explicit.apply(
         lambda row: "; ".join(
             [column for column in RISK_INPUT_COLUMNS if not bool(row[column])]
         )
         or "none",
         axis=1,
     )
-    explicit_variable_text = explicit_frame.apply(
-        lambda row: "; ".join(
-            [column for column in RISK_INPUT_COLUMNS if bool(row[column])]
-        )
-        or "none",
-        axis=1,
-    )
-    result["evolutionary_escape_risk_available_variables"] = explicit_variable_text
-    result["evolutionary_escape_risk_explicit_variables"] = explicit_variable_text
+    result["evolutionary_escape_risk_available_variables"] = result[
+        "evolutionary_escape_risk_explicit_variables"
+    ]
     result["evolutionary_escape_risk_proxy_available_variables"] = proxy_frame.apply(
         lambda row: "; ".join(
             [column for column in RISK_INPUT_COLUMNS if bool(row[column])]
@@ -602,8 +548,7 @@ def compute_evolutionary_escape_risk_features(
         ],
         "compensatory_pathway_score": result["compensatory_pathway_score"],
         "resistance_emergence_risk": result["resistance_emergence_risk"],
-        "inverse_fitness_cost_of_escape": 1.0
-        - result["fitness_cost_of_escape"],
+        "inverse_fitness_cost_of_escape": 1.0 - result["fitness_cost_of_escape"],
         "inverse_evolutionary_constraint_score": 1.0
         - result["evolutionary_constraint_score"],
         "inverse_multi_node_dependency_score": 1.0
@@ -629,12 +574,6 @@ def compute_evolutionary_escape_risk_features(
         default=0.5,
     )
 
-    minimum_explicit = int(
-        cfg.get(
-            "minimum_explicit_variables",
-            cfg.get("minimum_available_variables", 3),
-        )
-    )
     supported_formula_values = {
         "mutation_tolerance_score": explicit_values["mutation_tolerance_score"],
         "functional_redundancy_escape_score": explicit_values[
@@ -643,9 +582,7 @@ def compute_evolutionary_escape_risk_features(
         "compensatory_pathway_score": explicit_values[
             "compensatory_pathway_score"
         ],
-        "resistance_emergence_risk": explicit_values[
-            "resistance_emergence_risk"
-        ],
+        "resistance_emergence_risk": explicit_values["resistance_emergence_risk"],
         "inverse_fitness_cost_of_escape": 1.0
         - explicit_values["fitness_cost_of_escape"],
         "inverse_evolutionary_constraint_score": 1.0
@@ -658,7 +595,7 @@ def compute_evolutionary_escape_risk_features(
         cfg["weights"],
         default=math.nan,
     )
-    supported_mask = explicit_count >= minimum_explicit
+    supported_mask = result["evolutionary_evidence_contract_supported"].astype(bool)
     result["evolutionary_escape_supported_score"] = supported_raw.where(
         supported_mask,
         math.nan,
@@ -687,9 +624,7 @@ def compute_evolutionary_escape_risk_features(
     supported_adjusted = _clamp(base_meta * (1.0 - supported_penalty))
     result["evolutionary_adjusted_meta_priority_score"] = proxy_adjusted
     result["evolutionary_proxy_adjusted_meta_priority_score"] = proxy_adjusted
-    result["evolutionary_supported_adjusted_meta_priority_score"] = (
-        supported_adjusted
-    )
+    result["evolutionary_supported_adjusted_meta_priority_score"] = supported_adjusted
     if bool(cfg.get("apply_to_meta_priority", False)):
         result["meta_priority_score"] = proxy_adjusted
 
@@ -706,11 +641,11 @@ def compute_evolutionary_escape_risk_features(
         axis=1,
     )
     result["evolutionary_escape_evidence_mode"] = result.apply(
-        lambda row: _evidence_mode_label(row, minimum_explicit),
+        _evidence_mode_label,
         axis=1,
     )
     result["evolutionary_escape_supported_status"] = result.apply(
-        lambda row: _supported_status_label(row, minimum_explicit),
+        _supported_status_label,
         axis=1,
     )
     result["evolutionary_escape_risk_interpretation"] = result.apply(
@@ -726,6 +661,14 @@ def compute_evolutionary_escape_risk_features(
         + result["evolutionary_escape_proxy_score"].round(3).astype(str)
         + "; supported_risk="
         + result["evolutionary_escape_supported_score"].round(3).astype(str)
+        + "; explicit_variables="
+        + result["evolutionary_escape_risk_explicit_variable_count"].astype(str)
+        + "; independent_groups="
+        + result[
+            "evolutionary_escape_risk_independent_evidence_group_count"
+        ].astype(str)
+        + "; contract_supported="
+        + result["evolutionary_evidence_contract_supported"].astype(str)
         + "; confidence="
         + result["evolutionary_escape_risk_confidence"].astype(str)
         + "; status="
