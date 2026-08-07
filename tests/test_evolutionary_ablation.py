@@ -177,7 +177,7 @@ class EvolutionaryAblationTests(unittest.TestCase):
         self.assertTrue(pd.isna(output.loc[0, "evolutionary_escape_supported_score"]))
 
     def test_supported_ranking_does_not_reintroduce_uncontracted_biofilm_hgt(self) -> None:
-        frame = self._base_frame().iloc[[1]].copy()
+        frame = self._base_frame().iloc[[1]].copy().reset_index(drop=True)
         frame["evolutionary_escape_risk_status"] = "sufficient_evidence"
         frame["evolutionary_escape_risk_explicit_variable_count"] = 3
         frame["evolutionary_escape_risk_independent_evidence_group_count"] = 2
