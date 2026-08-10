@@ -24,6 +24,9 @@ if str(PROJECT_ROOT) not in sys.path:
 import pandas as pd
 
 from src.nodos_funcionales.config import load_config, parse_simple_yaml
+from src.nodos_funcionales.evolutionary_ablation_comparison import (
+    write_evolutionary_ablation_comparison_outputs,
+)
 
 DEFAULT_THEORY = {
     "weights": {
@@ -115,6 +118,7 @@ RANKING_PRIORITY = (
     "ranking_nodos_phase3.csv",
     "ranking_nodos.csv",
 )
+COVERAGE_PRIORITY = ("evolutionary_coverage_by_candidate.csv",)
 IDENTITY_COLUMNS = ("protein_id", "accession", "entry", "gene", "locus_tag")
 EVOLUTIONARY_EXPLICIT_VARIABLES = (
     "mutation_tolerance_score",
@@ -605,25 +609,29 @@ def build_proxy_decomposition(
         "supported_evolutionary_dimension_applied",
         "proxy_evolutionary_score_contribution",
         "supported_evolutionary_score_contribution",
+        "ranking_with_matched_proxy_evolutionary_score",
+        "ranking_with_matched_proxy_evolutionary_rank",
+        "matched_proxy_evolutionary_score_contribution",
     ):
         if column in candidate_output.columns:
             output[column] = candidate_output[column].values
     return output
 
 
-def _supported_theory_score(
+def _evidence_gated_theory_score(
     frame: pd.DataFrame,
     theory: Mapping[str, Any],
     no_evolution_config: Mapping[str, Any],
     supported_mask: pd.Series,
+    *,
+    escape_column: str,
+    constraint_column: str,
 ) -> pd.Series:
-    """Apply only contract-supported evolutionary terms.
+    """Restore only evidence-gated evolutionary terms over the no-evolution model.
 
-    The supported reconstruction starts from the no-evolution model. The escape
-    penalty is restored only with `evolutionary_escape_supported_score`. The
-    positive constraint dimension is restored only for rows whose canonical
-    constraint variable is contract-explicit. Biofilm/HGT remain excluded
-    because Stage 4A does not define them as explicit evolutionary variables.
+    Biofilm and HGT remain excluded because Stage 4A does not define them as
+    explicit evolutionary variables. Callers choose either proxy or supported
+    values while retaining the same terms and unchanged theory weights.
     """
 
     no_evolution_score = compute_theory_score(frame, no_evolution_config)
@@ -631,9 +639,9 @@ def _supported_theory_score(
         return no_evolution_score
 
     supported_frame = frame.copy()
-    if "evolutionary_escape_supported_score" in supported_frame.columns:
+    if escape_column in supported_frame.columns:
         supported_escape = pd.to_numeric(
-            supported_frame["evolutionary_escape_supported_score"],
+            supported_frame[escape_column],
             errors="coerce",
         )
     else:
@@ -658,9 +666,9 @@ def _supported_theory_score(
     constraint_config.setdefault("weights", {})["w_evolutionary_constraint"] = float(
         theory.get("weights", {}).get("w_evolutionary_constraint", 0.0)
     )
-    if "evolutionary_constraint_score" in supported_frame.columns:
+    if constraint_column in supported_frame.columns:
         supported_frame["evolutionary_space_constraint_score"] = pd.to_numeric(
-            supported_frame["evolutionary_constraint_score"],
+            supported_frame[constraint_column],
             errors="coerce",
         )
     constraint_score = compute_theory_score(supported_frame, constraint_config)
@@ -672,6 +680,42 @@ def _supported_theory_score(
         constraint_mask & escape_usable
     ]
     return output
+
+
+def _supported_theory_score(
+    frame: pd.DataFrame,
+    theory: Mapping[str, Any],
+    no_evolution_config: Mapping[str, Any],
+    supported_mask: pd.Series,
+) -> pd.Series:
+    """Apply only contract-supported evolutionary terms."""
+
+    return _evidence_gated_theory_score(
+        frame,
+        theory,
+        no_evolution_config,
+        supported_mask,
+        escape_column="evolutionary_escape_supported_score",
+        constraint_column="evolutionary_constraint_score",
+    )
+
+
+def _matched_proxy_theory_score(
+    frame: pd.DataFrame,
+    theory: Mapping[str, Any],
+    no_evolution_config: Mapping[str, Any],
+    supported_mask: pd.Series,
+) -> pd.Series:
+    """Apply proxies to the same candidates and terms as supported evidence."""
+
+    return _evidence_gated_theory_score(
+        frame,
+        theory,
+        no_evolution_config,
+        supported_mask,
+        escape_column="evolutionary_escape_risk_score",
+        constraint_column="evolutionary_space_constraint_score",
+    )
 
 
 def build_ablation(
@@ -740,14 +784,15 @@ def build_ablation(
         if "evolutionary_escape_risk_score" in frame.columns
         else pd.Series(math.nan, index=frame.index)
     )
-    supported_mask = evolutionary_supported_mask(frame, cfg)
+    contract_supported_mask = evolutionary_supported_mask(frame, cfg)
     if "evolutionary_escape_supported_score" in frame.columns:
         supported_risk = pd.to_numeric(
             frame["evolutionary_escape_supported_score"],
             errors="coerce",
-        ).where(supported_mask, math.nan)
+        ).where(contract_supported_mask, math.nan)
     else:
-        supported_risk = proxy_risk.where(supported_mask, math.nan)
+        supported_risk = pd.Series(math.nan, index=frame.index, dtype=float)
+    supported_mask = contract_supported_mask & supported_risk.notna()
     output["evolutionary_escape_proxy_score"] = proxy_risk
     output["evolutionary_escape_supported_score"] = supported_risk
     output["supported_evolutionary_dimension_applied"] = supported_mask
@@ -812,6 +857,13 @@ def build_ablation(
         supported_mask,
     )
     supported_rank = deterministic_rank(supported_score, ids)
+    matched_proxy_score = _matched_proxy_theory_score(
+        frame,
+        theory,
+        no_evolution_config,
+        supported_mask,
+    )
+    matched_proxy_rank = deterministic_rank(matched_proxy_score, ids)
 
     output["ranking_without_evolutionary_information_score"] = no_evolution_score
     output["ranking_without_evolutionary_information_rank"] = no_evolution_rank
@@ -819,6 +871,8 @@ def build_ablation(
     output["ranking_with_proxy_evolutionary_rank"] = output["baseline_rank"]
     output["ranking_with_supported_evolutionary_score"] = supported_score
     output["ranking_with_supported_evolutionary_rank"] = supported_rank
+    output["ranking_with_matched_proxy_evolutionary_score"] = matched_proxy_score
+    output["ranking_with_matched_proxy_evolutionary_rank"] = matched_proxy_rank
     output["proxy_rank_shift_vs_without_evolutionary_information"] = (
         output["ranking_with_proxy_evolutionary_rank"]
         - output["ranking_without_evolutionary_information_rank"]
@@ -830,6 +884,9 @@ def build_ablation(
     output["proxy_evolutionary_score_contribution"] = baseline - no_evolution_score
     output["supported_evolutionary_score_contribution"] = (
         supported_score - no_evolution_score
+    )
+    output["matched_proxy_evolutionary_score_contribution"] = (
+        matched_proxy_score - no_evolution_score
     )
 
     shift = output[f"rank_shift_full_vs_{central}"]
@@ -1129,9 +1186,13 @@ def run(
             "el ranking exportado no contiene todas las variables requeridas"
         )
     ranking_path = find_artifact(run_dir, RANKING_PRIORITY)
+    coverage_path = find_artifact(run_dir, COVERAGE_PRIORITY)
     feature_frame = pd.read_csv(feature_path, low_memory=False)
     ranking_frame = (
         pd.read_csv(ranking_path, low_memory=False) if ranking_path else None
+    )
+    coverage_frame = (
+        pd.read_csv(coverage_path, low_memory=False) if coverage_path else None
     )
     frame = select_analysis_frame(feature_frame, ranking_frame)
     params_path = find_params_path(run_dir, repo_root)
@@ -1179,7 +1240,8 @@ def run(
         }
     )
     output_dir.mkdir(parents=True, exist_ok=True)
-    output.to_csv(output_dir / "evolutionary_ablation_by_candidate.csv", index=False)
+    candidate_output_path = output_dir / "evolutionary_ablation_by_candidate.csv"
+    output.to_csv(candidate_output_path, index=False)
     gene_output.to_csv(output_dir / "evolutionary_ablation_by_gene.csv", index=False)
     proxy_decomposition.to_csv(
         output_dir / "evolutionary_proxy_decomposition.csv", index=False
@@ -1199,6 +1261,22 @@ def run(
         feature_path,
         ranking_path,
         params_path,
+    )
+    stage4h_manifest = write_evolutionary_ablation_comparison_outputs(
+        output_dir,
+        output,
+        coverage_frame,
+        summary,
+        ablation_source=candidate_output_path,
+        coverage_source=coverage_path,
+    )
+    summary["stage4h_analysis_status"] = stage4h_manifest["analysis_status"]
+    summary["stage4h_supported_evaluable_candidate_count"] = stage4h_manifest[
+        "supported_evaluable_candidate_count"
+    ]
+    (output_dir / "evolutionary_ablation_summary.json").write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
     )
     return summary
 

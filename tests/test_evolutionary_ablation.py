@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -176,6 +177,27 @@ class EvolutionaryAblationTests(unittest.TestCase):
         self.assertFalse(bool(output.loc[0, "supported_evolutionary_dimension_applied"]))
         self.assertTrue(pd.isna(output.loc[0, "evolutionary_escape_supported_score"]))
 
+    def test_missing_supported_score_is_not_replaced_by_proxy(self) -> None:
+        frame = self._base_frame().iloc[[0]].copy()
+        frame["evolutionary_escape_risk_status"] = "sufficient_evidence"
+        frame["evolutionary_escape_risk_explicit_variable_count"] = 3
+        frame["evolutionary_escape_risk_independent_evidence_group_count"] = 2
+        frame["evolutionary_evidence_contract_supported"] = True
+        frame["functional_node_theory_score"] = MODULE.compute_theory_score(
+            frame,
+            self.theory,
+        )
+
+        output, summary = MODULE.build_ablation(frame, self.theory, self.stage2)
+
+        self.assertFalse(bool(output.loc[0, "supported_evolutionary_dimension_applied"]))
+        self.assertTrue(pd.isna(output.loc[0, "evolutionary_escape_supported_score"]))
+        self.assertEqual(summary["supported_evolutionary_candidate_count"], 0)
+        self.assertEqual(
+            float(output.loc[0, "ranking_with_supported_evolutionary_score"]),
+            float(output.loc[0, "ranking_without_evolutionary_information_score"]),
+        )
+
     def test_supported_ranking_does_not_reintroduce_uncontracted_biofilm_hgt(self) -> None:
         frame = self._base_frame().iloc[[1]].copy().reset_index(drop=True)
         frame["evolutionary_escape_risk_status"] = "sufficient_evidence"
@@ -194,9 +216,17 @@ class EvolutionaryAblationTests(unittest.TestCase):
         )
         supported = float(output.loc[0, "ranking_with_supported_evolutionary_score"])
         proxy = float(output.loc[0, "ranking_with_proxy_evolutionary_score"])
+        matched_proxy = float(
+            output.loc[0, "ranking_with_matched_proxy_evolutionary_score"]
+        )
 
         self.assertNotEqual(supported, no_evolution)
         self.assertNotEqual(supported, proxy)
+        self.assertNotEqual(matched_proxy, proxy)
+        self.assertEqual(
+            float(output.loc[0, "matched_proxy_evolutionary_score_contribution"]),
+            matched_proxy - no_evolution,
+        )
 
     def test_missing_zero_redundancy_is_not_supported_evidence(self) -> None:
         frame = self._base_frame().iloc[[0]].copy()
@@ -266,6 +296,80 @@ class EvolutionaryAblationTests(unittest.TestCase):
             changed["weights"]["w_evolutionary_constraint"],
             original,
         )
+
+    def test_run_writes_stage4h_outputs_when_stage4g_coverage_exists(self) -> None:
+        frame = self._base_frame().iloc[[0]].copy()
+        frame["evolutionary_escape_risk_status"] = "sufficient_evidence"
+        frame["evolutionary_escape_risk_explicit_variable_count"] = 3
+        frame["evolutionary_escape_risk_independent_evidence_group_count"] = 2
+        frame["evolutionary_evidence_contract_supported"] = True
+        frame["evolutionary_escape_supported_score"] = 0.04
+        frame["evolutionary_constraint_score"] = 0.75
+        frame["evolutionary_constraint_score_contract_explicit"] = True
+        frame["functional_node_theory_score"] = MODULE.compute_theory_score(
+            frame,
+            self.theory,
+        )
+        coverage = pd.DataFrame(
+            [
+                {
+                    "candidate_id": "LOW_ESCAPE",
+                    "explicit_variable_count": 3,
+                    "reported_explicit_variable_count": 3,
+                    "contract_count_consistent": True,
+                    "explicit_variables": "v1; v2; v3",
+                    "proxy_variable_count": 4,
+                    "proxy_variables": "v4; v5; v6; v7",
+                    "quantitative_evidence_variable_count": 3,
+                    "qualitative_evidence_variable_count": 0,
+                    "qualitative_evidence_record_count": 0,
+                    "independent_evidence_group_count": 2,
+                    "independence_groups": "g1; g2",
+                    "missing_variables": "v4; v5; v6; v7",
+                    "missingness_by_variable": "v4=evidence_not_contract_explicit",
+                    "coverage_bin": "3_or_more_explicit_variables",
+                    "minimum_explicit_variables": 3,
+                    "minimum_independent_evidence_groups": 2,
+                    "meets_explicit_variable_threshold": True,
+                    "meets_independence_threshold": True,
+                    "evolutionary_evidence_contract_supported": True,
+                    "evolutionary_dimension_support_status": "supported_explicit",
+                    "source_mode": "hybrid_curated",
+                }
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            processed = root / "run" / "workspace" / "data_processed"
+            results = root / "run" / "workspace" / "results"
+            processed.mkdir(parents=True)
+            results.mkdir(parents=True)
+            frame.to_csv(processed / "phase3_features.csv", index=False)
+            coverage.to_csv(results / "evolutionary_coverage_by_candidate.csv", index=False)
+            output_dir = root / "stage4h"
+
+            summary = MODULE.run(
+                repo_root=Path(__file__).resolve().parents[1],
+                run_dir=root / "run",
+                output_dir=output_dir,
+                stage2_config_path=(
+                    Path(__file__).resolve().parents[1]
+                    / "config"
+                    / "integrated_validation_stage2.json"
+                ),
+            )
+
+            self.assertEqual(summary["stage4h_analysis_status"], "comparison_evaluable")
+            self.assertEqual(summary["stage4h_supported_evaluable_candidate_count"], 1)
+            for filename in (
+                "evolutionary_ablation_comparison_by_candidate.csv",
+                "evolutionary_ablation_comparison_summary.csv",
+                "evolutionary_ablation_mapping_audit.csv",
+                "evolutionary_ablation_comparison_manifest.json",
+                "evolutionary_ablation_comparison_report.md",
+            ):
+                self.assertTrue((output_dir / filename).exists())
 
 
 if __name__ == "__main__":
