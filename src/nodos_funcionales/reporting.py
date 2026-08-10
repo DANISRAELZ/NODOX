@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from .evolutionary_coverage_reporting import write_evolutionary_coverage_outputs
 from .functional_node_theory import (
     build_functional_node_theory_audit,
     compute_functional_node_theory_score,
@@ -2164,6 +2165,7 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
     workspace_metadata = _load_workspace_metadata(base_dir)
     features = apply_organism_metadata(features, workspace_metadata, overwrite_not_reported=True)
     features = compute_functional_node_theory_score(features, config)
+    write_evolutionary_coverage_outputs(base_dir, features, config)
     literature_support = _load_literature_support(processed_dir)
     sensitivity = pd.read_csv(results_dir / "sensitivity_analysis.csv") if (results_dir / "sensitivity_analysis.csv").exists() else pd.DataFrame()
     provenance_summary = _build_provenance_summary(features)
@@ -2825,6 +2827,8 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
         "- Auditoria de separacion de contexto terapeutico: `results/therapeutic_context_separation_audit.csv`",
         "- Preparacion para reemplazo de capas controladas: `results/controlled_replacement_readiness.csv`",
         "- Auditoria de riesgo de escape evolutivo: `results/evolutionary_escape_risk_audit.csv`",
+        "- Cobertura evolutiva por candidato (Stage 4G): `results/evolutionary_coverage_by_candidate.csv`",
+        "- Distribucion de cobertura evolutiva (Stage 4G): `results/evolutionary_coverage_distribution.csv`",
         "- Cola de curacion de impacto clinico: `results/clinical_impact_curation_queue.csv`",
         "- Cola de curacion de contexto de enfermedad: `results/disease_context_curation_queue.csv`",
         "- Cola de curacion de sitio terapeutico: `results/therapy_site_context_curation_queue.csv`",
@@ -2996,4 +3000,3 @@ def export_results(base_dir: Path, config: dict, mode: str = "compare") -> None:
             pass
 
     (results_dir / "report_phase2.md").write_text("\n".join(report_lines), encoding="utf-8")
-
