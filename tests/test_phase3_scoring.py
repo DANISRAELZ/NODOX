@@ -44,6 +44,11 @@ class Phase3ScoringTests(unittest.TestCase):
         self.assertTrue((workspace / "results" / "top10_functional_node_theory_audit.md").exists())
         self.assertTrue((workspace / "results" / "therapeutic_role_stability_audit.csv").exists())
         self.assertTrue((workspace / "results" / "therapeutic_role_stability_report.md").exists())
+        self.assertTrue((workspace / "results" / "evolutionary_coverage_evidence_records.csv").exists())
+        self.assertTrue((workspace / "results" / "evolutionary_coverage_by_candidate.csv").exists())
+        self.assertTrue((workspace / "results" / "evolutionary_coverage_distribution.csv").exists())
+        self.assertTrue((workspace / "results" / "evolutionary_coverage_manifest.json").exists())
+        self.assertTrue((workspace / "results" / "evolutionary_coverage_report.md").exists())
 
         phase2 = pd.read_csv(workspace / "data_processed" / "scored_nodes.csv")
         phase3 = pd.read_csv(workspace / "data_processed" / "scored_nodes_phase3.csv")
