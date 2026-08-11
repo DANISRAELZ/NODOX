@@ -175,6 +175,8 @@ def run_stage5a1_validation(*, project_root: Path, organism: str, taxon_id: int 
     audit["proteome_id"], audit["candidate_scope"] = proteome, stats["candidate_scope"]
     snapshot_dir = base / "stage5a1_candidate_seed_snapshot"
     snapshot = write_stage5a_candidate_seed_snapshot(snapshot_dir=snapshot_dir, organism_name=organism, taxon_id=taxon, records=selected, config=config, selection_summary={**stats, **summary, "stage": STAGE, "proteome_id": proteome or None})
+    snapshot["stage"], snapshot["stage_name"], snapshot["proteome_id"] = STAGE, STAGE_NAME, proteome or None
+    (snapshot_dir / "snapshot_manifest.json").write_text(json.dumps(snapshot, indent=2, ensure_ascii=False), encoding="utf-8")
     audit.to_csv(base / "stage5a1_candidate_seed_audit_pre_pipeline.csv", index=False)
     core = run_online_only_validation(project_root=root, organism=organism, organism_slug=organism_slug, taxon_id=taxon, strain=strain, strain_slug=strain_slug, run_dir=base, max_candidates=len(selected), candidate_seed_snapshot=snapshot_dir, online_source_mode=normalize_provider_mode(online_source_mode), **pipeline_kwargs)
     workspace = Path(core["workspace"]); final = finalize_stage5a_audit(audit, workspace / "results" / "ranking_nodos.csv"); audit_path = workspace / "results" / "stage5a1_candidate_seed_audit.csv"; final.to_csv(audit_path, index=False)
