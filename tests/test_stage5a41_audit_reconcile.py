@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from src.nodos_funcionales.stage5a41_audit_reconcile import reconcile_stage5a41_audit
 
@@ -94,7 +95,7 @@ def test_reconcile_stage5a41_audit_adds_essentiality_as_recovered_layer(tmp_path
     assert bool(row["after_usable_evidence"]) is True
     assert bool(row["after_affects_score"]) is True
     assert row["after_matched_candidate_count"] == 307
-    assert row["after_coverage_fraction"] == 307 / 1554
+    assert row["after_coverage_fraction"] == pytest.approx(307 / 1554)
     assert bool(row["usable_evidence_recovered"]) is True
     assert bool(row["score_affecting_evidence_recovered"]) is True
 
