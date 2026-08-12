@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from src.nodos_funcionales import stage5a4_evidence_recovery as stage5a4
 
@@ -141,6 +142,6 @@ def test_build_benchmark_comparison_uses_recovery_row_order_and_v3_score():
 
     assert bool(row["recovery_match"]) is True
     assert row["after_final_rank"] == 2
-    assert row["after_meta_priority_score_v3"] == 0.20
-    assert row["meta_priority_score_v3_delta"] == 0.04
-    assert row["evidence_quality_score_delta"] == 0.12
+    assert row["after_meta_priority_score_v3"] == pytest.approx(0.20)
+    assert row["meta_priority_score_v3_delta"] == pytest.approx(0.04)
+    assert row["evidence_quality_score_delta"] == pytest.approx(0.12)
