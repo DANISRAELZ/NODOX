@@ -9,6 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.nodos_funcionales.online.provider_modes import provider_mode_choices
+from src.nodos_funcionales.stage5a41_audit_reconcile import reconcile_stage5a41_audit
 from src.nodos_funcionales.stage5a41_provider_scoring_recovery import (
     run_stage5a41_provider_scoring_recovery,
 )
@@ -60,6 +61,7 @@ def main(argv: list[str] | None = None) -> int:
             enable_bvbrc=not args.disable_bvbrc,
             online_source_mode=args.online_source_mode,
         )
+        result = reconcile_stage5a41_audit(result)
     except (ValueError, RuntimeError, FileNotFoundError) as exc:
         parser.error(str(exc))
     print(json.dumps(result, indent=2, ensure_ascii=True, default=str))
