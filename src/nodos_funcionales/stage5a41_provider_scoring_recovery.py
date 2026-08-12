@@ -171,9 +171,17 @@ def overlay_deg_essentiality(
     result = candidate_layer.copy()
     if "gene" not in result.columns:
         result["gene"] = result["protein_id"]
-    for column in ["essential", "evidence", "database"]:
+
+    if "essential" not in result.columns:
+        result["essential"] = pd.Series(pd.NA, index=result.index, dtype="Float64")
+    else:
+        result["essential"] = pd.to_numeric(result["essential"], errors="coerce").astype("Float64")
+
+    for column in ["gene", "evidence", "database", "essentiality_status", "deg_evidence_source_type"]:
         if column not in result.columns:
-            result[column] = pd.NA
+            result[column] = pd.Series(pd.NA, index=result.index, dtype="string")
+        else:
+            result[column] = result[column].astype("string")
 
     match_frame = deg_matches.copy()
     match_frame["_protein_key"] = match_frame["protein_id"].fillna("").astype(str).str.strip().str.upper()
@@ -184,17 +192,14 @@ def overlay_deg_essentiality(
     mask = candidate_keys.isin(match_lookup.index)
     matched_keys = candidate_keys.loc[mask]
 
-    result.loc[mask, "essential"] = 1
-    evidence_by_key = match_lookup.get("evidence", pd.Series(index=match_lookup.index, dtype=object))
-    result.loc[mask, "evidence"] = matched_keys.map(evidence_by_key).fillna("DEG essential gene annotation").values
+    result.loc[mask, "essential"] = 1.0
+    evidence_by_key = match_lookup.get("evidence", pd.Series(index=match_lookup.index, dtype="string")).astype("string")
+    mapped_evidence = matched_keys.map(evidence_by_key).astype("string").fillna("DEG essential gene annotation")
+    result.loc[mask, "evidence"] = mapped_evidence.to_numpy(dtype=object)
     result.loc[mask, "database"] = database_label
-    result["essentiality_status"] = result.get(
-        "essentiality_status", pd.Series(pd.NA, index=result.index, dtype=object)
-    )
     result.loc[mask, "essentiality_status"] = "essential_supported_by_deg"
     result["deg_support"] = False
     result.loc[mask, "deg_support"] = True
-    result["deg_evidence_source_type"] = pd.NA
     result.loc[mask, "deg_evidence_source_type"] = "versioned_external_deg"
 
     unmatched = ~mask
