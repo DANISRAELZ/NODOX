@@ -7,12 +7,41 @@ from typing import Any
 import pandas as pd
 
 
+_TEXT_COVERAGE_COLUMNS = (
+    "layer_key",
+    "before_provider_name",
+    "before_retrieval_status",
+    "before_evidence_level",
+    "before_fallback_reason",
+    "after_provider_name",
+    "after_retrieval_status",
+    "after_evidence_level",
+    "after_fallback_reason",
+)
+
+
 def _safe_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     if value is None or pd.isna(value):
         return False
     return str(value).strip().casefold() in {"true", "1", "yes"}
+
+
+def _normalize_coverage_dtypes(coverage: pd.DataFrame) -> pd.DataFrame:
+    """Make audit text columns safe for post-read provenance updates.
+
+    CSV columns containing only empty strings are commonly inferred by pandas as
+    float64/NaN. Stage 5A.4.1 reconciliation writes textual provenance back into
+    those columns, so they must use pandas' nullable string dtype first.
+    """
+    result = coverage.copy()
+    for column in _TEXT_COVERAGE_COLUMNS:
+        if column not in result.columns:
+            result[column] = pd.Series(pd.NA, index=result.index, dtype="string")
+        else:
+            result[column] = result[column].astype("string")
+    return result
 
 
 def reconcile_stage5a41_audit(result: dict[str, Any]) -> dict[str, Any]:
@@ -38,7 +67,7 @@ def reconcile_stage5a41_audit(result: dict[str, Any]) -> dict[str, Any]:
     if not (coverage_path.is_file() and manifest_path.is_file() and essentiality_path.is_file()):
         return result
 
-    coverage = pd.read_csv(coverage_path, low_memory=False)
+    coverage = _normalize_coverage_dtypes(pd.read_csv(coverage_path, low_memory=False))
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     essentiality = json.loads(essentiality_path.read_text(encoding="utf-8"))
 
