@@ -91,6 +91,38 @@ def test_overlay_deg_essentiality_preserves_candidate_universe_and_unknowns():
     assert pd.isna(combined.loc[combined["protein_id"].eq("P3"), "essential"].iloc[0])
 
 
+def test_overlay_deg_essentiality_accepts_all_nan_float_provenance_columns():
+    candidates = pd.DataFrame(
+        {
+            "protein_id": ["P1", "P2"],
+            "gene": ["g1", "g2"],
+            "essential": pd.Series([float("nan"), float("nan")], dtype="float64"),
+            "evidence": pd.Series([float("nan"), float("nan")], dtype="float64"),
+            "database": pd.Series([float("nan"), float("nan")], dtype="float64"),
+        }
+    )
+    deg = pd.DataFrame(
+        [
+            {
+                "protein_id": "P2",
+                "gene": "g2",
+                "essential": 1,
+                "evidence": "DEG bacterial essential gene annotation",
+                "database": "deg_real_v1",
+            }
+        ]
+    )
+
+    combined, audit = overlay_deg_essentiality(candidates, deg)
+
+    assert audit["deg_match_count"] == 1
+    assert str(combined["evidence"].dtype).startswith("string")
+    assert str(combined["database"].dtype).startswith("string")
+    assert combined.loc[combined["protein_id"].eq("P2"), "evidence"].iloc[0] == "DEG bacterial essential gene annotation"
+    assert combined.loc[combined["protein_id"].eq("P2"), "database"].iloc[0] == "deg_real_v1"
+    assert pd.isna(combined.loc[combined["protein_id"].eq("P1"), "essential"].iloc[0])
+
+
 def test_overlay_deg_essentiality_does_not_create_contextual_score():
     candidates = pd.DataFrame(
         [{"protein_id": "P1", "gene": "g1", "essential": pd.NA}]
