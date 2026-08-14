@@ -80,6 +80,8 @@ def test_cli_passes_candidate_seed_snapshot_to_validation() -> None:
                 "Helicobacter pylori",
                 "--taxon-id",
                 "210",
+                "--max-candidates",
+                "25",
                 "--candidate-seed-snapshot",
                 "snapshot/path",
             ]
