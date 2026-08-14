@@ -9,8 +9,8 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.nodos_funcionales.online_only_validation import run_online_only_validation
 from src.nodos_funcionales.online.provider_modes import normalize_provider_mode, provider_mode_choices
+from src.nodos_funcionales.standard_validation import run_standard_validation
 
 
 def load_organism_registry(path: Path | None = None) -> dict[str, dict[str, Any]]:
@@ -31,7 +31,7 @@ def resolve_organism_options(args: argparse.Namespace, registry_path: Path | Non
             raise ValueError(f"unknown organism key {args.organism_key!r}; available keys: {choices}")
         configured.update(registry[args.organism_key])
 
-    for key in ("organism", "organism_slug", "taxon_id", "strain", "strain_slug"):
+    for key in ("organism", "organism_slug", "taxon_id", "strain", "strain_slug", "proteome_id"):
         value = getattr(args, key)
         if value is not None:
             configured[key] = value
@@ -41,15 +41,35 @@ def resolve_organism_options(args: argparse.Namespace, registry_path: Path | Non
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run isolated online-only validation for a configured organism.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run the standard NODOX validation flow. Publication benchmarks should use an exact "
+            "strain/proteome identity and the complete candidate universe."
+        )
+    )
     parser.add_argument("--organism", help="Scientific organism name.")
     parser.add_argument("--organism-slug", help="Stable lowercase slug used in output paths.")
-    parser.add_argument("--taxon-id", type=int, help="NCBI taxonomy identifier used by online providers.")
+    parser.add_argument("--taxon-id", type=int, help="NCBI taxonomy identifier for the requested strain/proteome.")
     parser.add_argument("--strain", help="Optional strain or isolate name.")
     parser.add_argument("--strain-slug", help="Optional stable lowercase strain slug.")
+    parser.add_argument(
+        "--proteome-id",
+        help=(
+            "Exact UniProt proteome identifier (for example UP000000625). Required when "
+            "--max-candidates=0 unless an exact candidate snapshot is supplied."
+        ),
+    )
     parser.add_argument("--organism-key", help="Key from config/online_only_organisms.json.")
     parser.add_argument("--run-dir", help="Optional isolated output directory.")
-    parser.add_argument("--max-candidates", type=int, default=25, help="Bounded UniProt candidate seed size.")
+    parser.add_argument(
+        "--max-candidates",
+        type=int,
+        default=0,
+        help=(
+            "Candidate limit inside the exact proteome. 0 means the complete exact proteome; "
+            "positive values are intended only for bounded smoke tests."
+        ),
+    )
     parser.add_argument(
         "--candidate-seed-snapshot",
         help=(
@@ -106,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(str(exc))
 
     try:
-        result = run_online_only_validation(
+        result = run_standard_validation(
             project_root=PROJECT_ROOT,
             **organism_options,
             run_dir=Path(args.run_dir) if args.run_dir else None,
@@ -135,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     except ValueError as exc:
         parser.error(str(exc))
-    print(json.dumps(result, indent=2, ensure_ascii=True))
+    print(json.dumps(result, indent=2, ensure_ascii=True, default=str))
     return 0 if result["pipeline_status"] in {"completed", "completed_after_unresolved_fallback"} else 2
 
 
