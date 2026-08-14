@@ -22,7 +22,7 @@
     "organism_slug": "escherichia_coli",
     "strain": "K-12 MG1655",
     "strain_slug": "k12_mg1655",
-    "taxon_id": 83333,
+    "taxon_id": 511145,
     "proteome_id": "UP000000625"
   },
   "mycobacterium_tuberculosis": {
