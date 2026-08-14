@@ -1,0 +1,48 @@
+name: Standard validation contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/nodos_funcionales/standard_validation.py'
+      - 'src/nodos_funcionales/stage5a41_provider_scoring_recovery.py'
+      - 'scripts/run_online_only_validation.py'
+      - 'config/online_only_organisms.json'
+      - 'tests/test_standard_validation.py'
+      - 'tests/test_standard_validation_cli_contract.py'
+      - 'tests/test_stage5a41_provider_scoring_recovery.py'
+      - 'tests/test_stage5a41_audit_reconcile.py'
+      - '.github/workflows/standard-validation-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  standard-validation-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest
+
+      - name: Run standard flow and provider-contract regressions
+        run: |
+          python -m pytest -q \
+            tests/test_standard_validation.py \
+            tests/test_standard_validation_cli_contract.py \
+            tests/test_stage5a41_provider_scoring_recovery.py \
+            tests/test_stage5a41_audit_reconcile.py

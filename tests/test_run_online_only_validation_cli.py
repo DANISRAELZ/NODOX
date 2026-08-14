@@ -50,7 +50,7 @@ def test_cli_parses_explicit_diamond_execute_profile() -> None:
 )
 def test_cli_execution_path_passes_canonical_mode_to_validation(requested: str, canonical: str) -> None:
     completed = {"pipeline_status": "completed"}
-    with patch("scripts.run_online_only_validation.run_online_only_validation", return_value=completed) as runner:
+    with patch("scripts.run_online_only_validation.run_standard_validation", return_value=completed) as runner:
         exit_code = main(["--organism", "Escherichia coli", "--taxon-id", "562", "--online-source-mode", requested])
 
     assert exit_code == 0
@@ -71,7 +71,7 @@ def test_cli_passes_candidate_seed_snapshot_to_validation() -> None:
     completed = {"pipeline_status": "completed"}
 
     with patch(
-        "scripts.run_online_only_validation.run_online_only_validation",
+        "scripts.run_online_only_validation.run_standard_validation",
         return_value=completed,
     ) as runner:
         exit_code = main(
@@ -80,6 +80,8 @@ def test_cli_passes_candidate_seed_snapshot_to_validation() -> None:
                 "Helicobacter pylori",
                 "--taxon-id",
                 "210",
+                "--max-candidates",
+                "25",
                 "--candidate-seed-snapshot",
                 "snapshot/path",
             ]

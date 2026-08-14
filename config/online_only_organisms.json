@@ -4,10 +4,26 @@
     "organism_slug": "pseudomonas_aeruginosa",
     "taxon_id": 287
   },
+  "pseudomonas_aeruginosa_pao1": {
+    "organism": "Pseudomonas aeruginosa",
+    "organism_slug": "pseudomonas_aeruginosa",
+    "strain": "PAO1",
+    "strain_slug": "pao1",
+    "taxon_id": 208964,
+    "proteome_id": "UP000002438"
+  },
   "escherichia_coli": {
     "organism": "Escherichia coli",
     "organism_slug": "escherichia_coli",
     "taxon_id": 562
+  },
+  "escherichia_coli_k12_mg1655": {
+    "organism": "Escherichia coli",
+    "organism_slug": "escherichia_coli",
+    "strain": "K-12 MG1655",
+    "strain_slug": "k12_mg1655",
+    "taxon_id": 511145,
+    "proteome_id": "UP000000625"
   },
   "mycobacterium_tuberculosis": {
     "organism": "Mycobacterium tuberculosis",
@@ -19,11 +35,28 @@
     "organism_slug": "mycobacterium_tuberculosis",
     "strain": "H37Rv",
     "strain_slug": "h37rv",
-    "taxon_id": 83332
+    "taxon_id": 83332,
+    "proteome_id": "UP000001584"
   },
   "helicobacter_pylori": {
     "organism": "Helicobacter pylori",
     "organism_slug": "helicobacter_pylori",
     "taxon_id": 210
+  },
+  "helicobacter_pylori_26695": {
+    "organism": "Helicobacter pylori",
+    "organism_slug": "helicobacter_pylori",
+    "strain": "26695",
+    "strain_slug": "26695",
+    "taxon_id": 85962,
+    "proteome_id": "UP000000429"
+  },
+  "staphylococcus_aureus_newman": {
+    "organism": "Staphylococcus aureus",
+    "organism_slug": "staphylococcus_aureus",
+    "strain": "Newman",
+    "strain_slug": "newman",
+    "taxon_id": 426430,
+    "proteome_id": "UP000217322"
   }
 }
