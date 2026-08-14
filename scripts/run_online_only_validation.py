@@ -40,6 +40,48 @@ def resolve_organism_options(args: argparse.Namespace, registry_path: Path | Non
     return configured
 
 
+def validate_complete_snapshot_cli_contract(
+    *,
+    max_candidates: int,
+    candidate_seed_snapshot: str | None,
+    expected_proteome_id: str | None,
+) -> None:
+    """Prevent a legacy bounded snapshot from being reported as a complete proteome run."""
+    if int(max_candidates) != 0 or not candidate_seed_snapshot:
+        return
+
+    snapshot_dir = Path(candidate_seed_snapshot).expanduser().resolve()
+    manifest_path = snapshot_dir / "snapshot_manifest.json"
+    if not manifest_path.is_file():
+        raise ValueError(
+            "complete-proteome mode requires candidate snapshot metadata at snapshot_manifest.json"
+        )
+    with manifest_path.open(encoding="utf-8") as handle:
+        manifest = json.load(handle)
+
+    snapshot_proteome = str(manifest.get("proteome_id") or "").strip().upper()
+    candidate_scope = str(manifest.get("candidate_scope") or "").strip()
+    query_semantics = str(manifest.get("query_semantics") or "").strip()
+    snapshot_requested_max = manifest.get("requested_max_candidates")
+
+    if (
+        not snapshot_proteome
+        or candidate_scope != "complete_exact_proteome"
+        or query_semantics != "proteome_id_exact_no_species_broadening"
+        or snapshot_requested_max != 0
+    ):
+        raise ValueError(
+            "--max-candidates=0 cannot reuse a legacy or bounded candidate snapshot; "
+            "the snapshot must explicitly declare a complete exact proteome"
+        )
+
+    expected = str(expected_proteome_id or "").strip().upper()
+    if expected and snapshot_proteome != expected:
+        raise ValueError(
+            f"candidate snapshot proteome mismatch: expected {expected}, found {snapshot_proteome}"
+        )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -122,7 +164,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         organism_options = resolve_organism_options(args)
-    except ValueError as exc:
+        validate_complete_snapshot_cli_contract(
+            max_candidates=args.max_candidates,
+            candidate_seed_snapshot=args.candidate_seed_snapshot,
+            expected_proteome_id=organism_options.get("proteome_id"),
+        )
+    except (ValueError, json.JSONDecodeError) as exc:
         parser.error(str(exc))
 
     try:
