@@ -92,11 +92,33 @@ def _safe_json_loads(raw_bytes: bytes) -> Any:
         raise ValueError(f"Respuesta JSON invalida de STRING: {exc}") from exc
 
 
-def _request_json(url: str, timeout: float, user_agent: str) -> ProviderResponse:
-    return request_provider_payload(url, timeout=timeout, user_agent=user_agent, accept="application/json", opener=urlopen)
+def _request_json(
+    url: str,
+    timeout: float,
+    user_agent: str,
+    form_data: dict[str, object] | None = None,
+) -> ProviderResponse:
+    """Request structured STRING data, using POST for identifier collections.
+
+    STRING explicitly recommends POST for large protein sets because encoding all
+    identifiers in a GET URL can exceed intermediary and server URL limits.
+    """
+    encoded = urlencode(form_data).encode("utf-8") if form_data is not None else None
+    return request_provider_payload(
+        url,
+        timeout=timeout,
+        user_agent=user_agent,
+        accept="application/json",
+        opener=urlopen,
+        data=encoded,
+    )
 
 
-def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str], ProviderResponse | None]:
+def _api_get_json(
+    url: str,
+    cfg: dict[str, Any],
+    form_data: dict[str, object] | None = None,
+) -> tuple[Any | None, list[str], ProviderResponse | None]:
     timeout = float(cfg["provider_timeout_seconds"])
     user_agent = str(cfg["provider_user_agent"])
     retries = int(cfg["provider_max_retries"])
@@ -104,12 +126,20 @@ def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str],
     errors: list[str] = []
 
     for attempt in range(retries + 1):
-        response = _request_json(url, timeout=timeout, user_agent=user_agent)
+        response = _request_json(
+            url,
+            timeout=timeout,
+            user_agent=user_agent,
+            form_data=form_data,
+        )
         if response.error_status == "" and response.payload_type == "json":
             return response.payload, errors, response
         reason = response.rejection_reason or response.error_status or f"unexpected_payload_type:{response.payload_type}"
         errors.append(reason)
-        if response.http_status == 429 and attempt < retries:
+        retryable_http_statuses = {408, 425, 429, 500, 502, 503, 504}
+        retryable_transport_error = response.payload_type in {"network_error", "timeout"}
+        retryable_response = response.http_status in retryable_http_statuses or retryable_transport_error
+        if retryable_response and attempt < retries:
             time.sleep(backoff)
             continue
         return None, errors, response
@@ -173,7 +203,11 @@ def _get_candidate_proteins(workspace: Path) -> pd.DataFrame:
     return proteins
 
 
-def _build_string_id_url(proteins: pd.DataFrame, taxon_id: str, cfg: dict[str, Any]) -> str:
+def _build_string_id_request(
+    proteins: pd.DataFrame,
+    taxon_id: str,
+    cfg: dict[str, Any],
+) -> tuple[str, dict[str, object]]:
     identifiers = "\r".join(proteins["protein_id"].astype(str).tolist())
     params = {
         "identifiers": identifiers,
@@ -181,10 +215,14 @@ def _build_string_id_url(proteins: pd.DataFrame, taxon_id: str, cfg: dict[str, A
         "caller_identity": "nodos_funcionales",
         "echo_query": 1,
     }
-    return f"{str(cfg['provider_base_url']).rstrip('/')}/json/get_string_ids?{urlencode(params)}"
+    return f"{str(cfg['provider_base_url']).rstrip('/')}/json/get_string_ids", params
 
 
-def _build_network_url(string_ids: list[str], taxon_id: str, cfg: dict[str, Any]) -> str:
+def _build_network_request(
+    string_ids: list[str],
+    taxon_id: str,
+    cfg: dict[str, Any],
+) -> tuple[str, dict[str, object]]:
     identifiers = "\r".join(string_ids)
     params = {
         "identifiers": identifiers,
@@ -194,7 +232,7 @@ def _build_network_url(string_ids: list[str], taxon_id: str, cfg: dict[str, Any]
         "network_flavor": str(cfg["network_flavor"]),
         "caller_identity": "nodos_funcionales",
     }
-    return f"{str(cfg['provider_base_url']).rstrip('/')}/json/network?{urlencode(params)}"
+    return f"{str(cfg['provider_base_url']).rstrip('/')}/json/network", params
 
 
 def _extract_string_mappings(payload: Any) -> pd.DataFrame:
@@ -887,8 +925,12 @@ def fetch_string_functional_network(
     if not taxon_id:
         raise ValueError("Se requiere taxon_id para consultar STRING de forma reproducible.")
 
-    id_url = _build_string_id_url(proteins, taxon_id, cfg)
-    mapping_payload, mapping_errors, mapping_response = _api_get_json(id_url, cfg)
+    id_url, id_form_data = _build_string_id_request(proteins, taxon_id, cfg)
+    mapping_payload, mapping_errors, mapping_response = _api_get_json(
+        id_url,
+        cfg,
+        form_data=id_form_data,
+    )
     mappings = _extract_string_mappings(mapping_payload)
     notes = mapping_errors[:]
     api_success = mapping_payload is not None and not mappings.empty
@@ -944,12 +986,16 @@ def fetch_string_functional_network(
         taxon_id,
         config,
     )
-    network_url = _build_network_url(
+    network_url, network_form_data = _build_network_request(
         mappings["string_id"].dropna().astype(str).tolist(),
         network_taxon_id,
         cfg,
     )
-    edge_payload, edge_errors, edge_response = _api_get_json(network_url, cfg)
+    edge_payload, edge_errors, edge_response = _api_get_json(
+        network_url,
+        cfg,
+        form_data=network_form_data,
+    )
     notes.extend(edge_errors)
     if edge_payload is None and normalized_mode == "online_optional" and cache["entries"].get(cache_key):
         cached_entry = cache["entries"][cache_key]
@@ -1118,6 +1164,10 @@ def fetch_string_functional_network(
         ),
         "id_query_url": id_url,
         "network_query_url": network_url,
+        "id_query_method": "POST",
+        "network_query_method": "POST",
+        "id_query_body_bytes": len(urlencode(id_form_data).encode("utf-8")),
+        "network_query_body_bytes": len(urlencode(network_form_data).encode("utf-8")),
         "parser_used": "string_json_list_parser",
         "blocks_ranking": False,
         "evidence_inferred": usable_evidence,
@@ -1202,3 +1252,4 @@ def _write_functional_network_output(
                 return None
     functional_network.to_csv(output_path, index=False)
     return output_path
+
