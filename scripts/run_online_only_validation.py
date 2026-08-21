@@ -120,6 +120,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--disable-string", action="store_true", help="Record STRING as disabled and unresolved.")
+    parser.add_argument(
+        "--string-timeout-seconds",
+        type=float,
+        help="Per-attempt STRING timeout override for large POST requests.",
+    )
+    parser.add_argument(
+        "--string-max-retries",
+        type=int,
+        help="STRING retry-count override; the total attempts equal this value plus one.",
+    )
     parser.add_argument("--disable-interpro", action="store_true", help="Record InterPro as disabled and unresolved.")
     parser.add_argument("--disable-literature", action="store_true", help="Record literature lookup as disabled and unresolved.")
     parser.add_argument("--disable-vfdb", action="store_true", help="Do not inspect or use the configured local VFDB dataset.")
@@ -180,6 +190,8 @@ def main(argv: list[str] | None = None) -> int:
             max_candidates=args.max_candidates,
             candidate_seed_snapshot=args.candidate_seed_snapshot,
             enable_string=not args.disable_string,
+            string_timeout_seconds=args.string_timeout_seconds,
+            string_max_retries=args.string_max_retries,
             enable_interpro=not args.disable_interpro,
             enable_literature=not args.disable_literature,
             enable_vfdb=not args.disable_vfdb,
@@ -208,3 +220,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
