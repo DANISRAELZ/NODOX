@@ -424,6 +424,8 @@ def run_standard_validation(
     max_candidates: int = 0,
     candidate_seed_snapshot: str | Path | None = None,
     enable_string: bool = True,
+    string_timeout_seconds: float | None = None,
+    string_max_retries: int | None = None,
     enable_interpro: bool = True,
     enable_literature: bool = True,
     enable_vfdb: bool = True,
@@ -517,6 +519,8 @@ def run_standard_validation(
         max_candidates=effective_max,
         candidate_seed_snapshot=snapshot_path,
         enable_string=enable_string,
+        string_timeout_seconds=string_timeout_seconds,
+        string_max_retries=string_max_retries,
         enable_interpro=enable_interpro,
         enable_literature=enable_literature,
         enable_vfdb=enable_vfdb,
@@ -590,3 +594,4 @@ def run_standard_validation(
     result["standard_validation_manifest"] = str(workspace / "results" / "standard_validation_manifest.json")
     result["standard_validation"] = standard_manifest
     return result
+

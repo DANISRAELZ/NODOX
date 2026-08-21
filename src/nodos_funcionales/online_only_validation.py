@@ -489,6 +489,8 @@ def run_online_only_validation(
     max_candidates: int = 25,
     candidate_seed_snapshot: str | Path | None = None,
     enable_string: bool = True,
+    string_timeout_seconds: float | None = None,
+    string_max_retries: int | None = None,
     enable_interpro: bool = True,
     enable_literature: bool = True,
     enable_vfdb: bool = True,
@@ -511,6 +513,10 @@ def run_online_only_validation(
 ) -> dict[str, Any]:
     """Run an isolated, organism-parameterized validation using online/external layers only."""
     online_source_mode = normalize_provider_mode(online_source_mode)
+    if string_timeout_seconds is not None and float(string_timeout_seconds) <= 0:
+        raise ValueError("string_timeout_seconds must be greater than zero")
+    if string_max_retries is not None and int(string_max_retries) < 0:
+        raise ValueError("string_max_retries cannot be negative")
     if online_source_mode == "online_strict" and materialize_unresolved_required_fallback:
         raise ValueError(
             "--materialize-unresolved-required-fallback no es compatible con online_strict; "
@@ -571,6 +577,8 @@ def run_online_only_validation(
         online_source_mode,
         diamond_run_config=diamond_run_config,
         enable_string=enable_string,
+        string_timeout_seconds=string_timeout_seconds,
+        string_max_retries=string_max_retries,
         enable_interpro=enable_interpro,
         enable_vfdb=enable_vfdb,
         enable_deg=enable_deg,
@@ -611,6 +619,11 @@ def run_online_only_validation(
             "deg": bool(enable_deg),
             "bvbrc": bool(enable_bvbrc),
             "diamond": bool(enable_diamond),
+        },
+        "string_runtime": {
+            "timeout_seconds": float(config["online_sources"]["string"]["provider_timeout_seconds"]),
+            "max_retries": int(config["online_sources"]["string"]["provider_max_retries"]),
+            "request_method": "POST",
         },
         "diamond_execution_mode": (
             str(diamond_run_config["execution_mode"]) if diamond_run_config else "disabled"
@@ -2003,6 +2016,8 @@ def _write_online_only_config(
     diamond_run_config: dict[str, Any] | None = None,
     *,
     enable_string: bool = True,
+    string_timeout_seconds: float | None = None,
+    string_max_retries: int | None = None,
     enable_interpro: bool = True,
     enable_vfdb: bool = True,
     enable_deg: bool = True,
@@ -2033,6 +2048,11 @@ def _write_online_only_config(
     }
     for provider_key, enabled in provider_switches.items():
         online_sources.setdefault(provider_key, {})["enabled"] = bool(enabled)
+    string_cfg = online_sources.setdefault("string", {})
+    if string_timeout_seconds is not None:
+        string_cfg["provider_timeout_seconds"] = float(string_timeout_seconds)
+    if string_max_retries is not None:
+        string_cfg["provider_max_retries"] = int(string_max_retries)
     if vfdb_dataset_path is not None:
         online_sources.setdefault("vfdb", {})["local_dataset_path"] = str(vfdb_dataset_path)
         version_path = vfdb_dataset_path.with_suffix(".version.txt")
@@ -2756,6 +2776,11 @@ def _attempt_string_enrichment(
                     manifest.get("degraded_mapping_count", 0) or 0
                 ),
                 "network_taxon_id": manifest.get("network_taxon_id"),
+                "id_query_method": manifest.get("id_query_method"),
+                "network_query_method": manifest.get("network_query_method"),
+                "id_query_body_bytes": manifest.get("id_query_body_bytes"),
+                "network_query_body_bytes": manifest.get("network_query_body_bytes"),
+                "provider_notes": manifest.get("notes", []),
             },
         )
     except Exception as exc:  # noqa: BLE001 - provider failures are audited.
@@ -2782,6 +2807,7 @@ def _attempt_string_enrichment(
             explicit_mapping_success=False,
             explicit_usable_evidence=False,
             explicit_affects_score=False,
+            extra_manifest={"error_detail": str(exc)},
         )
 
 
@@ -2798,6 +2824,8 @@ def _attempt_interpro_domain_enrichment(
     rows: list[dict[str, Any]] = []
     retrieved = 0
     attempted = False
+    successful_queries = 0
+    failed_queries = 0
     notes: list[str] = []
     for _, candidate in candidates.iterrows():
         accession = str(candidate.get("candidate_seed_accession") or candidate.get("protein_id") or "").strip()
@@ -2805,15 +2833,12 @@ def _attempt_interpro_domain_enrichment(
             continue
         attempted = True
         url = _build_interpro_url(accession, cfg)
-        try:
-            payload = urlopen_json(
-                url,
-                timeout=float(cfg["provider_timeout_seconds"]),
-                headers={"User-Agent": str(cfg["provider_user_agent"]), "Accept": "application/json"},
-            )
-        except Exception as exc:  # noqa: BLE001
-            notes.append(f"{accession}:{classify_provider_failure(exc)}")
+        payload, query_notes = _query_interpro_payload(url, cfg)
+        if payload is None:
+            failed_queries += 1
+            notes.extend(f"{accession}:{note}" for note in query_notes)
             continue
+        successful_queries += 1
         domains = _extract_interpro_accessions(payload)
         retrieved += len(domains)
         if domains:
@@ -2838,8 +2863,23 @@ def _attempt_interpro_domain_enrichment(
     if rows:
         external_path.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(rows).to_csv(external_path, index=False)
-    fallback = "" if rows else ("api_success_no_domain_records" if attempted and not notes else ";".join(notes) or "no_candidate_records")
-    api_success = attempted and not notes
+    fallback = "" if rows else (
+        "api_success_no_domain_records"
+        if successful_queries > 0
+        else ";".join(notes) or "no_candidate_records"
+    )
+    # A few failed accessions must not erase hundreds of valid responses.  The
+    # partial state and exact failure count remain explicit in the manifest.
+    api_success = successful_queries > 0
+    retrieval_status = (
+        "api_real_partial"
+        if rows and failed_queries
+        else "api_real"
+        if rows
+        else "api_success_no_domain_records"
+        if api_success
+        else classify_provider_failure(fallback)
+    )
     return _write_online_only_provider_manifest(
         workspace=workspace,
         layer_key="host_annotation",
@@ -2852,8 +2892,8 @@ def _attempt_interpro_domain_enrichment(
         matched_candidate_count=len(rows),
         fallback_used=not bool(rows),
         fallback_reason=fallback,
-        retrieval_status="api_real" if rows else ("api_success_no_domain_records" if api_success else classify_provider_failure(fallback)),
-        source_used="api_real" if api_success else "api_failed",
+        retrieval_status=retrieval_status,
+        source_used="api_real_partial" if failed_queries and api_success else ("api_real" if api_success else "api_failed"),
         data_realism_flag="computed_online" if rows else "unresolved",
         evidence_level="computational_online_domain_annotation" if rows else "unresolved",
         inherited_from_candidate_seed=False,
@@ -2861,11 +2901,48 @@ def _attempt_interpro_domain_enrichment(
         extra_manifest={
             "affected_candidate_count": 0,
             "updated_cell_count": 0,
+            "successful_accession_queries": successful_queries,
+            "failed_accession_queries": failed_queries,
+            "provider_notes": notes,
             "scoring_effect": (
                 "neutral_metadata_only_no_human_comparison"
             ),
         },
     )
+
+
+def _query_interpro_payload(
+    url: str,
+    cfg: dict[str, Any],
+) -> tuple[dict[str, Any] | None, list[str]]:
+    """Fetch one InterPro accession with bounded transient retries."""
+    timeout = float(cfg["provider_timeout_seconds"])
+    retries = int(cfg["provider_max_retries"])
+    backoff = float(cfg["provider_backoff_seconds"])
+    headers = {
+        "User-Agent": str(cfg["provider_user_agent"]),
+        "Accept": "application/json",
+    }
+    retryable_http_statuses = {408, 425, 429, 500, 502, 503, 504}
+    notes: list[str] = []
+    for attempt in range(retries + 1):
+        try:
+            payload = urlopen_json(url, timeout=timeout, headers=headers)
+            return payload, notes
+        except HTTPError as exc:
+            notes.append(f"http_{exc.code}")
+            retryable = exc.code in retryable_http_statuses
+        except (URLError, TimeoutError) as exc:
+            notes.append(classify_provider_failure(exc))
+            retryable = True
+        except (ssl.SSLError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            notes.append(classify_provider_failure(exc))
+            retryable = False
+        if retryable and attempt < retries:
+            time.sleep(backoff)
+            continue
+        break
+    return None, notes
 
 
 def _attempt_literature_metadata_enrichment(
@@ -3490,3 +3567,4 @@ def _json_dump(path: Path, payload: dict[str, Any]) -> None:
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+

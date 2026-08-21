@@ -239,6 +239,22 @@ def test_online_only_config_propagates_every_provider_switch_and_dataset_path(tm
     assert config["online_sources"]["deg"]["local_dataset_path"] == str(deg_dataset)
 
 
+def test_online_only_config_applies_per_run_string_runtime_overrides(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    config_path = workspace / "config" / "params.yaml"
+
+    _write_online_only_config(
+        config_path,
+        "online_strict",
+        string_timeout_seconds=120,
+        string_max_retries=2,
+    )
+
+    string_cfg = load_config(config_path)["online_sources"]["string"]
+    assert string_cfg["provider_timeout_seconds"] == 120.0
+    assert string_cfg["provider_max_retries"] == 2
+
+
 def test_layer_resolver_does_not_call_disabled_network_provider(tmp_path: Path) -> None:
     workspace = _workspace(tmp_path)
     config_path = workspace / "config" / "params.yaml"
@@ -1665,3 +1681,63 @@ def test_online_only_interpro_bacterial_metadata_is_neutral_for_scoring(
     assert bool(row["affects_score"]) is False
     assert int(row["affected_candidate_count"]) == 0
     assert int(row["updated_cell_count"]) == 0
+
+
+def test_online_only_interpro_retries_transient_failure(tmp_path: Path) -> None:
+    from src.nodos_funcionales.online_only_validation import (
+        _attempt_interpro_domain_enrichment,
+    )
+
+    workspace = _workspace(tmp_path)
+    config = load_config(workspace / "config" / "params.yaml")
+    config["online_sources"]["interpro"]["provider_backoff_seconds"] = 0.0
+    candidates = pd.DataFrame(
+        [{"protein_id": "P12345", "gene": "seedA", "candidate_seed_accession": "P12345"}]
+    )
+    payload = {"results": [{"metadata": {"accession": "IPR000001"}}]}
+
+    with patch(
+        "src.nodos_funcionales.online_only_validation.urlopen_json",
+        side_effect=[URLError("temporary route failure"), payload],
+    ) as http_mock:
+        result = _attempt_interpro_domain_enrichment(
+            workspace, "Escherichia coli", "511145", config, "online_strict", candidates
+        )
+
+    assert http_mock.call_count == 2
+    assert result["api_success"] is True
+    assert result["successful_accession_queries"] == 1
+    assert result["failed_accession_queries"] == 0
+
+
+def test_online_only_interpro_preserves_partial_success(tmp_path: Path) -> None:
+    from src.nodos_funcionales.online_only_validation import (
+        _attempt_interpro_domain_enrichment,
+    )
+
+    workspace = _workspace(tmp_path)
+    config = load_config(workspace / "config" / "params.yaml")
+    config["online_sources"]["interpro"]["provider_max_retries"] = 0
+    candidates = pd.DataFrame(
+        [
+            {"protein_id": "P12345", "gene": "seedA", "candidate_seed_accession": "P12345"},
+            {"protein_id": "P99999", "gene": "seedB", "candidate_seed_accession": "P99999"},
+        ]
+    )
+    payload = {"results": [{"metadata": {"accession": "IPR000001"}}]}
+
+    with patch(
+        "src.nodos_funcionales.online_only_validation.urlopen_json",
+        side_effect=[payload, URLError("offline")],
+    ):
+        result = _attempt_interpro_domain_enrichment(
+            workspace, "Escherichia coli", "511145", config, "online_strict", candidates
+        )
+
+    assert result["api_success"] is True
+    assert result["retrieval_status"] == "api_real_partial"
+    assert result["source_used"] == "api_real_partial"
+    assert result["successful_accession_queries"] == 1
+    assert result["failed_accession_queries"] == 1
+    assert result["matched_candidate_count"] == 1
+

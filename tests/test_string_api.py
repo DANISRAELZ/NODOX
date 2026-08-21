@@ -21,6 +21,9 @@ from src.nodos_funcionales.online_sources import fetch_online_source
 from src.nodos_funcionales.pipeline import run_pipeline
 from src.nodos_funcionales.scoring import build_features_and_scores
 from src.nodos_funcionales.string_api import (
+    _api_get_json,
+    _build_network_request,
+    _build_string_id_request,
     fetch_string_functional_network,
     invalidate_string_cache_entry,
     invalidate_string_cache_entries_for_protein,
@@ -131,6 +134,56 @@ class StringApiTests(unittest.TestCase):
         )
         self.assertTrue(result["manifest"]["usable_evidence"])
         self.assertTrue(result["manifest"]["affects_score"])
+        self.assertEqual(result["manifest"]["id_query_method"], "POST")
+        self.assertEqual(result["manifest"]["network_query_method"], "POST")
+        first_request = urlopen_mock.call_args_list[0].args[0]
+        self.assertEqual(first_request.get_method(), "POST")
+        self.assertNotIn("identifiers=", first_request.full_url)
+        self.assertIn(b"identifiers=", first_request.data)
+
+    def test_large_string_request_keeps_identifiers_out_of_url(self) -> None:
+        config = load_config(PROJECT_ROOT / "config" / "params.yaml")
+        cfg = config["online_sources"]["string"]
+        proteins = pd.DataFrame(
+            {"protein_id": [f"P{i:05d}" for i in range(1000)]}
+        )
+
+        mapping_url, mapping_form = _build_string_id_request(
+            proteins,
+            "511145",
+            cfg,
+        )
+        network_url, network_form = _build_network_request(
+            [f"511145.P{i:05d}" for i in range(1000)],
+            "511145",
+            cfg,
+        )
+
+        self.assertNotIn("identifiers=", mapping_url)
+        self.assertNotIn("identifiers=", network_url)
+        self.assertEqual(mapping_form["identifiers"].count("\r"), 999)
+        self.assertEqual(network_form["identifiers"].count("\r"), 999)
+
+    def test_string_retries_transient_transport_failure(self) -> None:
+        config = load_config(PROJECT_ROOT / "config" / "params.yaml")
+        cfg = dict(config["online_sources"]["string"])
+        cfg["provider_backoff_seconds"] = 0.0
+
+        with patch("src.nodos_funcionales.string_api.urlopen") as urlopen_mock:
+            urlopen_mock.side_effect = [
+                URLError("temporary route failure"),
+                FakeResponse([{"queryItem": "P00001", "stringId": "511145.P00001"}]),
+            ]
+            payload, errors, response = _api_get_json(
+                "https://string-db.org/api/json/get_string_ids",
+                cfg,
+                form_data={"identifiers": "P00001", "species": "511145"},
+            )
+
+        self.assertEqual(urlopen_mock.call_count, 2)
+        self.assertEqual(payload[0]["stringId"], "511145.P00001")
+        self.assertEqual(len(errors), 1)
+        self.assertIsNotNone(response)
 
     def test_fetch_string_functional_network_offline_uses_cache(self) -> None:
         workspace = self.make_workspace("string_cache")
@@ -590,3 +643,4 @@ class StringApiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
