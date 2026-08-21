@@ -23,7 +23,15 @@ class ProviderResponse:
     headers: dict[str, str] = field(default_factory=dict)
 
 
-def request_provider_payload(url: str, *, timeout: float, user_agent: str, accept: str, opener: Any = urlopen) -> ProviderResponse:
+def request_provider_payload(
+    url: str,
+    *,
+    timeout: float,
+    user_agent: str,
+    accept: str,
+    opener: Any = urlopen,
+    data: bytes | None = None,
+) -> ProviderResponse:
     """Fetch a provider URL and classify the payload without making biological claims."""
     try:
         context = None
@@ -33,7 +41,10 @@ def request_provider_payload(url: str, *, timeout: float, user_agent: str, accep
             from .online_http import get_ssl_context
 
             context = get_ssl_context()
-        request = Request(url, headers={"User-Agent": user_agent, "Accept": accept})
+        headers = {"User-Agent": user_agent, "Accept": accept}
+        if data is not None:
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+        request = Request(url, data=data, headers=headers)
         with opener(request, timeout=timeout, context=context) as response:
             raw = response.read()
             status = _response_status(response)
@@ -159,3 +170,4 @@ def _response_headers(response: Any) -> dict[str, str]:
             if value:
                 headers[name.lower()] = str(value)
     return headers
+
