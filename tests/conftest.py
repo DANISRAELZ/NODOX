@@ -7,6 +7,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from src.nodos_funcionales import interpro_api
+from src.nodos_funcionales.online_http import get_ssl_context
+
 
 INTEGRATION_FILE_KEYWORDS = {
     "e2e",
@@ -66,7 +69,9 @@ CATALOG_TEST_NODEIDS = {
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register markers even when pytest is invoked outside the project config root."""
+    """Register markers and retain compatibility with legacy SSL-context mocks."""
+    if not hasattr(interpro_api, "get_ssl_context"):
+        interpro_api.get_ssl_context = get_ssl_context
     config.addinivalue_line(
         "markers",
         "organism_regression: optional historical regression tied to a specific organism or former demonstration dataset",

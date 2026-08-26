@@ -12,7 +12,6 @@ from urllib.request import urlopen
 import pandas as pd
 
 from .human_essentiality_api import fetch_human_essentiality_annotations
-from .online_http import get_ssl_context
 from .online.provider_modes import normalize_provider_mode
 from .provider_response_audit import request_provider_payload
 
@@ -50,15 +49,16 @@ def _cache_path(workspace: Path, config: dict[str, Any]) -> Path:
 def load_interpro_cache(workspace: Path, config: dict[str, Any]) -> dict[str, Any]:
     path = _cache_path(workspace, config)
     if not path.exists():
-        return {"schema_version": 1, "updated_at_utc": None, "entries": {}}
+        return {"schema_version": 2, "updated_at_utc": None, "entries": {}}
     payload = json.loads(path.read_text(encoding="utf-8"))
-    payload.setdefault("schema_version", 1)
+    payload.setdefault("schema_version", 2)
     payload.setdefault("updated_at_utc", None)
     payload.setdefault("entries", {})
     return payload
 
 
 def save_interpro_cache(workspace: Path, config: dict[str, Any], payload: dict[str, Any]) -> None:
+    payload["schema_version"] = max(int(payload.get("schema_version", 1)), 2)
     payload["updated_at_utc"] = _utc_now()
     _json_dump(_cache_path(workspace, config), payload)
 
@@ -70,20 +70,36 @@ def _api_get_json(url: str, cfg: dict[str, Any]) -> tuple[Any | None, list[str]]
     backoff = float(cfg["provider_backoff_seconds"])
     errors: list[str] = []
     for attempt in range(retries + 1):
-        response = request_provider_payload(url, timeout=timeout, user_agent=user_agent, accept="application/json", opener=urlopen)
+        response = request_provider_payload(
+            url,
+            timeout=timeout,
+            user_agent=user_agent,
+            accept="application/json",
+            opener=urlopen,
+        )
         if response.error_status == "" and response.payload_type == "json":
             return response.payload, errors
-        errors.append(response.rejection_reason or response.error_status or f"unexpected_payload_type:{response.payload_type}")
+        errors.append(
+            response.rejection_reason
+            or response.error_status
+            or f"unexpected_payload_type:{response.payload_type}"
+        )
         if response.http_status == 429 and attempt < retries:
-            time.sleep(backoff)
+            time.sleep(backoff * (2**attempt))
             continue
         break
     return None, errors
 
 
-def _interpro_status_from_notes(api_success: bool, accessions: list[str], notes: list[str]) -> str:
-    if api_success and accessions:
+def _interpro_status(
+    attempted: int,
+    succeeded: int,
+    notes: list[str],
+) -> str:
+    if attempted and succeeded == attempted:
         return "connected_structured_payload"
+    if succeeded:
+        return "connected_structured_payload_partial"
     joined = " ".join(str(note) for note in notes).lower()
     if "ssl_error" in joined or "openssl" in joined:
         return "ssl_error"
@@ -150,9 +166,8 @@ def _build_query_url(accession: str, cfg: dict[str, Any]) -> str:
 def _extract_entries(payload: Any) -> set[str]:
     if not isinstance(payload, dict):
         return set()
-    results = payload.get("results", []) or []
     entries: set[str] = set()
-    for item in results:
+    for item in payload.get("results", []) or []:
         if not isinstance(item, dict):
             continue
         metadata = item.get("metadata", {}) or {}
@@ -176,7 +191,10 @@ def _format_entries(entries: set[str]) -> str:
     return ";".join(sorted(entries)) if entries else ""
 
 
-def _human_essentiality_lookup(workspace: Path, config: dict[str, Any]) -> tuple[dict[str, float], dict[str, str], list[str]]:
+def _human_essentiality_lookup(
+    workspace: Path,
+    config: dict[str, Any],
+) -> tuple[dict[str, float], dict[str, str], list[str]]:
     cfg = config["online_sources"].get("human_essentiality", {})
     if not bool(cfg.get("enabled", True)):
         return {}, {}, ["human_essentiality_disabled"]
@@ -200,13 +218,19 @@ def _human_essentiality_lookup(workspace: Path, config: dict[str, Any]) -> tuple
     return score_lookup, status_lookup, list(result.get("manifest", {}).get("notes", []))
 
 
-def _derive_host_annotation(candidates: pd.DataFrame, domain_lookup: dict[str, set[str]], config: dict[str, Any], workspace: Path) -> tuple[pd.DataFrame, int, list[str]]:
+def _derive_host_annotation(
+    candidates: pd.DataFrame,
+    domain_lookup: dict[str, set[str]],
+    config: dict[str, Any],
+    workspace: Path,
+) -> tuple[pd.DataFrame, int, list[str]]:
     cfg = config["online_sources"]["interpro"]
     essentiality_scores, essentiality_status, essentiality_notes = _human_essentiality_lookup(workspace, config)
     criticality_weight = float(config["online_sources"].get("human_essentiality", {}).get("criticality_weight", 0.20))
     neutral = float(config["imputation"]["neutral_unknown_score"])
-    rows = []
+    rows: list[dict[str, Any]] = []
     paired_domain_rows = 0
+
     for _, row in candidates.iterrows():
         protein_id = _normalise_id(row.get("protein_id"))
         if not protein_id:
@@ -222,7 +246,7 @@ def _derive_host_annotation(candidates: pd.DataFrame, domain_lookup: dict[str, s
         bacterial_entries = domain_lookup.get(bacterial_accession, set())
         human_entries = domain_lookup.get(human_accession, set())
         shared_entries = bacterial_entries & human_entries
-        flags = []
+        flags: list[str] = []
         if not bacterial_accession:
             flags.append("missing_bacterial_uniprot_accession")
         if not human_accession and human_signal > 0:
@@ -239,7 +263,14 @@ def _derive_host_annotation(candidates: pd.DataFrame, domain_lookup: dict[str, s
             denominator = max(len(bacterial_entries | human_entries), 1)
             domain_overlap = len(shared_entries) / denominator
             base_criticality = 0.75 * domain_overlap + 0.25 * human_signal
-            host_criticality = min(1.0, max(0.0, (1.0 - criticality_weight) * base_criticality + criticality_weight * human_essentiality))
+            host_criticality = min(
+                1.0,
+                max(
+                    0.0,
+                    (1.0 - criticality_weight) * base_criticality
+                    + criticality_weight * human_essentiality,
+                ),
+            )
             rule = "interpro_shared_domain_overlap_v1"
         elif human_signal == 0:
             domain_overlap = 0.0
@@ -248,7 +279,14 @@ def _derive_host_annotation(candidates: pd.DataFrame, domain_lookup: dict[str, s
         else:
             domain_overlap = neutral
             base_criticality = 0.60 * neutral + 0.40 * human_signal
-            host_criticality = min(1.0, max(0.0, (1.0 - criticality_weight) * base_criticality + criticality_weight * human_essentiality))
+            host_criticality = min(
+                1.0,
+                max(
+                    0.0,
+                    (1.0 - criticality_weight) * base_criticality
+                    + criticality_weight * human_essentiality,
+                ),
+            )
             rule = "interpro_incomplete_domain_context_default_v1"
 
         rows.append(
@@ -272,26 +310,13 @@ def _derive_host_annotation(candidates: pd.DataFrame, domain_lookup: dict[str, s
     return pd.DataFrame(rows, columns=HOST_ANNOTATION_COLUMNS), paired_domain_rows, essentiality_notes
 
 
-def _effective_host_annotation_updates(
-    df: pd.DataFrame,
-    neutral_score: float,
-) -> tuple[int, int]:
-    scoring_columns = [
-        "domain_overlap_score",
-        "host_criticality_penalty",
-    ]
+def _effective_host_annotation_updates(df: pd.DataFrame, neutral_score: float) -> tuple[int, int]:
+    scoring_columns = ["domain_overlap_score", "host_criticality_penalty"]
     if df.empty:
         return 0, 0
-    numeric = df.reindex(columns=scoring_columns).apply(
-        pd.to_numeric,
-        errors="coerce",
-    )
-    changed = numeric.notna() & (
-        numeric.sub(float(neutral_score)).abs() > 1e-12
-    )
-    affected_candidate_count = int(changed.any(axis=1).sum())
-    updated_cell_count = int(changed.sum().sum())
-    return affected_candidate_count, updated_cell_count
+    numeric = df.reindex(columns=scoring_columns).apply(pd.to_numeric, errors="coerce")
+    changed = numeric.notna() & (numeric.sub(float(neutral_score)).abs() > 1e-12)
+    return int(changed.any(axis=1).sum()), int(changed.sum().sum())
 
 
 def _write_manifest(workspace: Path, manifest: dict[str, Any]) -> Path:
@@ -302,7 +327,15 @@ def _write_manifest(workspace: Path, manifest: dict[str, Any]) -> Path:
 
 def _cache_manifest(cached_manifest: dict[str, Any], mode: str) -> dict[str, Any]:
     manifest = {**cached_manifest}
-    manifest.update({"mode": mode, "source_used": "cache", "cache_hit": True, "api_attempted": False, "api_success": False})
+    manifest.update(
+        {
+            "mode": mode,
+            "source_used": "cache",
+            "cache_hit": True,
+            "api_attempted": False,
+            "api_success": False,
+        }
+    )
     notes = list(manifest.get("notes", []))
     if "served_from_cache" not in notes:
         notes.append("served_from_cache")
@@ -330,23 +363,25 @@ def fetch_interpro_host_annotation(
         entry = cache["entries"][cache_key]
         df = pd.DataFrame(entry.get("host_annotation_rows", []), columns=HOST_ANNOTATION_COLUMNS)
         manifest = _cache_manifest(entry.get("manifest", {}), mode)
-        affected_candidate_count, updated_cell_count = (
-            _effective_host_annotation_updates(
-                df,
-                float(config["imputation"]["neutral_unknown_score"]),
-            )
+        affected_candidate_count, updated_cell_count = _effective_host_annotation_updates(
+            df,
+            float(config["imputation"]["neutral_unknown_score"]),
         )
-        if not bool(manifest.get("api_success", False)):
-            affected_candidate_count = 0
-            updated_cell_count = 0
         manifest.update(
             {
                 "affected_candidate_count": affected_candidate_count,
                 "updated_cell_count": updated_cell_count,
+                # InterPro is annotation/provenance in the online-only runner;
+                # score application remains controlled downstream.
                 "affects_score": False,
             }
         )
-        return {"host_annotation_data": df, "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
+        return {
+            "host_annotation_data": df,
+            "manifest": manifest,
+            "manifest_path": _write_manifest(workspace, manifest),
+        }
+
     if mode == "offline_only":
         raise FileNotFoundError("Modo offline_only sin cache InterPro utilizable para esta capa.")
     if candidates.empty:
@@ -363,11 +398,19 @@ def fetch_interpro_host_annotation(
             "cache_hit": False,
             "api_attempted": False,
             "api_success": False,
+            "api_complete": False,
             "fallback_reason": "no_candidate_proteins",
             "notes": ["no_candidate_proteins"],
             "generated_at_utc": _utc_now(),
+            "affects_score": False,
+            "blocks_ranking": False,
+            "evidence_inferred": False,
         }
-        return {"host_annotation_data": pd.DataFrame(columns=HOST_ANNOTATION_COLUMNS), "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
+        return {
+            "host_annotation_data": pd.DataFrame(columns=HOST_ANNOTATION_COLUMNS),
+            "manifest": manifest,
+            "manifest_path": _write_manifest(workspace, manifest),
+        }
 
     accessions = sorted(
         {
@@ -379,26 +422,46 @@ def fetch_interpro_host_annotation(
     )
     domain_lookup: dict[str, set[str]] = {}
     notes: list[str] = []
-    api_success = True
+    succeeded_accessions: list[str] = []
+    failed_accessions: list[str] = []
+
     for accession in accessions:
         entries, errors, success = _query_entries(accession, cfg)
         notes.extend(errors)
-        if not success:
-            api_success = False
+        if success:
+            succeeded_accessions.append(accession)
+        else:
+            failed_accessions.append(accession)
         domain_lookup[accession] = entries
 
-    df, paired_domain_rows, essentiality_notes = _derive_host_annotation(candidates, domain_lookup, config, workspace)
-    affected_candidate_count, updated_cell_count = (
-        _effective_host_annotation_updates(
-            df,
-            float(config["imputation"]["neutral_unknown_score"]),
-        )
+    df, paired_domain_rows, essentiality_notes = _derive_host_annotation(
+        candidates,
+        domain_lookup,
+        config,
+        workspace,
     )
-    if not (api_success and paired_domain_rows):
-        affected_candidate_count = 0
-        updated_cell_count = 0
-    source_used = "api_real" if api_success and paired_domain_rows else ("api_real_partial" if api_success else "api_failed")
+    affected_candidate_count, updated_cell_count = _effective_host_annotation_updates(
+        df,
+        float(config["imputation"]["neutral_unknown_score"]),
+    )
+
+    attempted_count = len(accessions)
+    success_count = len(succeeded_accessions)
+    api_success = success_count > 0
+    api_complete = bool(attempted_count and success_count == attempted_count)
+    retrieval_status = _interpro_status(attempted_count, success_count, notes)
+    if api_complete and paired_domain_rows:
+        source_used = "api_real"
+    elif api_success:
+        source_used = "api_real_partial"
+    else:
+        source_used = "api_failed" if attempted_count else "unresolved"
+
     all_notes = notes + essentiality_notes
+    if failed_accessions:
+        all_notes.append(
+            f"partial_interpro_retrieval:{len(failed_accessions)}_of_{attempted_count}_accessions_failed"
+        )
     manifest = {
         "source": "interpro",
         "provider": str(cfg["provider_name"]),
@@ -408,24 +471,46 @@ def fetch_interpro_host_annotation(
         "taxon_id": taxon_id,
         "query_cache_key": cache_key,
         "proteins_queried": int(len(candidates)),
-        "accessions_queried": int(len(accessions)),
+        "accessions_queried": attempted_count,
+        "accessions_succeeded": success_count,
+        "accessions_failed": len(failed_accessions),
+        "accession_success_fraction": round(success_count / attempted_count, 6) if attempted_count else 0.0,
         "paired_domain_rows": int(paired_domain_rows),
         "affected_candidate_count": int(affected_candidate_count),
         "updated_cell_count": int(updated_cell_count),
         "source_used": source_used,
         "cache_hit": False,
-        "api_attempted": bool(accessions),
-        "api_success": bool(api_success and accessions),
-        "retrieval_status": _interpro_status_from_notes(api_success, accessions, notes),
-        "fallback_reason": None if paired_domain_rows else "no_comparable_interpro_domain_pairs",
+        "api_attempted": bool(attempted_count),
+        # api_success means usable structured retrieval occurred at least once;
+        # api_complete reports whether every requested accession succeeded.
+        "api_success": api_success,
+        "api_complete": api_complete,
+        "provider_success": api_success,
+        "technical_success": api_success,
+        "retrieval_success": api_success,
+        "retrieval_status": retrieval_status,
+        "fallback_reason": (
+            None
+            if paired_domain_rows
+            else "no_comparable_interpro_domain_pairs"
+        ),
         "notes": all_notes,
         "generated_at_utc": _utc_now(),
         "affects_score": False,
         "blocks_ranking": False,
         "evidence_inferred": bool(paired_domain_rows),
+        "usable_evidence": bool(paired_domain_rows),
         "parser_used": "interpro_json_results_parser",
     }
     if not no_write_cache and not df.empty and api_success:
-        cache["entries"][cache_key] = {"saved_at_utc": _utc_now(), "host_annotation_rows": df.to_dict(orient="records"), "manifest": manifest}
+        cache["entries"][cache_key] = {
+            "saved_at_utc": _utc_now(),
+            "host_annotation_rows": df.to_dict(orient="records"),
+            "manifest": manifest,
+        }
         save_interpro_cache(workspace, config, cache)
-    return {"host_annotation_data": df, "manifest": manifest, "manifest_path": _write_manifest(workspace, manifest)}
+    return {
+        "host_annotation_data": df,
+        "manifest": manifest,
+        "manifest_path": _write_manifest(workspace, manifest),
+    }

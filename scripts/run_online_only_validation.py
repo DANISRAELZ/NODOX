@@ -82,6 +82,76 @@ def validate_complete_snapshot_cli_contract(
         )
 
 
+def _resolve_required_file(value: str | None, default_relative: str) -> Path:
+    candidate = Path(value).expanduser() if value else PROJECT_ROOT / default_relative
+    if not candidate.is_absolute():
+        candidate = PROJECT_ROOT / candidate
+    return candidate.resolve()
+
+
+def validate_biological_evidence_cli_contract(args: argparse.Namespace) -> None:
+    """Fail fast when the user explicitly requires publication-grade evidence coverage.
+
+    A technically complete proteome run is not automatically a biologically
+    complete validation run. DEG/VFDB are versioned local datasets and DIAMOND
+    requires an explicitly validated human reference/database or cached output.
+    This gate is opt-in to preserve smoke-test and exploratory workflows.
+    """
+    if not bool(args.require_complete_evidence):
+        return
+    if int(args.max_candidates) != 0:
+        raise ValueError(
+            "--require-complete-evidence is intended for --max-candidates=0 complete-proteome runs"
+        )
+
+    missing: list[str] = []
+    if not args.disable_deg:
+        deg_path = _resolve_required_file(args.deg_dataset, "data_external/deg.csv")
+        if not deg_path.is_file():
+            missing.append(f"DEG versioned dataset ({deg_path})")
+    if not args.disable_vfdb:
+        vfdb_path = _resolve_required_file(args.vfdb_dataset, "data_external/vfdb.csv")
+        if not vfdb_path.is_file():
+            missing.append(f"VFDB versioned dataset ({vfdb_path})")
+
+    if not args.enable_diamond:
+        missing.append("DIAMOND human-homology provider (--enable-diamond)")
+    elif args.diamond_execution_mode == "cache_only":
+        if not args.diamond_cached_tsv:
+            missing.append("DIAMOND cached TSV (--diamond-cached-tsv)")
+        else:
+            cached = _resolve_required_file(args.diamond_cached_tsv, args.diamond_cached_tsv)
+            if not cached.is_file():
+                missing.append(f"DIAMOND cached TSV ({cached})")
+    else:
+        reference_ok = False
+        if args.diamond_reference_fasta:
+            reference_ok = _resolve_required_file(
+                args.diamond_reference_fasta,
+                args.diamond_reference_fasta,
+            ).is_file()
+        database_ok = False
+        if args.diamond_database_prefix:
+            db_prefix = _resolve_required_file(
+                args.diamond_database_prefix,
+                args.diamond_database_prefix,
+            )
+            database_ok = db_prefix.is_file() or Path(str(db_prefix) + ".dmnd").is_file()
+        if not (reference_ok or database_ok):
+            missing.append(
+                "DIAMOND validated human reference FASTA or database prefix "
+                "(--diamond-reference-fasta/--diamond-database-prefix)"
+            )
+
+    if missing:
+        detail = "\n  - ".join(missing)
+        raise ValueError(
+            "publication-grade biological evidence preflight failed; missing prerequisites:\n"
+            f"  - {detail}\n"
+            "Provide these inputs or omit --require-complete-evidence for an exploratory run."
+        )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -117,6 +187,15 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Validated versioned UniProt candidate-seed snapshot directory. "
             "Reuse is reported as snapshot_reused, not as live API success."
+        ),
+    )
+    parser.add_argument(
+        "--require-complete-evidence",
+        action="store_true",
+        help=(
+            "Fail before running a complete-proteome publication benchmark unless the configured "
+            "DEG and VFDB datasets exist and DIAMOND has an explicit validated input. This prevents "
+            "technical completion from being mistaken for complete biological validation."
         ),
     )
     parser.add_argument("--disable-string", action="store_true", help="Record STRING as disabled and unresolved.")
@@ -169,6 +248,7 @@ def main(argv: list[str] | None = None) -> int:
             candidate_seed_snapshot=args.candidate_seed_snapshot,
             expected_proteome_id=organism_options.get("proteome_id"),
         )
+        validate_biological_evidence_cli_contract(args)
     except (ValueError, json.JSONDecodeError) as exc:
         parser.error(str(exc))
 
