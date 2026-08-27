@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .config import load_config
+from .host_similarity_semantics import install_phase3_host_similarity_semantics
 from .integration import integrate_tables
 from .normalization import normalize_all
 from .reporting import export_results
@@ -17,6 +18,11 @@ def run_pipeline(
     mode: str = "compare",
     online_source_mode: str | None = None,
 ) -> dict[str, object]:
+    # Install once per run before scoring. This preserves human_homolog as the
+    # binary DIAMOND hit-detection field while Phase 3 consumes a continuous,
+    # alignment-aware host-similarity risk and does not double-count detection.
+    install_phase3_host_similarity_semantics()
+
     config = load_config(config_path)
     if online_source_mode:
         config.setdefault("online_sources", {})["source_mode_effective"] = online_source_mode
