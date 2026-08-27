@@ -5,6 +5,10 @@ from pathlib import Path
 from .config import load_config
 from .host_similarity_semantics import install_phase3_host_similarity_semantics
 from .integration import integrate_tables
+from .localization_semantics import (
+    install_peripheral_membrane_profiles,
+    materialize_frozen_uniprot_topology_semantics,
+)
 from .normalization import normalize_all
 from .reporting import export_results
 from .runtime import resolve_pipeline_mode
@@ -30,6 +34,15 @@ def run_pipeline(
     validation_summary = load_and_validate_all(base_dir, config)
     normalize_all(base_dir, config)
     integrated = integrate_tables(base_dir)
+
+    # UniProt subcellular-location records can explicitly distinguish peripheral
+    # from integral membrane association. Preserve that orthogonal topology from
+    # the frozen exact-proteome seed and install conservative access profiles
+    # before scoring. No provider is re-run and the original compartment remains
+    # available as localization_reported for audit.
+    install_peripheral_membrane_profiles(config)
+    integrated = materialize_frozen_uniprot_topology_semantics(base_dir, integrated)
+
     features, scored = build_features_and_scores(base_dir, config)
     phase3_enabled = mode == "phase3" or bool(config.get("phase3", {}).get("enabled", False))
     phase3_feature_rows = 0
