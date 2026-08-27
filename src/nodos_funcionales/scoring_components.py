@@ -170,15 +170,17 @@ def _significance_strength(evalue: object) -> float | None:
 def human_similarity_score(row: pd.Series, neutral_unknown_score: float) -> float:
     """Estimate continuous host-similarity risk from a DIAMOND local alignment.
 
-    ``human_homolog`` remains a detection flag: 0 means no detectable hit and 1
-    means a hit passed provider classification. The risk score is deliberately
-    separate. It combines alignment identity, two-sided alignment extent, and
-    statistical significance instead of assigning tier-based risk floors.
+    ``human_homolog`` remains a detection/classification flag, while risk is
+    derived from the alignment itself whenever DIAMOND has materialized all
+    required dimensions. This matters for weak/low-coverage hits that are kept
+    unresolved in the binary field but still contain real identity, coverage,
+    and E-value evidence.
 
     Because DIAMOND performs local alignment, a very small e-value can arise for
     a conserved domain that covers only part of one or both proteins. Such a hit
     is retained as real evidence but does not automatically imply maximal
-    off-target risk. Missing alignment dimensions remain unresolved/neutral.
+    off-target risk. The neutral score is reserved for genuinely incomplete
+    alignment evidence.
 
     This score is a prioritization heuristic, not a probability of toxicity and
     not proof of functional equivalence to the human hit.
@@ -197,9 +199,6 @@ def human_similarity_score(row: pd.Series, neutral_unknown_score: float) -> floa
     }
     if tier in no_hit_tiers:
         return 0.0
-
-    if pd.isna(human_homolog):
-        return float(neutral_unknown_score)
 
     identity = _identity_strength(row.get("percent_identity"))
     extent = _alignment_extent(row.get("query_coverage"), row.get("subject_coverage"))
