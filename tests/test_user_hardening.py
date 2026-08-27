@@ -52,6 +52,7 @@ class UserHardeningTests(unittest.TestCase):
                 "source_type": ["packaged_demo"],
                 "source_name": ["packaged_demo:essentiality.csv"],
                 "generated_by": ["packaged_demo"],
+                "is_user_supplied": [False],
                 "retrieval_status": ["resolved_from_raw"],
             }
         )
@@ -141,12 +142,13 @@ class UserHardeningTests(unittest.TestCase):
         self.assertFalse(bool(human["evidence_is_negative"]))
         self.assertIn("no es evidencia negativa", human["missing_evidence_reason"])
 
-    def test_real_negative_evidence_requires_real_source(self) -> None:
+    def test_real_negative_host_similarity_requires_real_source(self) -> None:
         df = pd.DataFrame(
             {
                 "protein_id": ["A"],
                 "gene": ["a"],
                 "human_homolog": [1],
+                "host_similarity_risk": [0.85],
                 "human_homologs_source_type": ["external"],
                 "human_homologs_source_name": ["uniprot"],
                 "human_homologs_is_external": [True],
@@ -154,10 +156,12 @@ class UserHardeningTests(unittest.TestCase):
         )
 
         audit = build_layer_evidence_audit(df)
-        human = audit.loc[(audit["layer_name"] == "human_homologs") & (audit["variable_name"] == "human_homolog")].iloc[0]
+        hit = audit.loc[(audit["layer_name"] == "human_homologs") & (audit["variable_name"] == "human_homolog")].iloc[0]
+        risk = audit.loc[(audit["layer_name"] == "human_homologs") & (audit["variable_name"] == "host_similarity_risk")].iloc[0]
 
-        self.assertTrue(bool(human["evidence_is_negative"]))
-        self.assertIn("human_homologs.human_homolog", human["negative_evidence_reason"])
+        self.assertFalse(bool(hit["evidence_is_negative"]))
+        self.assertTrue(bool(risk["evidence_is_negative"]))
+        self.assertIn("human_homologs.host_similarity_risk", risk["negative_evidence_reason"])
 
     def test_demo_and_proxy_values_are_not_negative_evidence(self) -> None:
         df = pd.DataFrame(
