@@ -13,7 +13,7 @@ from src.nodos_funcionales.scoring_components import human_similarity_score
 pytestmark = pytest.mark.unit
 
 
-def test_phase3_reuses_phase2_continuous_human_similarity_score() -> None:
+def test_phase3_reuses_phase2_continuous_human_similarity_score_when_raw_alignment_is_absent() -> None:
     features = pd.DataFrame(
         {
             "human_homolog": [1, 1, 0],
@@ -25,6 +25,51 @@ def test_phase3_reuses_phase2_continuous_human_similarity_score() -> None:
     risk = continuous_host_similarity_risk(features)
     assert risk.tolist() == pytest.approx([0.19, 0.88, 0.0])
     assert features["human_homolog"].tolist() == [1, 1, 0]
+
+
+def test_phase3_recomputes_stale_materialized_score_when_complete_alignment_is_present() -> None:
+    features = pd.DataFrame(
+        {
+            "human_homolog": [pd.NA],
+            "human_similarity_score": [0.50],
+            "homology_evidence_tier": ["weak_low_coverage_similarity"],
+            "percent_identity": [32.2],
+            "query_coverage": [0.192250],
+            "subject_coverage": [0.183260],
+            "evalue": [9.94e-28],
+        }
+    )
+    risk = continuous_host_similarity_risk(features)
+    assert risk.iloc[0] == pytest.approx(0.286, abs=0.005)
+    assert risk.iloc[0] != pytest.approx(0.50)
+
+
+def test_phase3_keeps_materialized_score_when_alignment_is_incomplete() -> None:
+    features = pd.DataFrame(
+        {
+            "human_homolog": [pd.NA],
+            "human_similarity_score": [0.37],
+            "homology_evidence_tier": ["weak_low_coverage_similarity"],
+            "percent_identity": [32.2],
+            "query_coverage": [0.192250],
+            "subject_coverage": [pd.NA],
+            "evalue": [9.94e-28],
+        }
+    )
+    risk = continuous_host_similarity_risk(features)
+    assert risk.iloc[0] == pytest.approx(0.37)
+
+
+def test_explicit_no_hit_recomputes_to_zero_even_if_materialized_score_is_stale() -> None:
+    features = pd.DataFrame(
+        {
+            "human_homolog": [0],
+            "human_similarity_score": [0.50],
+            "homology_evidence_tier": ["no_detectable_human_sequence_homology"],
+        }
+    )
+    risk = continuous_host_similarity_risk(features)
+    assert risk.iloc[0] == 0.0
 
 
 def test_install_rebinds_phase3_risk_without_changing_detection_field() -> None:

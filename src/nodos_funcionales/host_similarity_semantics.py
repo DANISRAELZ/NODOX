@@ -8,30 +8,64 @@ from .scoring_components import human_similarity_score
 
 
 DEFAULT_NEUTRAL_HOST_RISK = 0.50
+_REQUIRED_ALIGNMENT_COLUMNS = (
+    "percent_identity",
+    "query_coverage",
+    "subject_coverage",
+    "evalue",
+)
+_NO_HIT_TIERS = {
+    "no_detectable_human_similarity",
+    "no_detectable_human_sequence_homology",
+    "no_human_sequence_hit",
+}
+
+
+def _has_complete_alignment(row: pd.Series) -> bool:
+    return all(pd.notna(pd.to_numeric(pd.Series([row.get(column)]), errors="coerce").iloc[0]) for column in _REQUIRED_ALIGNMENT_COLUMNS)
+
+
+def _is_explicit_no_hit(row: pd.Series) -> bool:
+    homolog = pd.to_numeric(pd.Series([row.get("human_homolog")]), errors="coerce").iloc[0]
+    if pd.notna(homolog) and int(float(homolog)) == 0:
+        return True
+    tier_value = row.get("homology_evidence_tier", "")
+    tier = "" if pd.isna(tier_value) else str(tier_value).strip().lower()
+    return tier in _NO_HIT_TIERS
 
 
 def continuous_host_similarity_risk(features: pd.DataFrame) -> pd.Series:
-    """Return the DIAMOND-derived continuous sequence-similarity risk.
+    """Return the current DIAMOND-derived continuous sequence-similarity risk.
 
-    Phase 2 already materializes ``human_similarity_score`` from the configured
-    neutral score. Reuse it when present so Phase 3 does not reinterpret the
-    binary ``human_homolog`` detection flag as maximal risk. The row-wise
-    fallback exists for focused tests and legacy frames.
+    Prefer recomputation from raw alignment dimensions whenever they are present,
+    even if ``human_similarity_score`` was materialized by an older scoring
+    implementation. This prevents Phase 3-only recomputation from preserving a
+    stale neutral value for weak/low-coverage DIAMOND hits after scoring-semantics
+    fixes.
+
+    Explicit no-hit records are always recomputed as risk 0.0. Rows without a
+    complete alignment keep a previously materialized score when available;
+    otherwise they fall back to the neutral unresolved risk.
 
     This is a prioritization risk index, not a toxicity probability. Domain
     overlap and host criticality remain separate host-annotation signals and
     must not be collapsed into sequence-similarity risk.
     """
+    existing = None
     if "human_similarity_score" in features.columns:
-        return (
-            pd.to_numeric(features["human_similarity_score"], errors="coerce")
-            .fillna(DEFAULT_NEUTRAL_HOST_RISK)
-            .clip(0.0, 1.0)
-        )
-    return features.apply(
-        lambda row: human_similarity_score(row, DEFAULT_NEUTRAL_HOST_RISK),
-        axis=1,
-    ).astype(float).clip(0.0, 1.0)
+        existing = pd.to_numeric(features["human_similarity_score"], errors="coerce")
+
+    values: list[float] = []
+    for idx, row in features.iterrows():
+        if _is_explicit_no_hit(row) or _has_complete_alignment(row):
+            value = human_similarity_score(row, DEFAULT_NEUTRAL_HOST_RISK)
+        elif existing is not None and pd.notna(existing.loc[idx]):
+            value = float(existing.loc[idx])
+        else:
+            value = DEFAULT_NEUTRAL_HOST_RISK
+        values.append(min(1.0, max(0.0, float(value))))
+
+    return pd.Series(values, index=features.index, dtype=float)
 
 
 def install_phase3_host_similarity_semantics() -> None:
