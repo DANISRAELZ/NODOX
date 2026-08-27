@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import pandas as pd
 import pytest
 
@@ -104,113 +103,143 @@ def test_validate_scoring_inputs_reports_missing_columns() -> None:
         validate_scoring_inputs(pd.DataFrame({"protein_id": ["A"]}))
 
 
-@pytest.mark.parametrize(
-    ("tier", "evalue", "expected"),
-    [
-        (
-            "partial_human_sequence_similarity",
-            2.13e-11,
-            0.60,
-        ),
-        (
-            "strong_human_sequence_homology",
-            3.90e-23,
-            0.70,
-        ),
-        (
-            "strong_human_sequence_homology",
-            1.00e-100,
-            1.00,
-        ),
-    ],
-)
-def test_human_similarity_score_respects_homology_tier_floor(
-    tier: str,
-    evalue: float,
-    expected: float,
-) -> None:
-    row = pd.Series(
+def _diamond_row(
+    *,
+    human_homolog: object = 1,
+    pident: object = 30.0,
+    qcov: object = 0.5,
+    scov: object = 0.5,
+    evalue: object = 1.0e-20,
+    tier: str = "partial_human_sequence_similarity",
+) -> pd.Series:
+    return pd.Series(
         {
-            "human_homolog": 1,
+            "human_homolog": human_homolog,
+            "percent_identity": pident,
+            "query_coverage": qcov,
+            "subject_coverage": scov,
             "evalue": evalue,
             "homology_evidence_tier": tier,
         }
     )
 
-    assert human_similarity_score(
-        row,
-        neutral_unknown_score=0.50,
-    ) == pytest.approx(expected)
+
+def test_human_similarity_score_separates_hit_detection_from_risk() -> None:
+    no_hit = _diamond_row(
+        human_homolog=0,
+        pident=pd.NA,
+        qcov=pd.NA,
+        scov=pd.NA,
+        evalue=pd.NA,
+        tier="no_detectable_human_similarity",
+    )
+    unresolved = _diamond_row(
+        human_homolog=pd.NA,
+        pident=pd.NA,
+        qcov=pd.NA,
+        scov=pd.NA,
+        evalue=pd.NA,
+        tier="diamond_unresolved",
+    )
+
+    assert human_similarity_score(no_hit, 0.50) == pytest.approx(0.0)
+    assert human_similarity_score(unresolved, 0.50) == pytest.approx(0.50)
 
 
-def test_human_similarity_score_orders_resolved_states_conservatively() -> None:
-    rows = {
-        "no_hit": pd.Series(
-            {
-                "human_homolog": 0,
-                "evalue": pd.NA,
-                "homology_evidence_tier":
-                    "no_detectable_human_similarity",
-            }
-        ),
-        "unresolved": pd.Series(
-            {
-                "human_homolog": pd.NA,
-                "evalue": pd.NA,
-                "homology_evidence_tier":
-                    "diamond_unresolved",
-            }
-        ),
-        "partial": pd.Series(
-            {
-                "human_homolog": 1,
-                "evalue": 2.13e-11,
-                "homology_evidence_tier":
-                    "partial_human_sequence_similarity",
-            }
-        ),
-        "strong": pd.Series(
-            {
-                "human_homolog": 1,
-                "evalue": 3.90e-23,
-                "homology_evidence_tier":
-                    "strong_human_sequence_homology",
-            }
-        ),
-    }
+def test_local_partial_alignment_is_not_automatic_maximal_host_risk() -> None:
+    # Synthetic profile matching the scale of a significant local alignment:
+    # modest identity and limited two-sided coverage despite a small e-value.
+    partial_local = _diamond_row(
+        pident=25.6,
+        qcov=0.369,
+        scov=0.298,
+        evalue=1.16e-12,
+        tier="partial_human_sequence_similarity",
+    )
 
-    scores = {
-        name: human_similarity_score(
-            row,
-            neutral_unknown_score=0.50,
-        )
-        for name, row in rows.items()
-    }
+    score = human_similarity_score(partial_local, 0.50)
 
-    assert scores["no_hit"] == pytest.approx(0.00)
-    assert scores["unresolved"] == pytest.approx(0.50)
-    assert scores["partial"] == pytest.approx(0.60)
-    assert scores["strong"] == pytest.approx(0.70)
+    assert 0.0 < score < 0.50
+    assert score != pytest.approx(1.0)
 
-    assert (
-        scores["no_hit"]
-        < scores["unresolved"]
-        < scores["partial"]
-        < scores["strong"]
+
+def test_alignment_extent_increases_host_similarity_risk() -> None:
+    low_coverage = _diamond_row(
+        pident=30.0,
+        qcov=0.25,
+        scov=0.20,
+        evalue=1.0e-25,
+    )
+    high_coverage = _diamond_row(
+        pident=30.0,
+        qcov=0.90,
+        scov=0.85,
+        evalue=1.0e-25,
+    )
+
+    assert human_similarity_score(high_coverage, 0.50) > human_similarity_score(low_coverage, 0.50)
+
+
+def test_identity_increases_host_similarity_risk_at_fixed_coverage() -> None:
+    low_identity = _diamond_row(
+        pident=22.0,
+        qcov=0.80,
+        scov=0.80,
+        evalue=1.0e-30,
+    )
+    high_identity = _diamond_row(
+        pident=60.0,
+        qcov=0.80,
+        scov=0.80,
+        evalue=1.0e-30,
+        tier="strong_human_sequence_homology",
+    )
+
+    assert human_similarity_score(high_identity, 0.50) > human_similarity_score(low_identity, 0.50)
+
+
+def test_tiny_evalue_does_not_override_low_identity_and_local_coverage() -> None:
+    local_domain = _diamond_row(
+        pident=22.0,
+        qcov=0.20,
+        scov=0.20,
+        evalue=1.0e-100,
+        tier="strong_human_sequence_homology",
+    )
+
+    score = human_similarity_score(local_domain, 0.50)
+
+    assert score < 0.50
+
+
+def test_extensive_high_identity_alignment_can_reach_high_risk() -> None:
+    extensive = _diamond_row(
+        pident=60.0,
+        qcov=0.95,
+        scov=0.90,
+        evalue=1.0e-80,
+        tier="strong_human_sequence_homology",
+    )
+
+    assert human_similarity_score(extensive, 0.50) > 0.90
+
+
+def test_coverage_accepts_percent_form_for_legacy_inputs() -> None:
+    fractional = _diamond_row(qcov=0.80, scov=0.70)
+    percent = _diamond_row(qcov=80.0, scov=70.0)
+
+    assert human_similarity_score(fractional, 0.50) == pytest.approx(
+        human_similarity_score(percent, 0.50)
     )
 
 
-def test_human_similarity_score_preserves_legacy_behavior_without_tier() -> None:
-    row = pd.Series(
-        {
-            "human_homolog": 1,
-            "evalue": 3.90e-23,
-        }
+def test_missing_alignment_dimensions_remain_neutral() -> None:
+    incomplete = _diamond_row(
+        human_homolog=1,
+        pident=30.0,
+        qcov=pd.NA,
+        scov=pd.NA,
+        evalue=1.0e-20,
     )
 
-    expected = -math.log10(3.90e-23) / 50.0
-
-    assert human_similarity_score(
-        row,
-        neutral_unknown_score=0.50,
-    ) == pytest.approx(expected)
+    assert human_similarity_score(incomplete, 0.50) == pytest.approx(0.50)
