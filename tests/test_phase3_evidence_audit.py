@@ -67,19 +67,39 @@ class Phase3EvidenceAuditTests(unittest.TestCase):
         self.assertGreaterEqual(float(features.loc[0, "confidence_ceiling"]), 0.85)
         self.assertGreaterEqual(int(features.loc[0, "phase3_real_evidence_layer_count"]), 4)
 
-    def test_real_human_homology_is_negative_evidence(self) -> None:
+    def test_real_human_hit_detection_is_not_negative_without_similarity_risk(self) -> None:
         df = pd.DataFrame(
             {
                 "protein_id": ["A"],
                 "gene": ["a"],
                 "human_homolog": [1],
+                "host_similarity_risk": [0.25],
                 "human_homologs_source_name": ["local_reproducible_orthology"],
             }
         )
         audit = build_layer_evidence_audit(df, self.config)
-        row = audit.loc[audit["variable_name"] == "human_homolog"].iloc[0]
-        self.assertTrue(bool(row["evidence_is_negative"]))
-        self.assertEqual(row["evidence_source_type"], "computed_from_real_data")
+        hit = audit.loc[audit["variable_name"] == "human_homolog"].iloc[0]
+        risk = audit.loc[audit["variable_name"] == "host_similarity_risk"].iloc[0]
+        self.assertFalse(bool(hit["evidence_is_negative"]))
+        self.assertFalse(bool(risk["evidence_is_negative"]))
+        self.assertEqual(hit["evidence_source_type"], "computed_from_real_data")
+
+    def test_high_real_host_similarity_risk_is_negative_evidence(self) -> None:
+        df = pd.DataFrame(
+            {
+                "protein_id": ["A"],
+                "gene": ["a"],
+                "human_homolog": [1],
+                "host_similarity_risk": [0.82],
+                "human_homologs_source_name": ["local_reproducible_orthology"],
+            }
+        )
+        audit = build_layer_evidence_audit(df, self.config)
+        hit = audit.loc[audit["variable_name"] == "human_homolog"].iloc[0]
+        risk = audit.loc[audit["variable_name"] == "host_similarity_risk"].iloc[0]
+        self.assertFalse(bool(hit["evidence_is_negative"]))
+        self.assertTrue(bool(risk["evidence_is_negative"]))
+        self.assertIn("human_homologs.host_similarity_risk", risk["negative_evidence_reason"])
 
     def test_missing_escape_is_unknown_not_low(self) -> None:
         result = compute_evolutionary_escape_risk_features(pd.DataFrame({"protein_id": ["A"], "gene": ["a"]}), self.config)
