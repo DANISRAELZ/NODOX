@@ -13,9 +13,17 @@ STRATEGY_SCORE_LABELS = {
 }
 
 
-HOMOLOGY_TIER_RISK_FLOORS = {
-    "partial_human_sequence_similarity": 0.60,
-    "strong_human_sequence_homology": 0.70,
+# Host-similarity risk is an interpretable alignment-risk index, not a calibrated
+# probability of human toxicity. DIAMOND reports local alignments, so statistical
+# significance alone must not turn a short/partial match into maximal host risk.
+HOST_SIMILARITY_IDENTITY_BASELINE_PERCENT = 20.0
+HOST_SIMILARITY_IDENTITY_HIGH_PERCENT = 60.0
+HOST_SIMILARITY_EVALUE_BASELINE_LOG10 = 5.0
+HOST_SIMILARITY_EVALUE_HIGH_LOG10 = 50.0
+HOST_SIMILARITY_WEIGHTS = {
+    "identity": 0.45,
+    "coverage": 0.40,
+    "significance": 0.15,
 }
 
 
@@ -116,41 +124,93 @@ def _legacy_host_risk(row: pd.Series, neutral_unknown_score: float, threshold: f
     return 0.5
 
 
-def human_similarity_score(row: pd.Series, neutral_unknown_score: float) -> float:
-    """Estimate host-similarity risk while respecting resolved DIAMOND tiers.
+def _bounded(value: float) -> float:
+    return min(1.0, max(0.0, float(value)))
 
-    The e-value supplies continuous information, but a resolved partial or
-    strong human-homology classification must not appear safer than an
-    unresolved, neutral host-risk state.
+
+def _coverage_fraction(value: object) -> float | None:
+    """Return a coverage value on 0-1, accepting legacy percent-form inputs."""
+    numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(numeric):
+        return None
+    result = float(numeric)
+    if result > 1.0:
+        result /= 100.0
+    return _bounded(result)
+
+
+def _identity_strength(percent_identity: object) -> float | None:
+    numeric = pd.to_numeric(pd.Series([percent_identity]), errors="coerce").iloc[0]
+    if pd.isna(numeric):
+        return None
+    pident = float(numeric)
+    span = HOST_SIMILARITY_IDENTITY_HIGH_PERCENT - HOST_SIMILARITY_IDENTITY_BASELINE_PERCENT
+    return _bounded((pident - HOST_SIMILARITY_IDENTITY_BASELINE_PERCENT) / span)
+
+
+def _alignment_extent(query_coverage: object, subject_coverage: object) -> float | None:
+    """Use geometric mean so one-sided local coverage cannot look globally extensive."""
+    qcov = _coverage_fraction(query_coverage)
+    scov = _coverage_fraction(subject_coverage)
+    if qcov is None or scov is None:
+        return None
+    return math.sqrt(qcov * scov)
+
+
+def _significance_strength(evalue: object) -> float | None:
+    numeric = pd.to_numeric(pd.Series([evalue]), errors="coerce").iloc[0]
+    if pd.isna(numeric):
+        return None
+    value = max(float(numeric), 1e-300)
+    log_strength = -math.log10(value)
+    span = HOST_SIMILARITY_EVALUE_HIGH_LOG10 - HOST_SIMILARITY_EVALUE_BASELINE_LOG10
+    return _bounded((log_strength - HOST_SIMILARITY_EVALUE_BASELINE_LOG10) / span)
+
+
+def human_similarity_score(row: pd.Series, neutral_unknown_score: float) -> float:
+    """Estimate continuous host-similarity risk from a DIAMOND local alignment.
+
+    ``human_homolog`` remains a detection flag: 0 means no detectable hit and 1
+    means a hit passed provider classification. The risk score is deliberately
+    separate. It combines alignment identity, two-sided alignment extent, and
+    statistical significance instead of assigning tier-based risk floors.
+
+    Because DIAMOND performs local alignment, a very small e-value can arise for
+    a conserved domain that covers only part of one or both proteins. Such a hit
+    is retained as real evidence but does not automatically imply maximal
+    off-target risk. Missing alignment dimensions remain unresolved/neutral.
+
+    This score is a prioritization heuristic, not a probability of toxicity and
+    not proof of functional equivalence to the human hit.
     """
-    human_homolog = row.get("human_homolog")
-    evalue = row.get("evalue")
+    human_homolog = pd.to_numeric(pd.Series([row.get("human_homolog")]), errors="coerce").iloc[0]
     tier_value = row.get("homology_evidence_tier", "")
-    tier = (
-        ""
-        if pd.isna(tier_value)
-        else str(tier_value).strip().lower()
-    )
+    tier = "" if pd.isna(tier_value) else str(tier_value).strip().lower()
+
+    if pd.notna(human_homolog) and int(float(human_homolog)) == 0:
+        return 0.0
+
+    no_hit_tiers = {
+        "no_detectable_human_similarity",
+        "no_detectable_human_sequence_homology",
+        "no_human_sequence_hit",
+    }
+    if tier in no_hit_tiers:
+        return 0.0
 
     if pd.isna(human_homolog):
         return float(neutral_unknown_score)
 
-    if int(human_homolog) == 0:
-        return 0.0
+    identity = _identity_strength(row.get("percent_identity"))
+    extent = _alignment_extent(row.get("query_coverage"), row.get("subject_coverage"))
+    significance = _significance_strength(row.get("evalue"))
 
-    if pd.isna(evalue):
-        raw_score = 0.60
-    else:
-        value = max(float(evalue), 1e-300)
-        raw_score = -math.log10(value) / 50.0
+    if identity is None or extent is None or significance is None:
+        return float(neutral_unknown_score)
 
-    tier_floor = HOMOLOGY_TIER_RISK_FLOORS.get(tier)
-
-    if tier_floor is not None:
-        raw_score = max(
-            raw_score,
-            float(neutral_unknown_score),
-            tier_floor,
-        )
-
-    return min(1.0, max(0.0, raw_score))
+    risk = (
+        HOST_SIMILARITY_WEIGHTS["identity"] * identity
+        + HOST_SIMILARITY_WEIGHTS["coverage"] * extent
+        + HOST_SIMILARITY_WEIGHTS["significance"] * significance
+    )
+    return _bounded(risk)
