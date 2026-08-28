@@ -45,8 +45,10 @@ def main() -> int:
         "--provider-base-url",
         default="https://www.ebi.ac.uk/interpro/api",
     )
-    parser.add_argument("--timeout-seconds", type=float, default=30.0)
+    parser.add_argument("--timeout-seconds", type=float, default=90.0)
     parser.add_argument("--page-size", type=int, default=200)
+    parser.add_argument("--max-attempts", type=int, default=4)
+    parser.add_argument("--retry-backoff-seconds", type=float, default=2.0)
     parser.add_argument(
         "--reuse-catalog",
         action="store_true",
@@ -73,6 +75,8 @@ def main() -> int:
             args.provider_base_url,
             timeout_seconds=args.timeout_seconds,
             page_size=args.page_size,
+            max_attempts=args.max_attempts,
+            retry_backoff_seconds=args.retry_backoff_seconds,
         )
         catalog_manifest["cache_reused"] = False
         catalog_manifest = write_catalog_snapshot(
