@@ -126,13 +126,14 @@ def compare_bacterial_entries_to_human_catalog(
             "interpro_human_comparison_rule": COMPARISON_RULE,
         }
 
+    comparable = sorted(bacterial)
     shared = sorted(bacterial & human_catalog)
-    # This score is deliberately directional: it is the fraction of bacterial
-    # InterPro entries also observed in the human taxon catalog. It is not a
-    # calibrated toxicity probability and is not promoted into Phase 3 here.
+    # Directional fraction of bacterial InterPro entries also observed in the
+    # human taxon catalog. This is not a calibrated toxicity probability and is
+    # intentionally not promoted into Phase 3 by this module.
     score = len(shared) / len(bacterial)
     return {
-        "human_comparable_interpro_entries": ";".join(sorted(human_catalog)),
+        "human_comparable_interpro_entries": ";".join(comparable),
         "shared_interpro_entries": ";".join(shared),
         "shared_domain_count": int(len(shared)),
         "domain_overlap_score_empirical": float(score),
