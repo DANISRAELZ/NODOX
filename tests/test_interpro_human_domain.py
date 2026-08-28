@@ -57,10 +57,58 @@ def test_fetch_human_catalog_follows_same_host_pagination() -> None:
     entries, manifest = fetch_human_interpro_catalog(
         "https://www.ebi.ac.uk/interpro/api",
         opener=opener,
+        retry_backoff_seconds=0,
     )
     assert entries == {"IPR000001", "IPR000002"}
     assert manifest["pages_retrieved"] == 2
     assert manifest["unique_interpro_entry_count"] == 2
+    assert manifest["total_request_attempts"] == 2
+    assert manifest["retried_pages"] == 0
+
+
+def test_fetch_human_catalog_retries_transient_timeout() -> None:
+    calls = 0
+
+    def opener(url: str, **_: object) -> dict:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise TimeoutError("transient read timeout")
+        return {
+            "count": 1,
+            "results": [{"metadata": {"accession": "IPR000001"}}],
+            "next": None,
+        }
+
+    entries, manifest = fetch_human_interpro_catalog(
+        "https://www.ebi.ac.uk/interpro/api",
+        opener=opener,
+        max_attempts=3,
+        retry_backoff_seconds=0,
+    )
+    assert entries == {"IPR000001"}
+    assert calls == 2
+    assert manifest["pages_retrieved"] == 1
+    assert manifest["total_request_attempts"] == 2
+    assert manifest["retried_pages"] == 1
+
+
+def test_fetch_human_catalog_raises_after_retry_budget() -> None:
+    calls = 0
+
+    def opener(url: str, **_: object) -> dict:
+        nonlocal calls
+        calls += 1
+        raise TimeoutError("persistent timeout")
+
+    with pytest.raises(TimeoutError, match="persistent timeout"):
+        fetch_human_interpro_catalog(
+            "https://www.ebi.ac.uk/interpro/api",
+            opener=opener,
+            max_attempts=3,
+            retry_backoff_seconds=0,
+        )
+    assert calls == 3
 
 
 def test_fetch_human_catalog_rejects_cross_host_pagination() -> None:
@@ -74,6 +122,7 @@ def test_fetch_human_catalog_rejects_cross_host_pagination() -> None:
         fetch_human_interpro_catalog(
             "https://www.ebi.ac.uk/interpro/api",
             opener=opener,
+            retry_backoff_seconds=0,
         )
 
 
