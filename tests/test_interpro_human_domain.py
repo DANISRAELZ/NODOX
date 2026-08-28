@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from nodos_funcionales.interpro_human_domain import (
+from src.nodos_funcionales.interpro_human_domain import (
     build_comparison_table,
     build_human_interpro_catalog_url,
     compare_bacterial_entries_to_human_catalog,
