@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urljoin, urlparse
@@ -13,6 +14,8 @@ from .online_http import urlopen_json
 
 HUMAN_TAXON_ID = "9606"
 DEFAULT_PAGE_SIZE = 200
+DEFAULT_MAX_ATTEMPTS = 4
+DEFAULT_RETRY_BACKOFF_SECONDS = 2.0
 COMPARISON_RULE = "bacterial_interpro_entries_vs_human_taxon_catalog"
 
 
@@ -45,18 +48,52 @@ def extract_interpro_entry_accessions(payload: Any) -> set[str]:
     return entries
 
 
+def _open_json_with_retries(
+    url: str,
+    *,
+    timeout_seconds: float,
+    user_agent: str,
+    max_attempts: int,
+    retry_backoff_seconds: float,
+    opener: Callable[..., Any],
+) -> tuple[Any, int]:
+    attempts = max(1, int(max_attempts))
+    last_error: BaseException | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            payload = opener(
+                url,
+                timeout=float(timeout_seconds),
+                headers={"User-Agent": user_agent, "Accept": "application/json"},
+            )
+            return payload, attempt
+        except (TimeoutError, OSError) as exc:
+            last_error = exc
+            if attempt >= attempts:
+                raise
+            delay = max(0.0, float(retry_backoff_seconds)) * (2 ** (attempt - 1))
+            if delay:
+                time.sleep(delay)
+    assert last_error is not None
+    raise last_error
+
+
 def fetch_human_interpro_catalog(
     provider_base_url: str,
     *,
-    timeout_seconds: float = 30.0,
+    timeout_seconds: float = 90.0,
     user_agent: str = "nodox-interpro-human-domain/1.0",
     page_size: int = DEFAULT_PAGE_SIZE,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
     opener: Callable[..., Any] = urlopen_json,
 ) -> tuple[set[str], dict[str, Any]]:
     """Fetch the complete human InterPro-entry catalog with pagination.
 
     This is a taxonomy-level comparison catalog, not a statement that a bacterial
-    protein is homologous to any particular human protein.
+    protein is homologous to any particular human protein. Transient socket/read
+    failures are retried per page with exponential backoff so a large catalog is
+    not abandoned after one slow InterPro response.
     """
     first_url = build_human_interpro_catalog_url(
         provider_base_url,
@@ -67,15 +104,23 @@ def fetch_human_interpro_catalog(
     entries: set[str] = set()
     pages = 0
     reported_count: int | None = None
+    total_request_attempts = 0
+    retried_pages = 0
 
     while url:
         if urlparse(url).netloc not in {"", expected_host}:
             raise ValueError("InterPro pagination escaped the configured provider host")
-        payload = opener(
+        payload, attempts_used = _open_json_with_retries(
             url,
-            timeout=float(timeout_seconds),
-            headers={"User-Agent": user_agent, "Accept": "application/json"},
+            timeout_seconds=timeout_seconds,
+            user_agent=user_agent,
+            max_attempts=max_attempts,
+            retry_backoff_seconds=retry_backoff_seconds,
+            opener=opener,
         )
+        total_request_attempts += attempts_used
+        if attempts_used > 1:
+            retried_pages += 1
         if not isinstance(payload, dict):
             raise ValueError("InterPro human catalog response is not a JSON object")
         pages += 1
@@ -92,7 +137,12 @@ def fetch_human_interpro_catalog(
         "catalog_rule": "InterPro entries observed in UniProt proteins under human taxonomy 9606",
         "first_request_url": first_url,
         "page_size": int(page_size),
+        "timeout_seconds": float(timeout_seconds),
+        "max_attempts_per_page": max(1, int(max_attempts)),
+        "retry_backoff_seconds": max(0.0, float(retry_backoff_seconds)),
         "pages_retrieved": pages,
+        "total_request_attempts": total_request_attempts,
+        "retried_pages": retried_pages,
         "provider_reported_count": reported_count,
         "unique_interpro_entry_count": len(entries),
         "comparison_scope": "domain_presence_by_taxon_not_pairwise_homology",
@@ -128,9 +178,6 @@ def compare_bacterial_entries_to_human_catalog(
 
     comparable = sorted(bacterial)
     shared = sorted(bacterial & human_catalog)
-    # Directional fraction of bacterial InterPro entries also observed in the
-    # human taxon catalog. This is not a calibrated toxicity probability and is
-    # intentionally not promoted into Phase 3 by this module.
     score = len(shared) / len(bacterial)
     return {
         "human_comparable_interpro_entries": ";".join(comparable),
