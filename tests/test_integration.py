@@ -171,5 +171,68 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(row["evidence_source_type"], "curated_literature")
 
 
+    def test_deg_row_level_provenance_overrides_layer_provenance(self) -> None:
+        """Explicit DEG support must override layer provenance only for matched rows."""
+        project_dir = make_temp_project()
+        raw_dir = project_dir / "data_raw"
+
+        essentiality_path = raw_dir / "essentiality.csv"
+
+        essentiality_path.write_text(
+            "\n".join(
+                [
+                    "protein_id,gene,essential,evidence,database",
+                    "PA0001,gyrB,1,DEG experimental screen,deg_real_v1",
+                    (
+                        "PA0002,rpoB,,UniProt candidate seed,"
+                        "computed_uniprot_api_v1:exact_proteome_candidate_seed"
+                    ),
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        config = load_config(project_dir / "config" / "params.yaml")
+        load_and_validate_all(project_dir, config)
+        normalize_all(project_dir, config)
+        integrated = integrate_tables(project_dir)
+
+        by_protein = integrated.set_index("protein_id")
+
+        deg_row = by_protein.loc["PA0001"]
+        non_deg_row = by_protein.loc["PA0002"]
+
+        self.assertEqual(float(deg_row["essential"]), 1.0)
+        self.assertEqual(
+            deg_row["essentiality_database"],
+            "deg_real_v1",
+        )
+        self.assertEqual(
+            deg_row["essentiality_source_name"],
+            "deg_real_v1",
+        )
+        self.assertEqual(
+            deg_row["essentiality_retrieval_status"],
+            "retrieved",
+        )
+
+        self.assertTrue(
+            __import__("pandas").isna(non_deg_row["essential"])
+        )
+        self.assertEqual(
+            non_deg_row["essentiality_database"],
+            "computed_uniprot_api_v1:exact_proteome_candidate_seed",
+        )
+        self.assertNotEqual(
+            non_deg_row["essentiality_source_name"],
+            "deg_real_v1",
+        )
+        self.assertNotEqual(
+            non_deg_row["essentiality_retrieval_status"],
+            "retrieved",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

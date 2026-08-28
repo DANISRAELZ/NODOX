@@ -473,6 +473,25 @@ def integrate_tables(base_dir: Path) -> pd.DataFrame:
     if layer_provenance:
         merged = pd.concat([merged, pd.DataFrame(layer_provenance, index=merged.index)], axis=1).copy()
 
+    # DEG provides candidate-level essentiality evidence after the layer-level
+    # provenance manifest has been resolved. Preserve the global candidate-seed
+    # provenance for unmatched proteins, but correct provenance for proteins
+    # with explicit DEG support.
+    if "essentiality_database" in merged.columns:
+        deg_mask = (
+            merged["essentiality_database"]
+            .fillna("")
+            .astype(str)
+            .eq("deg_real_v1")
+        )
+
+        if deg_mask.any():
+            if "essentiality_source_name" in merged.columns:
+                merged.loc[deg_mask, "essentiality_source_name"] = "deg_real_v1"
+
+            if "essentiality_retrieval_status" in merged.columns:
+                merged.loc[deg_mask, "essentiality_retrieval_status"] = "retrieved"
+
     keep_columns = [
         "protein_id",
         "protein_id_original",
