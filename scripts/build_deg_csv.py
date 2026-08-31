@@ -165,6 +165,12 @@ def parse_table(path: Path) -> list[dict[str, str]]:
     first_value = rows[0][0].strip().strip('"') if rows[0] else ""
     if re.fullmatch(r"DEG\d+", first_value, flags=re.IGNORECASE):
         return _parse_official_headerless(rows, path)
+    if len(rows[0]) == 9 and any(
+        row and re.fullmatch(r"DEG\d+", row[0].strip().strip('"'), flags=re.IGNORECASE)
+        and len(row) >= len(OFFICIAL_COLUMNS)
+        for row in rows[1:]
+    ):
+        return _parse_official_headerless(rows[1:], path)
     return _parse_headered(rows, path)
 
 
