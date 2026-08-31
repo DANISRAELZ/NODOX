@@ -72,12 +72,13 @@ DEFAULT_EVOLUTIONARY_ESCAPE_PARAMS: dict[str, object] = {
 def compute_mutational_tolerance_score(df: pd.DataFrame, params: Mapping[str, object] | None = None) -> pd.Series:
     """Estimate how easily a node can tolerate mutations without losing viable function."""
     cfg = _evolutionary_config(params)
+    essentiality = _essentiality_signal(df, cfg).where(_essentiality_known_mask(df))
     signals = pd.DataFrame(
         {
             "variant_burden": _signal(df, "variant_burden", cfg),
             "low_conservation_score": 1.0 - _signal(df, "conservation_score", cfg),
             "known_escape_mutation_score": _signal(df, "known_escape_mutation_score", cfg),
-            "low_essentiality_score": 1.0 - _essentiality_signal(df, cfg),
+            "low_essentiality_score": 1.0 - essentiality,
             "inferred_functional_tolerance_score": _signal(df, "inferred_functional_tolerance_score", cfg),
         },
         index=df.index,
@@ -88,9 +89,10 @@ def compute_mutational_tolerance_score(df: pd.DataFrame, params: Mapping[str, ob
 def compute_fitness_cost_score(df: pd.DataFrame, params: Mapping[str, object] | None = None) -> pd.Series:
     """Estimate how costly successful escape would be for the pathogen."""
     cfg = _evolutionary_config(params)
+    essentiality = _essentiality_signal(df, cfg).where(_essentiality_known_mask(df))
     signals = pd.DataFrame(
         {
-            "essentiality_score": _essentiality_signal(df, cfg),
+            "essentiality_score": essentiality,
             "conservation_score": _signal(df, "conservation_score", cfg),
             "pleiotropy_score": _signal(df, "pleiotropy_score", cfg),
             "low_redundancy_score": 1.0 - _signal(df, "redundancy_penalty", cfg),
@@ -156,13 +158,18 @@ def compute_evolutionary_space_constraint_score(
         compute_compensation_difficulty_score,
         cfg,
     )
+    contextual_essentiality = _signal(df, "contextual_essentiality_score", cfg)
     max_essentiality = pd.concat(
         [
             _essentiality_signal(df, cfg),
-            _signal(df, "contextual_essentiality_score", cfg),
+            contextual_essentiality,
         ],
         axis=1,
     ).max(axis=1)
+    max_essentiality = max_essentiality.where(
+        _essentiality_known_mask(df),
+        contextual_essentiality,
+    )
     signals = pd.DataFrame(
         {
             "conservation_score": _signal(df, "conservation_score", cfg),
@@ -185,7 +192,9 @@ def compute_evolutionary_escape_features(df: pd.DataFrame, params: Mapping[str, 
     """Return a copy of df with Phase 3 evolutionary escape features added.
 
     Missing optional inputs are imputed from explicit configuration defaults and
-    recorded in audit_flags. Existing user-supplied feature columns are kept.
+    recorded in audit_flags. Unknown experimental essentiality is instead omitted
+    from formulas that explicitly consume it, with remaining weights renormalized.
+    Existing user-supplied feature columns are kept.
     """
     result = df.copy()
     cfg = _evolutionary_config(params)
@@ -287,13 +296,31 @@ def _essentiality_signal(df: pd.DataFrame, cfg: Mapping[str, object]) -> pd.Seri
     return _signal(df, "essentiality_score", cfg)
 
 
+def _essentiality_known_mask(df: pd.DataFrame) -> pd.Series:
+    """Identify rows with an observed essentiality signal rather than an imputed midpoint."""
+    if "essential" in df.columns:
+        return pd.to_numeric(df["essential"], errors="coerce").notna()
+    if "essentiality_score" in df.columns:
+        return pd.to_numeric(df["essentiality_score"], errors="coerce").notna()
+    return pd.Series([False] * len(df), index=df.index, dtype=bool)
+
+
 def _weighted_score(signals: pd.DataFrame, weights: Mapping[str, float]) -> pd.Series:
     active = [column for column in weights if column in signals.columns]
-    total_weight = sum(float(weights[column]) for column in active)
-    if total_weight <= 0:
+    if not active:
         return pd.Series([0.0] * len(signals), index=signals.index, dtype=float)
-    weighted = sum(signals[column] * float(weights[column]) for column in active) / total_weight
-    return _clamp01(weighted)
+
+    numerator = pd.Series([0.0] * len(signals), index=signals.index, dtype=float)
+    denominator = pd.Series([0.0] * len(signals), index=signals.index, dtype=float)
+    for column in active:
+        weight = float(weights[column])
+        numeric = pd.to_numeric(signals[column], errors="coerce")
+        present = numeric.notna()
+        numerator = numerator + numeric.fillna(0.0) * weight
+        denominator = denominator + present.astype(float) * weight
+
+    weighted = numerator / denominator.replace(0.0, pd.NA)
+    return _clamp01(weighted.fillna(0.0))
 
 
 def _existing_or_computed(

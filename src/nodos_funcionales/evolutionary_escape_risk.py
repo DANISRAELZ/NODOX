@@ -143,6 +143,15 @@ def _input_value(df: pd.DataFrame, column: str, alias: str | None = None) -> pd.
     return primary.combine_first(_series(df, alias))
 
 
+def _essentiality_for_scoring(df: pd.DataFrame) -> pd.Series:
+    """Return essentiality support only where experimental essentiality is observed."""
+    support = _series(df, "essentiality_support")
+    if "essential" in df.columns:
+        known = pd.to_numeric(df["essential"], errors="coerce").notna()
+        return support.where(known)
+    return support
+
+
 def _source_label(row: pd.Series) -> str:
     if bool(row.get("evolutionary_evidence_contract_supported", False)):
         return "contract_supported"
@@ -409,6 +418,12 @@ def compute_evolutionary_escape_risk_features(
         explicit_values[column] = input_values[column].where(strict_mask)
         result[f"{column}_contract_explicit"] = strict_mask.astype(bool)
 
+    fitness_cost_values = {
+        "essentiality_support": _essentiality_for_scoring(result),
+        "conservation_score": _series(result, "conservation_score", 0.5).fillna(0.5),
+        "low_redundancy_score": _series(result, "low_redundancy_score", 0.5).fillna(0.5),
+        "fitness_cost_score": _series(result, "fitness_cost_score", 0.5).fillna(0.5),
+    }
     derived = {
         "mutation_tolerance_score": _clamp(
             0.55 * _series(result, "variant_burden", 0.5).fillna(0.5)
@@ -437,11 +452,15 @@ def compute_evolutionary_escape_risk_features(
                 axis=1,
             ).max(axis=1)
         ),
-        "fitness_cost_of_escape": _clamp(
-            0.40 * _series(result, "essentiality_support", 0.5).fillna(0.5)
-            + 0.25 * _series(result, "conservation_score", 0.5).fillna(0.5)
-            + 0.20 * _series(result, "low_redundancy_score", 0.5).fillna(0.5)
-            + 0.15 * _series(result, "fitness_cost_score", 0.5).fillna(0.5)
+        "fitness_cost_of_escape": _weighted_mean(
+            fitness_cost_values,
+            {
+                "essentiality_support": 0.40,
+                "conservation_score": 0.25,
+                "low_redundancy_score": 0.20,
+                "fitness_cost_score": 0.15,
+            },
+            default=0.5,
         ),
         "evolutionary_constraint_score": _clamp(
             _first_available(

@@ -53,6 +53,37 @@ def weighted_score(df: pd.DataFrame, weights: dict[str, float], default: float =
     return clamp_score(raw), contributions
 
 
+def weighted_score_omitting_unknown(
+    df: pd.DataFrame,
+    weights: dict[str, float],
+    omit_masks: dict[str, pd.Series],
+    default: float = 0.5,
+) -> tuple[pd.Series, dict[str, pd.Series]]:
+    """Score rows after removing selected epistemically unknown terms.
+
+    This is intentionally row-wise: a missing biological signal is omitted from
+    both numerator and denominator rather than being converted into a synthetic
+    midpoint observation. Other configured defaults remain unchanged.
+    """
+    contributions: dict[str, pd.Series] = {}
+    denominator = pd.Series(
+        [sum(abs(value) for value in weights.values())] * len(df),
+        index=df.index,
+        dtype=float,
+    )
+    for feature_name, weight in weights.items():
+        feature = pd.to_numeric(df.get(feature_name, default), errors="coerce").fillna(default)
+        contribution = feature * weight
+        omit = omit_masks.get(feature_name)
+        if omit is not None:
+            omit = omit.reindex(df.index).fillna(False).astype(bool)
+            contribution = contribution.where(~omit, 0.0)
+            denominator = denominator - omit.astype(float) * abs(float(weight))
+        contributions[feature_name] = contribution
+    raw = sum(contributions.values()) / denominator.replace(0.0, math.nan)
+    return clamp_score(raw), contributions
+
+
 def calculate_legacy_score(
     features: pd.DataFrame,
     weights: dict[str, float],
@@ -87,7 +118,16 @@ def calculate_strategy_scores(
     scores: dict[str, pd.Series] = {}
     contributions: dict[str, dict[str, pd.Series]] = {}
     for output_column, config_key in score_columns.items():
-        scores[output_column], contributions[output_column] = weighted_score(features, weights_config[config_key])
+        weights = weights_config[config_key]
+        if config_key == "antibiotic_target" and "essential" in features and "essentiality_support" in weights:
+            essential_unknown = pd.to_numeric(features["essential"], errors="coerce").isna()
+            scores[output_column], contributions[output_column] = weighted_score_omitting_unknown(
+                features,
+                weights,
+                {"essentiality_support": essential_unknown},
+            )
+        else:
+            scores[output_column], contributions[output_column] = weighted_score(features, weights)
     return scores, contributions
 
 
