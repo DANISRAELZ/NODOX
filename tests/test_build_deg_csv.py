@@ -37,3 +37,29 @@ def test_official_headerless_deg_archive_is_normalized_with_version_checksum(tmp
     repeated_count = build_deg_csv(raw_dir, output_path, version_path)
     assert repeated_count == 1
     assert len(pd.read_csv(output_path)) == 1
+
+
+def test_legacy_nine_field_header_with_official_thirteen_field_records(tmp_path: Path) -> None:
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    legacy_path = raw_dir / "degannotation-p.dat"
+    legacy_path.write_text(
+        "#DEG_AC;#Gene_Name;#Gene_Ref;#COG;#Class;#Function;#Organism;#Refseq;#Condition\n"
+        "DEG1018;DEG10180002;dnaK;16128008;COG0443O;-;Chaperone protein dnaK;"
+        "Escherichia coli MG1655 I;NC_000913;Rich medium;-;GO:0006457;P0A6Y8\n",
+        encoding="utf-8",
+    )
+
+    output_path = tmp_path / "deg.csv"
+    version_path = tmp_path / "deg.version.txt"
+    count = build_deg_csv(raw_dir, output_path, version_path)
+
+    normalized = pd.read_csv(output_path)
+    assert count == 1
+    assert normalized.loc[0, "deg_gene_id"] == "DEG10180002"
+    assert normalized.loc[0, "gene"] == "dnaK"
+    assert normalized.loc[0, "product"] == "Chaperone protein dnaK"
+    assert normalized.loc[0, "organism"] == "Escherichia coli MG1655 I"
+    assert normalized.loc[0, "reference_accession"] == "NC_000913"
+    assert normalized.loc[0, "experimental_condition"] == "Rich medium"
+    assert normalized.loc[0, "uniprot_accessions"] == "P0A6Y8"
