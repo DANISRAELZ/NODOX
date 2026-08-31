@@ -52,8 +52,54 @@ class Phase3ScoringTests(unittest.TestCase):
 
         phase2 = pd.read_csv(workspace / "data_processed" / "scored_nodes.csv")
         phase3 = pd.read_csv(workspace / "data_processed" / "scored_nodes_phase3.csv")
+        ranking = pd.read_csv(workspace / "results" / "ranking_nodos.csv")
+        phase3_features = pd.read_csv(workspace / "data_processed" / "phase3_features.csv")
         comparison = pd.read_csv(workspace / "results" / "phase2_vs_phase3_comparison.csv")
         escape_audit = pd.read_csv(workspace / "results" / "evolutionary_escape_audit.csv")
+
+        theory_numeric_columns = [
+            "functional_node_theory_score",
+            "functional_node_theory_confidence",
+            "functional_impact_component",
+            "dependency_component",
+            "redundancy_constraint_component",
+            "context_component",
+            "host_safety_component",
+            "evidence_quality_component",
+        ]
+        theory_state_columns = [
+            "functional_node_theory_label",
+            "meets_minimum_functional_node_evidence",
+            "missing_evidence_flags",
+        ]
+        theory_columns = theory_numeric_columns + theory_state_columns
+
+        common = ranking[["protein_id", *theory_columns]].merge(
+            phase3_features[["protein_id", *theory_columns]],
+            on="protein_id",
+            how="inner",
+            suffixes=("_ranking", "_phase3"),
+        )
+
+        self.assertGreater(len(common), 0)
+
+        for column in theory_numeric_columns:
+            pd.testing.assert_series_equal(
+                pd.to_numeric(common[f"{column}_ranking"], errors="coerce"),
+                pd.to_numeric(common[f"{column}_phase3"], errors="coerce"),
+                check_names=False,
+                check_exact=False,
+                rtol=1e-12,
+                atol=1e-12,
+            )
+
+        for column in theory_state_columns:
+            left = common[f"{column}_ranking"].fillna("").astype(str).reset_index(drop=True)
+            right = common[f"{column}_phase3"].fillna("").astype(str).reset_index(drop=True)
+            self.assertTrue(
+                left.equals(right),
+                msg=f"Phase 3 theory state diverged for {column}",
+            )
         stability_audit = pd.read_csv(workspace / "results" / "therapeutic_role_stability_audit.csv")
         report_text = (workspace / "results" / "theory_of_nodes_report.md").read_text(encoding="utf-8")
         top10_text = (workspace / "results" / "top10_functional_node_theory_audit.md").read_text(encoding="utf-8")
