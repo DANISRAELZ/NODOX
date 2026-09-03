@@ -87,3 +87,42 @@ python scripts/run_online_only_validation.py \
 ```
 
 The latter is useful for pipeline diagnostics but is not equivalent to a complete proteome validation.
+
+## Publication validation with versioned local datasets
+
+`scripts/run_publication_validation.py` requires local DEG, VFDB, STRING and DIAMOND inputs. Missing inputs stop the preflight and are not interpreted as negative biological evidence.
+
+For *Helicobacter pylori* strain 26695, use taxon `85962`, proteome `UP000000429` and organism key `helicobacter_pylori_26695`.
+
+Prepare and verify STRING v12.0:
+
+```bash
+mkdir -p data_external/string/85962
+wget -P data_external/string/85962 https://stringdb-downloads.org/download/protein.links.v12.0/85962.protein.links.v12.0.txt.gz
+wget -P data_external/string/85962 https://stringdb-downloads.org/download/protein.aliases.v12.0/85962.protein.aliases.v12.0.txt.gz
+gzip -t data_external/string/85962/*.gz
+```
+
+Run the complete exact-proteome publication validation:
+
+```bash
+python scripts/run_publication_validation.py \
+  --organism-key helicobacter_pylori_26695 \
+  --organism "Helicobacter pylori" \
+  --organism-slug helicobacter_pylori \
+  --taxon-id 85962 \
+  --strain "26695" \
+  --strain-slug 26695 \
+  --proteome-id UP000000429 \
+  --run-dir results/hpylori_26695_publication_post_pr41_degfix_20260902 \
+  --deg-dataset data_external/deg.csv \
+  --vfdb-dataset data_external/vfdb.csv \
+  --string-links data_external/string/85962/85962.protein.links.v12.0.txt.gz \
+  --string-aliases data_external/string/85962/85962.protein.aliases.v12.0.txt.gz \
+  --diamond-execution-mode execute \
+  --diamond-reference-fasta data_external/human_homology_real/human_reference_proteome_UP000005640.faa.gz \
+  --diamond-database-prefix data_external/human_homology_real/human_reference_UP000005640 \
+  --diamond-executable diamond
+```
+
+The runner uses the complete exact proteome internally (`max_candidates=0`) and performs a second Phase 3 pass after materializing the local STRING network.

@@ -349,6 +349,8 @@ The command validates the required paths before creating the run, writes the DIA
 
 For deterministic cache reuse, use `--diamond-execution-mode cache_only` with `--diamond-cached-tsv` and, when needed, `--diamond-candidate-fasta`. DIAMOND paths are rejected unless `--enable-diamond` is present. See the [DIAMOND human-homology guide](docs/human_homology_diamond_phase.md) for commands, manual YAML configuration, cache behavior, provenance, and interpretation details.
 
+For a complete *Helicobacter pylori* 26695 publication run with local DEG, VFDB and STRING inputs plus DIAMOND, follow the [publication validation procedure](docs/standard_validation_contract.md#publication-validation-with-versioned-local-datasets).
+
 ## Installation
 
 Python 3.10 or later is required.
