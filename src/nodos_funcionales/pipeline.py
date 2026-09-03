@@ -5,6 +5,7 @@ from pathlib import Path
 from .config import load_config
 from .host_similarity_semantics import install_phase3_host_similarity_semantics
 from .integration import integrate_tables
+from .localization_reporting import append_localization_audit_to_rankings
 from .localization_semantics import (
     install_peripheral_membrane_profiles,
     materialize_frozen_uniprot_topology_semantics,
@@ -54,6 +55,7 @@ def run_pipeline(
     sensitivity = compute_sensitivity(features, config)
     sensitivity.to_csv(base_dir / "results" / "sensitivity_analysis.csv", index=False)
     export_results(base_dir, config, mode=mode)
+    append_localization_audit_to_rankings(base_dir)
     return {
         "mode": mode,
         "phase3_enabled": phase3_enabled,
