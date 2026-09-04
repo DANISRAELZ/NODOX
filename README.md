@@ -1,4 +1,4 @@
-# NODOX
+# NODOX: A Computational Model Based on Functional Node Theory for the Identification and Prioritization of Bacterial Drug Targets
 
 **Explainable, evidence-aware prioritization of bacterial therapeutic targets through Functional Node Theory.**
 
